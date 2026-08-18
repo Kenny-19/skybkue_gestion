@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../core/format.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../data/schema.dart';
+import '../../services/mirror_service.dart';
 import '../../services/pdf_service.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
@@ -45,6 +47,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           serverUserId: me?.id,
           customerName: cart.customerName,
         );
+    // Miroir cloud (best-effort, non bloquant, offline-safe).
+    unawaited(MirrorService.pushSaleById(saleId));
     if (!mounted) return;
     ref.read(posCartProvider.notifier).clear();
     final now = DateFormat("HH:mm:ss", 'fr_FR').format(DateTime.now());

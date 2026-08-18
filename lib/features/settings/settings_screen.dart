@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/auth.dart';
+import '../../core/format.dart';
 import '../../data/providers.dart';
+import '../../data/repos.dart';
 import '../../services/auto_backup.dart';
 import '../../services/backup_service.dart';
 import '../../services/cloud_service.dart';
+import '../../services/mirror_service.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -18,6 +21,8 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(authProvider).user;
+    final perms = ref.watch(permsProvider);
+    final isSuper = perms.canSettings;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -25,44 +30,15 @@ class SettingsScreen extends ConsumerWidget {
           const PageHeader(
             eyebrow: 'Paramètres',
             title: 'Configuration',
-            subtitle: 'Sauvegarde, mot de passe, informations système',
+            subtitle: 'Taux de change, sauvegarde, mot de passe',
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: BsSpace.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Section(
-                  title: 'Sauvegarde de la base de données',
-                  subtitle:
-                      'Copie du fichier blue_sky.db — garde-la à l\'abri (clé USB, cloud)',
-                  child: Wrap(spacing: 10, runSpacing: 10, children: [
-                    FilledButton.icon(
-                      icon: const Icon(Icons.download, size: 16),
-                      onPressed: () async {
-                        final path = await BackupService.exportDatabase();
-                        if (context.mounted && path != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Sauvegardé : $path')));
-                        }
-                      },
-                      label: const Text('Exporter la BDD'),
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.upload, size: 16),
-                      onPressed: () async {
-                        final ok = await _confirmImport(context);
-                        if (!ok) return;
-                        final path = await BackupService.importDatabase();
-                        if (context.mounted && path != null) {
-                          _showRestartDialog(context);
-                        }
-                      },
-                      label: const Text('Restaurer une sauvegarde'),
-                    ),
-                  ]),
-                ),
-                const _CloudSection(),
+                // Devise — accessible admin + super admin.
+                const _CurrencySection(),
                 _Section(
                   title: 'Mon mot de passe',
                   subtitle: 'Change-le régulièrement, surtout depuis le compte par défaut',
@@ -73,20 +49,54 @@ class SettingsScreen extends ConsumerWidget {
                     label: const Text('Changer mon mot de passe'),
                   ),
                 ),
-                _Section(
-                  title: 'Emplacement de la base',
-                  subtitle: 'Dossier où le fichier de données est stocké sur ce PC',
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: BsColors.papyrus,
-                      borderRadius: BorderRadius.circular(BsRadius.sm),
-                      border: Border.all(color: BsColors.line),
-                    ),
-                    child: Text('Documents/BlueSky/blue_sky.db',
-                        style: BsType.mono(12, color: BsColors.slate)),
+                // Sections réservées au Super Admin.
+                if (isSuper) ...[
+                  _Section(
+                    title: 'Sauvegarde de la base de données',
+                    subtitle:
+                        'Copie du fichier blue_sky.db — garde-la à l\'abri (clé USB, cloud)',
+                    child: Wrap(spacing: 10, runSpacing: 10, children: [
+                      FilledButton.icon(
+                        icon: const Icon(Icons.download, size: 16),
+                        onPressed: () async {
+                          final path = await BackupService.exportDatabase();
+                          if (context.mounted && path != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Sauvegardé : $path')));
+                          }
+                        },
+                        label: const Text('Exporter la BDD'),
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.upload, size: 16),
+                        onPressed: () async {
+                          final ok = await _confirmImport(context);
+                          if (!ok) return;
+                          final path = await BackupService.importDatabase();
+                          if (context.mounted && path != null) {
+                            _showRestartDialog(context);
+                          }
+                        },
+                        label: const Text('Restaurer une sauvegarde'),
+                      ),
+                    ]),
                   ),
-                ),
+                  const _CloudSection(),
+                  _Section(
+                    title: 'Emplacement de la base',
+                    subtitle: 'Dossier où le fichier de données est stocké sur ce PC',
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: BsColors.papyrus,
+                        borderRadius: BorderRadius.circular(BsRadius.sm),
+                        border: Border.all(color: BsColors.line),
+                      ),
+                      child: Text('Documents/BlueSky/blue_sky.db',
+                          style: BsType.mono(12, color: BsColors.slate)),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -387,6 +397,21 @@ class _CloudSectionState extends State<_CloudSection> {
                       },
                 label: const Text('Restaurer depuis le cloud'),
               ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.sync, size: 16),
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        setState(() => _busy = true);
+                        final msg = await MirrorService.syncAll();
+                        if (mounted) {
+                          setState(() => _busy = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(msg)));
+                        }
+                      },
+                label: const Text('Synchroniser les données'),
+              ),
               IconButton(
                 tooltip: 'Rafraîchir le statut',
                 onPressed: _refresh,
@@ -417,6 +442,103 @@ class _CloudSectionState extends State<_CloudSection> {
       ),
     );
     return ok ?? false;
+  }
+}
+
+class _CurrencySection extends ConsumerStatefulWidget {
+  const _CurrencySection();
+  @override
+  ConsumerState<_CurrencySection> createState() => _CurrencySectionState();
+}
+
+class _CurrencySectionState extends ConsumerState<_CurrencySection> {
+  final _ctrl = TextEditingController();
+  bool _dirty = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rateAsync = ref.watch(rateProvider);
+    final rate = rateAsync.asData?.value ?? SettingsRepo.defaultRate;
+    if (!_dirty) _ctrl.text = rate.toStringAsFixed(0);
+
+    // Aperçu : 1 $ = rate FC, 10 $ = 10*rate FC.
+    return Container(
+      margin: const EdgeInsets.only(bottom: BsSpace.md),
+      padding: const EdgeInsets.all(BsSpace.lg),
+      decoration: BoxDecoration(
+        color: BsColors.paper,
+        borderRadius: BorderRadius.circular(BsRadius.md),
+        border: Border.all(color: BsColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.currency_exchange, size: 18, color: BsColors.sky),
+            const SizedBox(width: 8),
+            Text('Taux de change (USD → Franc)',
+                style: BsType.heading(16, w: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+              'Les prix sont saisis en dollars puis affichés en Franc partout dans l\'app.',
+              style: BsType.body(12, color: BsColors.slate)),
+          const SizedBox(height: BsSpace.md),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('1 \$  =',
+                style: BsType.body(15, w: FontWeight.w600)),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 140,
+              child: TextField(
+                controller: _ctrl,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() => _dirty = true),
+                decoration: const InputDecoration(
+                    suffixText: 'FC', isDense: true),
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              onPressed: !_dirty
+                  ? null
+                  : () async {
+                      final v = double.tryParse(_ctrl.text.trim());
+                      if (v == null || v <= 0) return;
+                      await ref.read(settingsRepoProvider).setRate(v);
+                      // Rafraîchit les prix déjà affichés (POS, listes…).
+                      ref.invalidate(articlesStreamProvider);
+                      ref.invalidate(recentSalesProvider);
+                      if (context.mounted) {
+                        setState(() => _dirty = false);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(
+                                'Taux mis à jour : 1 \$ = ${v.toStringAsFixed(0)} FC')));
+                      }
+                    },
+              child: const Text('Enregistrer'),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: BsColors.papyrus,
+              borderRadius: BorderRadius.circular(BsRadius.sm),
+            ),
+            child: Text(
+                'Exemple : un article à 10 \$ s\'affiche ${moneyCents(1000)}.',
+                style: BsType.body(12, color: BsColors.slate)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

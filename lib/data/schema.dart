@@ -9,6 +9,15 @@ enum DbRoomStatus { libre, occupee, nettoyage, maintenance }
 enum DbPayment { cash, card, mobileMoney }
 enum DbLocation { restaurant, terrasse, hotel }
 
+/// Réglages application (clé/valeur). Ex: taux de change USD→FC.
+class Settings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
 class Users extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get fullName => text().withLength(min: 1, max: 120)();

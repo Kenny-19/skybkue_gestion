@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -11,6 +12,7 @@ import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../data/schema.dart';
 import '../../services/cloud_service.dart';
+import '../../services/mirror_service.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -374,20 +376,23 @@ class StockScreen extends ConsumerWidget {
                         }
                         final q = int.tryParse(qty.text) ?? 0;
                         final t = int.tryParse(threshold.text) ?? 0;
+                        int articleId;
                         if (existing == null) {
-                          await ref.read(articlesRepoProvider).create(
-                                name: name.text.trim(),
-                                priceCents: cents,
-                                category: cat,
-                                imagePath: savedImage,
-                                trackStock: trackStock,
-                                unit: unit.text.trim().isEmpty
-                                    ? 'unité'
-                                    : unit.text.trim(),
-                                stockQty: trackStock ? q : 0,
-                                threshold: trackStock ? t : 0,
-                              );
+                          articleId =
+                              await ref.read(articlesRepoProvider).create(
+                                    name: name.text.trim(),
+                                    priceCents: cents,
+                                    category: cat,
+                                    imagePath: savedImage,
+                                    trackStock: trackStock,
+                                    unit: unit.text.trim().isEmpty
+                                        ? 'unité'
+                                        : unit.text.trim(),
+                                    stockQty: trackStock ? q : 0,
+                                    threshold: trackStock ? t : 0,
+                                  );
                         } else {
+                          articleId = existing.id;
                           await ref.read(articlesRepoProvider).update(
                                 id: existing.id,
                                 name: name.text.trim(),
@@ -402,6 +407,9 @@ class StockScreen extends ConsumerWidget {
                                 threshold: trackStock ? t : 0,
                               );
                         }
+                        // Miroir cloud immédiat (offline-safe, non bloquant) :
+                        // le produit + l'URL de l'image partent vers Supabase.
+                        unawaited(MirrorService.pushArticleById(articleId));
                         if (context.mounted) Navigator.of(context).pop();
                       },
                       child: Text(existing == null ? 'Créer' : 'Enregistrer'),

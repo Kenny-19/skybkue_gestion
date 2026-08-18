@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:intl/intl.dart';
 
 import '../core/cat_ui.dart';
+import '../core/format.dart';
 import '../data/database.dart';
 import '../data/repos.dart';
 
@@ -49,8 +50,8 @@ class BackupService {
     // Onglet Ventes
     final ventes = xl['Ventes'];
     ventes.appendRow(_row(['ID', 'Date', 'Heure', 'Emplacement', 'Client',
-                            'Serveur', 'Paiement', 'Nb articles', 'Total (\$)',
-                            'Note']));
+                            'Serveur', 'Paiement', 'Nb articles', 'Total (FC)',
+                            'Total (\$)', 'Note']));
     for (final s in sales) {
       ventes.appendRow(_row([
         s.sale.id,
@@ -61,14 +62,15 @@ class BackupService {
         s.server?.fullName ?? '—',
         s.sale.payment.label,
         s.itemsCount,
-        (s.totalCents / 100).toStringAsFixed(2),
+        Currency.centsToFc(s.totalCents),
+        double.parse((s.totalCents / 100).toStringAsFixed(2)),
         s.sale.note ?? '',
       ]));
     }
 
     // Onglet par emplacement
     final parLieu = xl['Par emplacement'];
-    parLieu.appendRow(_row(['Emplacement', 'Ventes', 'Total (\$)']));
+    parLieu.appendRow(_row(['Emplacement', 'Ventes', 'Total (FC)', 'Total (\$)']));
     final byLoc = <String, List<SaleWithLines>>{};
     for (final s in sales) {
       byLoc.putIfAbsent(s.sale.location.label, () => []).add(s);
@@ -78,14 +80,15 @@ class BackupService {
       parLieu.appendRow(_row([
         e.key,
         e.value.length,
-        (total / 100).toStringAsFixed(2),
+        Currency.centsToFc(total),
+        double.parse((total / 100).toStringAsFixed(2)),
       ]));
     }
 
     // Onglet Lignes
     final lignes = xl['Lignes'];
     lignes.appendRow(_row(['Vente ID', 'Date', 'Article', 'Qté',
-                             'Prix U. (\$)', 'Total ligne (\$)']));
+                             'Prix U. (FC)', 'Total ligne (FC)']));
     for (final s in sales) {
       for (final l in s.lines) {
         lignes.appendRow(_row([
@@ -93,15 +96,15 @@ class BackupService {
           DateFormat('yyyy-MM-dd HH:mm').format(s.sale.soldAt),
           l.articleName,
           l.qty,
-          (l.unitPriceCents / 100).toStringAsFixed(2),
-          (l.unitPriceCents * l.qty / 100).toStringAsFixed(2),
+          Currency.centsToFc(l.unitPriceCents),
+          Currency.centsToFc(l.unitPriceCents * l.qty),
         ]));
       }
     }
 
     // Onglet Résumé par jour
     final resume = xl['Résumé'];
-    resume.appendRow(_row(['Date', 'Ventes', 'Total (\$)']));
+    resume.appendRow(_row(['Date', 'Ventes', 'Total (FC)', 'Total (\$)']));
     final byDay = <String, List<SaleWithLines>>{};
     for (final s in sales) {
       final k = DateFormat('yyyy-MM-dd').format(s.sale.soldAt);
@@ -114,7 +117,8 @@ class BackupService {
       resume.appendRow(_row([
         d,
         entries.length,
-        (total / 100).toStringAsFixed(2),
+        Currency.centsToFc(total),
+        double.parse((total / 100).toStringAsFixed(2)),
       ]));
     }
 

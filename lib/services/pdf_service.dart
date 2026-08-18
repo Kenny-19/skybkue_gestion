@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../core/cat_ui.dart';
+import '../core/format.dart';
 import '../data/repos.dart';
 import '../data/schema.dart';
 import 'backup_service.dart';
@@ -23,10 +24,8 @@ class CartPreviewLine {
 }
 
 class PdfService {
-  static final _fmt2 = NumberFormat.currency(locale: 'fr_FR', symbol: r'$', decimalDigits: 2);
-  static final _fmt0 = NumberFormat.currency(locale: 'fr_FR', symbol: r'$', decimalDigits: 0);
-  static String _money(int cents, {int d = 2}) =>
-      (d == 0 ? _fmt0 : _fmt2).format(cents / 100.0);
+  // Montants en Franc Congolais (via le taux courant).
+  static String _money(int cents) => moneyCents(cents);
 
   /// Horodatage compact pour le nom des fichiers générés : YYYYMMDDHHmm.
   static String _stamp() =>
@@ -213,12 +212,19 @@ class PdfService {
         pw.Row(children: [
           pw.Spacer(),
           pw.SizedBox(
-            width: 220,
+            width: 260,
             child: pw.Column(children: [
               _totalRow('Sous-total', _money(s.totalCents)),
               _totalRow('TVA (0%)', _money(0)),
               pw.Divider(color: PdfColors.grey400),
               _totalRow('TOTAL', _money(s.totalCents), big: true),
+              pw.SizedBox(height: 2),
+              pw.Row(children: [
+                pw.Spacer(),
+                pw.Text('soit ${moneyUsd(s.totalCents)}',
+                    style: const pw.TextStyle(
+                        fontSize: 10, color: PdfColors.grey700)),
+              ]),
             ]),
           ),
         ]),
@@ -402,9 +408,10 @@ class PdfService {
           pw.Text(
               'Période — 7 derniers jours · généré le ${DateFormat("d MMMM y à HH:mm", 'fr_FR').format(DateTime.now())}',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-          pw.SizedBox(height: 24),
+          _rateNote(),
+          pw.SizedBox(height: 20),
           _kpiRow([
-            ["CHIFFRE D'AFFAIRES", _money(total, d: 0)],
+            ["CHIFFRE D'AFFAIRES", '${_money(total)}\n${moneyUsd(total)}'],
             ['TRANSACTIONS', '${sales.length}'],
             ['PANIER MOYEN',
                 _money(sales.isEmpty ? 0 : (total ~/ sales.length))],
@@ -446,9 +453,10 @@ class PdfService {
           _brandHeader('Rapport détaillé'),
           pw.SizedBox(height: 6),
           pw.Text(
-              '${sales.length} transactions · Total ${_money(total, d: 0)} · Généré le ${DateFormat("d MMMM y à HH:mm", 'fr_FR').format(DateTime.now())}',
+              '${sales.length} transactions · Total ${_money(total)} (${moneyUsd(total)}) · Généré le ${DateFormat("d MMMM y à HH:mm", 'fr_FR').format(DateTime.now())}',
               style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
-          pw.SizedBox(height: 14),
+          _rateNote(),
+          pw.SizedBox(height: 12),
           pw.Expanded(child: _detailedTable(sales)),
           pw.SizedBox(height: 8),
           _footer(),
@@ -738,6 +746,17 @@ class PdfService {
               style: pw.TextStyle(
                   fontSize: big ? 14 : 11, fontWeight: pw.FontWeight.bold)),
         ]),
+      );
+
+  // Note du taux appliqué, pour tracer la conversion FC↔$.
+  static pw.Widget _rateNote() => pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 2),
+        child: pw.Text(
+            'Taux appliqué : 1 \$ = ${moneyFc(Currency.rate.round())} · montants indiqués en FC (équivalent \$ entre parenthèses)',
+            style: pw.TextStyle(
+                fontSize: 8,
+                color: PdfColors.grey600,
+                fontStyle: pw.FontStyle.italic)),
       );
 
   static pw.Widget _footer() => pw.Column(

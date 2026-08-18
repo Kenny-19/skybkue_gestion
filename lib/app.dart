@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/auth.dart';
+import 'core/format.dart';
 import 'core/theme_mode.dart';
+import 'data/providers.dart';
 import 'features/auth/login_screen.dart';
 import 'features/catalog/catalog_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -23,6 +25,10 @@ class BlueSkyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(_routerProvider);
     final mode = ref.watch(themeModeProvider);
+    // Maintient le taux USD→FC à jour ; rebuild l'app (donc tous les prix
+    // affichés) dès qu'un admin le modifie.
+    final rate = ref.watch(rateProvider).asData?.value;
+    if (rate != null) Currency.rate = rate;
     return MaterialApp.router(
       title: 'Skyblue',
       debugShowCheckedModeBanner: false,

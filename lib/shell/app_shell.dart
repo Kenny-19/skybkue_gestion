@@ -27,7 +27,7 @@ final navDests = <NavDest>[
   NavDest('Chambres', Icons.hotel_outlined, '/rooms', (p) => p.canRooms),
   NavDest('Historique', Icons.query_stats_outlined, '/history', (p) => p.canHistory),
   NavDest('Comptes', Icons.people_outline, '/users', (p) => p.canManageServeurs),
-  NavDest('Paramètres', Icons.settings_outlined, '/settings', (p) => p.canSettings),
+  NavDest('Paramètres', Icons.settings_outlined, '/settings', (p) => p.canCurrency),
 ];
 
 class AppShell extends ConsumerWidget {

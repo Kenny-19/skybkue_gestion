@@ -10,7 +10,7 @@ import 'seed.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Users, Articles, Rooms, Sales, SaleLines])
+@DriftDatabase(tables: [Settings, Users, Articles, Rooms, Sales, SaleLines])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
@@ -21,7 +21,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -48,6 +48,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.addColumn(sales, sales.customerName);
+          }
+          // v7 : table des réglages (taux de change, etc.).
+          if (from < 7) {
+            await m.createTable(settings);
           }
           // v6 : fusion des infos stock dans articles.
           if (from < 6) {

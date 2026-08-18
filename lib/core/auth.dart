@@ -69,6 +69,9 @@ class Perms {
       role == DbUserRole.admin || role == DbUserRole.superAdmin;
   bool get canManageAdmins => role == DbUserRole.superAdmin;
   bool get canSettings => role == DbUserRole.superAdmin;
+  // Réglage du taux de change : admin ET super admin.
+  bool get canCurrency =>
+      role == DbUserRole.admin || role == DbUserRole.superAdmin;
 }
 
 final permsProvider = Provider<Perms>((ref) {

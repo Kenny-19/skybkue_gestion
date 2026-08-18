@@ -4,6 +4,41 @@ import 'package:drift/drift.dart';
 import 'database.dart';
 import 'schema.dart';
 
+// ─── Réglages (clé/valeur) ────────────────────────────────────────────────
+
+class SettingsRepo {
+  SettingsRepo(this._db);
+  final AppDatabase _db;
+
+  static const kRate = 'usd_to_fc_rate';
+  static const double defaultRate = 2800; // 1 USD = 2800 FC (modifiable)
+
+  Future<void> _set(String key, String value) {
+    return _db.into(_db.settings).insertOnConflictUpdate(
+        SettingsCompanion(key: Value(key), value: Value(value)));
+  }
+
+  Future<String?> _get(String key) async {
+    final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key)))
+        .getSingleOrNull();
+    return row?.value;
+  }
+
+  Future<double> getRate() async {
+    final v = await _get(kRate);
+    return double.tryParse(v ?? '') ?? defaultRate;
+  }
+
+  Future<void> setRate(double rate) => _set(kRate, rate.toString());
+
+  Stream<double> watchRate() {
+    return (_db.select(_db.settings)..where((s) => s.key.equals(kRate)))
+        .watch()
+        .map((rows) =>
+            rows.isEmpty ? defaultRate : (double.tryParse(rows.first.value) ?? defaultRate));
+  }
+}
+
 // ─── Users ──────────────────────────────────────────────────────────────
 
 class UsersRepo {

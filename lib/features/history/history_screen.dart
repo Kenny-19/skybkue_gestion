@@ -1,16 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/user_error.dart';
+import '../../widgets/bs_widgets.dart';
+import '../../core/auth.dart';
 import '../../core/cat_ui.dart';
 import '../../core/format.dart';
 import '../../data/providers.dart';
 import '../../data/repos.dart';
+import '../../services/backup_service.dart';
+import '../../services/mirror_service.dart';
 import '../../services/pdf_service.dart';
+import '../../services/reports_service.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'sale_detail_sheet.dart';
+import 'stays_history_section.dart';
+import '../../core/temps.dart';
+import 'encaisser_dette_sheet.dart';
+import '../../core/horloge.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -24,15 +36,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(recentSalesProvider);
+    final perms = ref.watch(permsProvider);
 
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, st) =>
+          BsErrorView(error: handleError(e, st, context: 'history_screen')),
       data: (sales) {
         final byDay = <DateTime, List<SaleWithLines>>{};
         for (final s in sales) {
-          final d = DateTime(
-              s.sale.soldAt.year, s.sale.soldAt.month, s.sale.soldAt.day);
+          final d = debutDeJourneeLubumbashi(s.sale.soldAt);
           byDay.putIfAbsent(d, () => []).add(s);
         }
         final days = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -43,28 +56,42 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Pour la réception, l'historique EST celui de l'hôtel :
+                  // elle n'a pas accès à la caisse, les 57 transactions du
+                  // bar ne la concernent pas et noyaient ses séjours.
                   PageHeader(
                     eyebrow: 'Historique',
-                    title: 'Ventes récentes',
-                    subtitle: '${sales.length} transactions · 7 derniers jours',
+                    title: !perms.canHistoriqueVentes
+                        ? 'Séjours facturés'
+                        : !perms.canHistoriqueHotel
+                            ? 'Ventes récentes'
+                            : 'Historique',
+                    subtitle: !perms.canHistoriqueVentes
+                        ? "Départs et factures de l'hôtel"
+                        : '${sales.length} transactions · 7 derniers jours',
                     actions: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.table_chart_outlined, size: 16),
-                        onPressed: sales.isEmpty
-                            ? null
-                            : () => PdfService.exportExcel(sales),
-                        label: const Text('Excel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.icon(
-                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                        onPressed:
-                            sales.isEmpty ? null : () => _showPdfDialog(sales),
-                        label: const Text('Rapport PDF'),
-                      ),
+                      // Le rapport ne contient que des VENTES. L'offrir à
+                      // la réception lui donnerait par la bande toutes les
+                      // transactions du bar — exactement ce que l'écran
+                      // vient de lui masquer.
+                      if (perms.canHistoriqueVentes)
+                        FilledButton.icon(
+                          icon: const Icon(Icons.summarize_outlined, size: 16),
+                          onPressed: () => _showReportDialog(),
+                          label: const Text('Générer un rapport'),
+                        ),
                     ],
                   ),
-                  if (sales.isEmpty)
+                  // L'hôtel n'apparaît que pour qui en a le droit : la
+                  // réception, les gérants, le super admin. Une serveuse
+                  // n'a rien à faire dans les factures de séjour.
+                  if (perms.canHistoriqueHotel) const StaysHistorySection(),
+                  // La liste des ventes du restaurant est masquée pour la
+                  // réception : ce n'est pas son métier, et elle repoussait
+                  // les séjours hors de l'écran.
+                  if (!perms.canHistoriqueVentes)
+                    const SizedBox(height: BsSpace.xxl)
+                  else if (sales.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(BsSpace.xl),
                       child: Container(
@@ -81,7 +108,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           Text('Aucune vente enregistrée',
                               style: BsType.body(14, w: FontWeight.w600)),
                           const SizedBox(height: 4),
-                          Text('Va au Point de vente pour enregistrer une vente.',
+                          Text(
+                              'Va au Point de vente pour enregistrer une vente.',
                               style: BsType.body(12, color: BsColors.slate)),
                         ]),
                       ),
@@ -108,6 +136,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 : SaleDetailSheet(
                     sale: _selected!,
                     onClose: () => setState(() => _selected = null),
+                    canDelete: perms.canDeleteSale,
+                    onDelete: perms.canDeleteSale
+                        ? () => _confirmDelete(_selected!)
+                        : null,
+                    onSettle: (_selected!.sale.onCredit &&
+                            _selected!.sale.settledAt == null)
+                        ? () => _settleDebt(_selected!)
+                        : null,
                   ),
           ),
         ]);
@@ -115,48 +151,295 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  void _showPdfDialog(List<SaleWithLines> sales) {
-    showDialog(
+  Future<void> _confirmDelete(SaleWithLines sale) async {
+    final ticket = '#${sale.sale.id.toString().padLeft(4, '0')}';
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: BsColors.paper,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(BsRadius.md)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('EXPORT PDF', style: BsType.eyebrow()),
-                const SizedBox(height: 6),
-                Text('Choisir le format',
-                    style: BsType.display(24, w: FontWeight.w700)),
-                const SizedBox(height: 20),
-                _opt('Rapport synthétique',
-                    'Résumé + tableau totaux par jour et catégorie',
-                    Icons.summarize_outlined, () {
-                  Navigator.of(ctx).pop();
-                  PdfService.previewSummaryReport(sales);
-                }),
-                const SizedBox(height: 10),
-                _opt('Rapport détaillé',
-                    'Chaque vente ligne par ligne — audit complet',
-                    Icons.receipt_long_outlined, () {
-                  Navigator.of(ctx).pop();
-                  PdfService.previewDetailedReport(sales);
-                }),
-              ],
-            ),
+      builder: (ctx) => AlertDialog(
+        title: Text('Supprimer la facture $ticket ?'),
+        content: const Text(
+            'Cette action est irréversible. Le ticket sera retiré de '
+            'l\'historique et le stock des articles suivis sera restauré.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Annuler'),
           ),
-        ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BsColors.danger),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(salesRepoProvider).deleteSale(sale.sale.id);
+      // Miroir Supabase : best-effort, ne bloque pas l'UX.
+      MirrorService.deleteSaleById(sale.sale.id);
+      if (!mounted) return;
+      setState(() => _selected = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Facture $ticket supprimée')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Suppression impossible : $e')),
+      );
+    }
+  }
+
+  Future<void> _settleDebt(SaleWithLines sale) async {
+    final ticket = '#${sale.sale.id.toString().padLeft(4, '0')}';
+    final who = sale.sale.customerName ??
+        (sale.sale.roomNumber != null
+            ? 'Chambre ${sale.sale.roomNumber}'
+            : 'client');
+    final repo = ref.read(salesRepoProvider);
+    // Le déjà-reçu vient de la base, pas de l'écran : une autre caisse a
+    // pu encaisser un acompte entre-temps.
+    final deja = await repo.dejaPaye(sale.sale.id);
+    if (!mounted) return;
+
+    final enc = await demanderEncaissement(
+      context,
+      ticket: ticket,
+      qui: who,
+      totalCents: sale.totalCents,
+      dejaPayeCents: deja,
+    );
+    if (enc == null || !mounted) return;
+
+    final moi = ref.read(authProvider).user?.login;
+    await repo.encaisserSurDette(
+      saleId: sale.sale.id,
+      montantCents: enc.montantCents,
+      payment: enc.payment,
+      parLogin: moi,
+    );
+    final reste = await repo.resteADevoir(sale.sale.id);
+    if (!mounted) return;
+    setState(() => _selected = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(reste <= 0
+            ? 'Dette $ticket soldée (${enc.payment.label})'
+            : 'Acompte de ${moneyCents(enc.montantCents)} encaissé · '
+                '${moneyCents(reste)} restent dus'),
       ),
     );
   }
 
-  Widget _opt(String title, String subtitle, IconData icon, VoidCallback onTap) =>
+  void _showReportDialog() {
+    // Période sélectionnée : défaut = 1 mois.
+    final now = Horloge.maintenant();
+    DateTimeRange range = DateTimeRange(
+      start: debutDeJourneeLubumbashi(now)
+          .subtract(const Duration(days: 30)),
+      end: debutDeJourneeLubumbashi(now)
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1)),
+    );
+    String label = '1 mois';
+
+    Future<List<SaleWithLines>> fetch() =>
+        ref.read(salesRepoProvider).rangeSales(range.start, range.end);
+
+    Future<void> generate(BuildContext ctx, bool detailed) async {
+      Navigator.of(ctx).pop();
+      final sales = await fetch();
+      if (detailed) {
+        await PdfService.previewDetailedReport(sales, period: label);
+      } else {
+        await PdfService.previewSummaryReport(sales, period: label);
+      }
+    }
+
+    Future<void> generateExcel(BuildContext ctx) async {
+      Navigator.of(ctx).pop();
+      final sales = await fetch();
+      await BackupService.exportSalesExcel(sales);
+    }
+
+    Future<void> sendToPamela(BuildContext ctx, bool detailed) async {
+      Navigator.of(ctx).pop();
+      final scaffold = ScaffoldMessenger.of(context);
+      scaffold.showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
+          content: Text('Envoi du rapport à Pamela ($label)…',
+              style: BsType.body(12, w: FontWeight.w600))));
+      try {
+        final sales = await fetch();
+        final bytes = detailed
+            ? await PdfService.buildDetailedReportBytes(sales, period: label)
+            : await PdfService.buildSummaryReportBytes(sales, period: label);
+        final me = ref.read(authProvider).user;
+        final res = await ReportsService.send(
+          name: detailed
+              ? 'Rapport détaillé — $label'
+              : 'Rapport synthétique — $label',
+          period: label,
+          kind: detailed
+              ? ReportsService.kindDetailed
+              : ReportsService.kindSummary,
+          bytes: bytes,
+          generatedByLogin: me?.login,
+        );
+        scaffold.clearSnackBars();
+        scaffold.showSnackBar(SnackBar(
+          backgroundColor: res.ok ? BsColors.success : BsColors.danger,
+          content: Text(
+              res.ok
+                  ? 'Rapport envoyé à Pamela. Elle recevra une notification.'
+                  : 'Échec : ${res.error}',
+              style: BsType.body(13, w: FontWeight.w600, color: Colors.white)),
+        ));
+      } catch (e) {
+        scaffold.clearSnackBars();
+        scaffold.showSnackBar(SnackBar(
+          backgroundColor: BsColors.danger,
+          content: Text('Échec envoi : $e',
+              style: BsType.body(13, w: FontWeight.w600, color: Colors.white)),
+        ));
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSt) {
+        void preset(String l, int days) {
+          setSt(() {
+            label = l;
+            range = DateTimeRange(
+              start: debutDeJourneeLubumbashi(now)
+                  .subtract(Duration(days: days)),
+              end: debutDeJourneeLubumbashi(now)
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1)),
+            );
+          });
+        }
+
+        final fmt = DateFormat('d MMM y', 'fr_FR');
+        return Dialog(
+          backgroundColor: BsColors.paper,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(BsRadius.md)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('RAPPORT PDF', style: BsType.eyebrow()),
+                  const SizedBox(height: 6),
+                  Text('Période & format',
+                      style: BsType.display(24, w: FontWeight.w700)),
+                  const SizedBox(height: 16),
+                  Text('PÉRIODE', style: BsType.eyebrow()),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    _periodChip('Aujourd\'hui', label == "Aujourd'hui",
+                        () => preset("Aujourd'hui", 0)),
+                    _periodChip('7 jours', label == '7 jours',
+                        () => preset('7 jours', 7)),
+                    _periodChip('1 mois', label == '1 mois',
+                        () => preset('1 mois', 30)),
+                    _periodChip('3 mois', label == '3 mois',
+                        () => preset('3 mois', 90)),
+                    _periodChip(
+                      'Personnalisé…',
+                      label == 'Personnalisé',
+                      () async {
+                        final picked = await showDateRangePicker(
+                          context: ctx,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(now.year + 1),
+                          initialDateRange: range,
+                        );
+                        if (picked != null) {
+                          setSt(() {
+                            label = 'Personnalisé';
+                            range = DateTimeRange(
+                              start: picked.start,
+                              end: DateTime(picked.end.year, picked.end.month,
+                                  picked.end.day, 23, 59, 59),
+                            );
+                          });
+                        }
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(
+                      'Du ${fmt.format(aLubumbashi(range.start))} au ${fmt.format(aLubumbashi(range.end))}',
+                      style: BsType.body(12, color: BsColors.slate)),
+                  const SizedBox(height: 20),
+                  Text('FORMAT', style: BsType.eyebrow()),
+                  const SizedBox(height: 8),
+                  _opt(
+                      'Rapport synthétique',
+                      'Résumé + totaux par jour, catégorie et dettes réglées',
+                      Icons.summarize_outlined,
+                      () => generate(ctx, false)),
+                  const SizedBox(height: 10),
+                  _opt(
+                      'Rapport détaillé',
+                      'Chaque vente ligne par ligne — audit complet',
+                      Icons.receipt_long_outlined,
+                      () => generate(ctx, true)),
+                  const SizedBox(height: 10),
+                  _opt(
+                      'Rapport Excel (du soir)',
+                      'Par jour : Restaurant, Terrasse, Crédit + détail des dettes',
+                      Icons.table_chart_outlined,
+                      () => generateExcel(ctx)),
+                  const SizedBox(height: 16),
+                  Text('ENVOI À PAMELA', style: BsType.eyebrow()),
+                  const SizedBox(height: 8),
+                  _opt(
+                      'Envoyer synthétique à Pamela',
+                      'Upload PDF sur le tableau de bord + notif push',
+                      Icons.cloud_upload_outlined,
+                      () => sendToPamela(ctx, false)),
+                  const SizedBox(height: 10),
+                  _opt(
+                      'Envoyer détaillé à Pamela',
+                      'Upload PDF détaillé + notif push',
+                      Icons.cloud_upload_outlined,
+                      () => sendToPamela(ctx, true)),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _periodChip(String label, bool selected, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? BsColors.ink : Colors.transparent,
+            border: Border.all(color: BsColors.ink),
+            borderRadius: BorderRadius.circular(BsRadius.sm),
+          ),
+          child: Text(label,
+              style: BsType.body(12,
+                  w: FontWeight.w700,
+                  color: selected ? Colors.white : BsColors.ink)),
+        ),
+      );
+
+  Widget _opt(
+          String title, String subtitle, IconData icon, VoidCallback onTap) =>
       InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(BsRadius.sm),
@@ -215,7 +498,7 @@ class _DaySection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(0, BsSpace.md, 0, BsSpace.sm),
             child: Row(children: [
-              Text(DateFormat("EEEE d MMMM", 'fr_FR').format(day).toUpperCase(),
+              Text(DateFormat("EEEE d MMMM", 'fr_FR').format(aLubumbashi(day)).toUpperCase(),
                   style: BsType.eyebrow()),
               const SizedBox(width: 12),
               Expanded(child: Container(height: 1, color: BsColors.line)),
@@ -278,11 +561,14 @@ class _SaleRowState extends State<_SaleRow> {
       child: GestureDetector(
         onTap: widget.onOpen,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: BsSpace.lg, vertical: 14),
+          padding:
+              const EdgeInsets.symmetric(horizontal: BsSpace.lg, vertical: 14),
           decoration: BoxDecoration(
             color: widget.selected
                 ? BsColors.papyrus
-                : (_hover ? BsColors.papyrus.withValues(alpha: 0.5) : Colors.transparent),
+                : (_hover
+                    ? BsColors.papyrus.withValues(alpha: 0.5)
+                    : Colors.transparent),
             border: widget.last
                 ? null
                 : const Border(bottom: BorderSide(color: BsColors.line)),
@@ -295,7 +581,7 @@ class _SaleRowState extends State<_SaleRow> {
             ),
             SizedBox(
               width: 76,
-              child: Text(DateFormat('HH:mm:ss', 'fr_FR').format(s.sale.soldAt),
+              child: Text(DateFormat('HH:mm:ss', 'fr_FR').format(aLubumbashi(s.sale.soldAt)),
                   style: BsType.mono(13, w: FontWeight.w600)),
             ),
             const SizedBox(width: 8),
@@ -314,12 +600,48 @@ class _SaleRowState extends State<_SaleRow> {
                         w: FontWeight.w700, color: s.sale.location.color)),
               ]),
             ),
+            if (s.sale.onCredit) ...[
+              const SizedBox(width: 6),
+              Builder(builder: (_) {
+                final settled = s.sale.settledAt != null;
+                final c = settled ? BsColors.success : BsColors.sunrise;
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: c.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(settled ? 'Dette payée' : 'Dette',
+                      style: BsType.body(10, w: FontWeight.w700, color: c)),
+                );
+              }),
+            ],
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                s.lines.map((l) => '${l.qty}× ${l.articleName}').join(' · '),
-                overflow: TextOverflow.ellipsis,
-                style: BsType.body(13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (s.sale.customerName != null || s.sale.roomNumber != null)
+                    Text(
+                      [
+                        if (s.sale.roomNumber != null)
+                          'Ch. ${s.sale.roomNumber}',
+                        if (s.sale.customerName != null) s.sale.customerName!,
+                      ].join(' · '),
+                      overflow: TextOverflow.ellipsis,
+                      style: BsType.body(11,
+                          w: FontWeight.w700, color: BsColors.ink),
+                    ),
+                  Text(
+                    s.lines
+                        .map((l) => '${l.qty}× ${l.articleName}')
+                        .join(' · '),
+                    overflow: TextOverflow.ellipsis,
+                    style: BsType.body(12, color: BsColors.slate),
+                  ),
+                ],
               ),
             ),
             Row(children: [
@@ -339,11 +661,11 @@ class _SaleRowState extends State<_SaleRow> {
             OutlinedButton(
               onPressed: widget.onOpen,
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                minimumSize: const Size(0, 32),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: const Size(0, BsControl.compact),
               ),
-              child: Text('Détail',
-                  style: BsType.body(12, w: FontWeight.w600)),
+              child: Text('Détail', style: BsType.body(12, w: FontWeight.w600)),
             ),
           ]),
         ),

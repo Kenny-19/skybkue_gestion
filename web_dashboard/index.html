@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skyblue — Tableau de bord</title>
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#0E3A47" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Skyblue" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Les noms de couleurs sont utilisés par app.js dans le balisage
+      // qu'il injecte (text-slate, text-danger…) : ils ne doivent pas
+      // changer de nom. Seules les valeurs ont été ajustées.
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: '#0E3A47',       // teal profond — barre, titres, chiffres
+              inkSoft: '#164A5A',
+              paper: '#FEFCF8',     // cartes
+              papyrus: '#F3EEE6',   // fond de page
+              line: '#E0D8C9',
+              slate: '#55606D',     // texte secondaire (contraste relevé)
+              slateSoft: '#8F9AA6',
+              sky: '#2E7FA1',       // accent — aligné sur le logiciel Windows
+              sunrise: '#D97E2B',   // réservé à ce qui demande une action
+              success: '#2E8B57',
+              warning: '#B8860B',
+              danger: '#B93B33',
+            },
+            fontFamily: {
+              display: ['Fraunces', 'Georgia', 'serif'],
+              body: ['Inter', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      html, body { overflow-x: hidden; max-width: 100vw; }
+
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: #F3EEE6;
+        color: #23303A;
+        /* 15 px de base : ce tableau se lit souvent sur un téléphone,
+           debout, entre deux choses. 12 px obligeait à se pencher. */
+        font-size: 15px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      * { min-width: 0; }
+
+      /* ── Échelle typographique ──────────────────────────────────── */
+      .eyebrow {
+        letter-spacing: 0.12em;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #55606D;
+      }
+      .kpi-value {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+        font-size: 26px;
+        line-height: 1.15;
+        color: #0E3A47;
+        /* Sans ça, « 124 500 000 FC » ne peut pas se couper : la colonne
+           s'élargit et pousse toute la page hors de l'écran. */
+        overflow-wrap: anywhere;
+      }
+      .section-title {
+        font-family: 'Fraunces', Georgia, serif;
+        font-weight: 700;
+        font-size: 21px;
+        line-height: 1.2;
+        color: #0E3A47;
+        letter-spacing: -0.01em;
+      }
+
+      /* Chiffres à chasse fixe sur TOUTE la page, pas seulement sur les
+         éléments marqués mono. Sans ça, un « 1 » est plus étroit qu'un
+         « 8 » : dans une colonne de montants, les nombres se décalent
+         d'une ligne à l'autre. Même correction que dans le logiciel
+         Windows (lib/theme/typography.dart). Aucun effet sur les lettres. */
+      body, input, button, table { font-variant-numeric: tabular-nums; }
+
+      /* ── Cartes ─────────────────────────────────────────────────── */
+      /* Une seule définition, pour que toutes les sections se
+         ressemblent — c'est ce qui rend une interface apprenable. */
+      .card {
+        background: #FEFCF8;
+        border: 1px solid #E0D8C9;
+        border-radius: 14px;
+        padding: 20px;
+      }
+      @media (min-width: 640px) { .card { padding: 24px; } }
+
+      /* Ce qui demande une action se signale par un filet, pas par une
+         bordure de couleur sur les quatre côtés. */
+      .card--action { border-left: 3px solid #D97E2B; }
+      .card--info   { border-left: 3px solid #2E7FA1; }
+
+      /* ── Tuiles d'indicateurs (injectées par app.js) ────────────── */
+      #kpi-grid > * {
+        min-width: 0; /* une tuile ne doit jamais élargir la grille */
+        background: #FEFCF8;
+        border: 1px solid #E0D8C9;
+        border-radius: 14px;
+        padding: 16px 18px;
+      }
+
+      /* ── En-tête de section ─────────────────────────────────────── */
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      .fade-in { animation: fadeIn 200ms ease-out; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+      .chart-holder { height: 220px; }
+      @media (min-width: 640px)  { .chart-holder { height: 260px; } }
+      @media (min-width: 1024px) { .chart-holder { height: 300px; } }
+
+      /* Boutons de filtre du stock — état actif lisible sans couleur
+         seule (le fond change ET le poids du texte). */
+      .stock-filter-btn {
+        padding: 7px 13px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 8px;
+        color: #55606D;
+        border: 1px solid transparent;
+        transition: background 120ms ease, color 120ms ease;
+      }
+      .stock-filter-btn:hover { background: #F3EEE6; }
+
+      /* Sélecteur de période — même traitement que les filtres stock,
+         pour que les deux groupes de boutons s'apprennent ensemble. */
+      .period-btn {
+        padding: 7px 13px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 7px;
+        color: #55606D;
+        transition: background 120ms ease, color 120ms ease;
+        min-height: 38px;
+      }
+      .period-btn:hover { background: #F3EEE6; }
+
+      /* Zone tactile ≥ 44 px : ce tableau s'utilise au doigt. */
+      button, a[href] { min-height: 44px; }
+      .stock-filter-btn { min-height: 38px; }
+
+      /* Focus visible au clavier — obligatoire, et souvent oublié. */
+      :focus-visible {
+        outline: 2px solid #2E7FA1;
+        outline-offset: 2px;
+        border-radius: 6px;
+      }
+
+      @media (max-width: 640px) {
+        .kpi-value { font-size: clamp(19px, 6vw, 26px); line-height: 1.1; }
+        .section-title { font-size: 18px; }
+        h1, h2, h3 { word-wrap: break-word; }
+      }
+
+      @supports (padding: env(safe-area-inset-top)) {
+        header { padding-top: env(safe-area-inset-top); }
+        body { padding-bottom: env(safe-area-inset-bottom); }
+      }
+
+      .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; transition: none !important; }
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- bcryptjs retiré : la comparaison se fait désormais sur le serveur.
+         La garder chargerait 40 Ko pour rien, et laisserait croire que le
+         navigateur a encore un rôle dans la vérification du mot de passe. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="./config.js"></script>
+  </head>
+  <body class="min-h-screen">
+    <!-- ─────────────── CONNEXION ─────────────── -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-ink px-4">
+      <div class="w-full max-w-md bg-paper rounded-2xl shadow-2xl p-8 sm:p-10 fade-in">
+        <p class="eyebrow text-sunrise">Skyblue</p>
+        <h1 class="mt-2 font-display text-4xl font-bold text-ink">Tableau de bord</h1>
+        <p class="mt-2 text-slate">Guest House · Lubumbashi</p>
+
+        <form id="login-form" class="mt-8 space-y-5">
+          <div>
+            <label class="eyebrow" for="login">Identifiant</label>
+            <input
+              id="login"
+              type="text"
+              autocomplete="username"
+              required
+              class="mt-2 w-full rounded-lg border border-line bg-white px-4 py-3 text-ink font-medium focus:border-sky focus:outline-none focus:ring-2 focus:ring-sky/20"
+            />
+          </div>
+          <div>
+            <label class="eyebrow" for="password">Mot de passe</label>
+            <input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              class="mt-2 w-full rounded-lg border border-line bg-white px-4 py-3 text-ink font-medium focus:border-sky focus:outline-none focus:ring-2 focus:ring-sky/20"
+            />
+          </div>
+          <p id="login-error" class="text-danger font-medium hidden"></p>
+          <button
+            type="submit"
+            id="login-btn"
+            class="w-full rounded-lg bg-ink text-white font-semibold py-3.5 hover:bg-inkSoft transition disabled:opacity-50"
+          >
+            Se connecter
+          </button>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- ─────────────── TABLEAU DE BORD ─────────────── -->
+    <div id="dashboard" class="hidden min-h-screen">
+      <!-- Barre du haut -->
+      <header class="bg-ink text-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-5">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-2.5 h-2.5 rounded-full bg-sunrise flex-shrink-0"></span>
+            <span class="font-display text-lg sm:text-xl font-bold tracking-wide">Sky Blue</span>
+            <span class="hidden md:inline text-slateSoft text-xs uppercase tracking-widest">Guest House · Lubumbashi</span>
+          </div>
+          <div class="flex-1"></div>
+          <div class="text-right hidden sm:block min-w-0">
+            <p class="text-xs text-slateSoft truncate" id="user-role"></p>
+            <p class="font-semibold truncate" id="user-name"></p>
+          </div>
+          <button
+            id="push-btn"
+            class="text-slateSoft hover:text-white hover:bg-inkSoft font-semibold px-3 py-2 rounded-lg transition flex items-center gap-2 flex-shrink-0"
+            title="Recevoir une alerte sur cet appareil quand le stock baisse"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+            </svg>
+            <span id="push-btn-label" class="hidden sm:inline text-sm">Activer les alertes</span>
+          </button>
+          <!-- Entrée du portail technique.
+               Masquée par défaut, révélée UNIQUEMENT si le serveur a
+               répondu que ce compte y a droit. Un lien visible par tous
+               qui échoue pour la plupart serait pire que pas de lien :
+               une porte fermée reste une invitation à pousser. -->
+          <a
+            id="portail-link"
+            href="portail.html"
+            class="hidden rounded-lg border border-white/25 px-3 py-2 text-sm hover:bg-white/10 transition"
+            title="État des postes, erreurs, stock"
+          >
+            Portail technique
+          </a>
+          <button
+            id="logout-btn"
+            class="text-slateSoft hover:text-white hover:bg-inkSoft font-semibold px-3 py-2 rounded-lg transition flex items-center gap-2 flex-shrink-0"
+            aria-label="Se déconnecter"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span class="hidden sm:inline text-sm">Quitter</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Accueil + période : une seule ligne, pas un bloc décoratif -->
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 flex items-end justify-between gap-4 flex-wrap">
+        <div class="min-w-0">
+          <p class="eyebrow" id="hero-greeting">Bonjour</p>
+          <h2 class="mt-1 font-display text-2xl sm:text-3xl font-bold text-ink">
+            <span id="hero-user">—</span>
+          </h2>
+          <p class="text-slate mt-0.5" id="today-label">…</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div id="period-selector" class="flex bg-white/70 border border-line rounded-lg p-1 flex-wrap gap-0.5"></div>
+          <button
+            id="refresh-btn"
+            class="px-3 py-2 rounded-lg border border-line bg-paper hover:bg-papyrus transition flex-shrink-0"
+            title="Rafraîchir maintenant"
+            aria-label="Rafraîchir maintenant"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- La phrase que Pamela lit en premier : comment ça va, et ce qui
+           l'attend. Écrite par renderResume() dans app.js. -->
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-5">
+        <p id="daily-summary" class="text-base sm:text-lg leading-relaxed">…</p>
+      </div>
+
+      <!-- 1. Les chiffres de la période -->
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" id="kpi-grid">
+        <!-- Injecté par app.js -->
+      </div>
+
+      <!-- 2. La tendance — sortie du tiroir « Voir aussi » : c'est la
+           première question d'une propriétaire, pas un détail. -->
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6">
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Chiffre d'affaires par jour</p>
+              <h3 class="section-title mt-1" id="chart-total-label">—</h3>
+            </div>
+          </div>
+          <div class="relative chart-holder">
+            <canvas id="revenue-chart"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <!-- 3. Ce qui demande une action -->
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+        <section id="supply-requests-card" class="hidden card card--action">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow text-sunrise">Demandes de ravitaillement</p>
+              <h3 class="section-title mt-1" id="supply-requests-title">—</h3>
+            </div>
+          </div>
+          <div id="supply-requests-body" class="space-y-3"></div>
+        </section>
+
+        <section id="sent-reports-card" class="hidden card card--info">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow text-sky">Rapports reçus</p>
+              <h3 class="section-title mt-1" id="sent-reports-title">—</h3>
+            </div>
+          </div>
+          <div id="sent-reports-body" class="space-y-2"></div>
+        </section>
+      </div>
+
+      <!-- 4. L'hôtel et le stock -->
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+        <!-- Chiffre d'affaires hôtel. Masqué tant que le miroir des
+             séjours n'est pas alimenté : un bloc vide ferait croire à
+             une panne plutôt qu'à une absence de données. -->
+        <section id="hotel-card" class="hidden card card--info">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow text-sky">Hôtel</p>
+              <h3 class="section-title mt-1" id="hotel-title">—</h3>
+            </div>
+          </div>
+          <div id="hotel-body"></div>
+        </section>
+
+        <section id="rooms-card" class="hidden card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Chambres</p>
+              <h3 class="section-title mt-1" id="rooms-title">—</h3>
+            </div>
+            <div class="flex items-center gap-3" id="rooms-stats">
+              <!-- Injecté : X/Y occupées · Z en retard -->
+            </div>
+          </div>
+          <div id="rooms-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Stock à ravitailler</p>
+              <h3 class="section-title mt-1" id="stock-title">—</h3>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap" id="stock-filters">
+              <button data-filter="all"      class="stock-filter-btn bg-ink text-white">Tout</button>
+              <button data-filter="critical" class="stock-filter-btn">Critique</button>
+              <button data-filter="out"      class="stock-filter-btn">Épuisé</button>
+            </div>
+          </div>
+          <div class="divide-y divide-line" id="stock-alerts-body"></div>
+        </section>
+      </div>
+
+      <!-- 5. Le détail -->
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <section class="card lg:col-span-2">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Ventes récentes</p>
+              <h3 class="section-title mt-1">15 dernières</h3>
+            </div>
+          </div>
+          <div class="divide-y divide-line" id="recent-sales-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Top articles</p>
+              <h3 class="section-title mt-1">5 meilleures ventes</h3>
+            </div>
+          </div>
+          <div id="top-articles">
+            <!-- Injecté par app.js -->
+          </div>
+        </section>
+      </div>
+
+      <footer class="max-w-6xl mx-auto px-6 py-10 text-center text-sm text-slateSoft">
+        Données en direct · Rafraîchissement automatique toutes les 30&nbsp;secondes.
+      </footer>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

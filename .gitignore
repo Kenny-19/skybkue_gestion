@@ -43,3 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Installer / release artifacts (generes par installer/release.ps1)
+installer/skyblue-setup-*.exe
+installer/manifest.json
+# Secrets locaux — NE JAMAIS COMMIT
+installer/.secrets.local
+.secrets.local
+
+# Cles Supabase injectees au build (jamais versionnees).
+installer/supabase.env
+# Même contenu au format JSON, pour --dart-define-from-file (VS Code).
+# Généré depuis le .env — jamais versionné, il porte la clé anon.
+installer/supabase.json

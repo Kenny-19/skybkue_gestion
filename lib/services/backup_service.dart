@@ -4,10 +4,12 @@ import 'package:excel/excel.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:intl/intl.dart';
 
-import '../core/cat_ui.dart';
 import '../core/format.dart';
 import '../data/database.dart';
 import '../data/repos.dart';
+import '../data/schema.dart';
+import '../core/temps.dart';
+import '../core/horloge.dart';
 
 class BackupService {
   BackupService._();
@@ -16,7 +18,7 @@ class BackupService {
   static Future<String?> exportDatabase() async {
     final src = await AppDatabase.dbFile();
     if (!src.existsSync()) return null;
-    final ts = DateFormat("yyyyMMddHHmm").format(DateTime.now());
+    final ts = DateFormat("yyyyMMddHHmm").format(aLubumbashi(Horloge.maintenant()));
     final path = await getSaveLocation(
       suggestedName: 'sauvegarde_bdd_$ts.db',
       acceptedTypeGroups: [
@@ -42,92 +44,158 @@ class BackupService {
     return dst.path;
   }
 
-  /// Génère un fichier .xlsx avec 3 onglets : Ventes, Lignes, Résumé.
+  /// Génère un rapport Excel "du soir" : une colonne par jour (2 colonnes),
+  /// Restaurant / Terrasse / (Hôtel) / Crédit, Total Cash Vendu, puis le
+  /// détail des dettes du jour et le Total Crédit. Montants en FC.
   static Future<String?> exportSalesExcel(List<SaleWithLines> sales) async {
     final xl = Excel.createExcel();
+    final sh = xl['Feuil1'];
     xl.delete('Sheet1');
 
-    // Onglet Ventes
-    final ventes = xl['Ventes'];
-    ventes.appendRow(_row(['ID', 'Date', 'Heure', 'Emplacement', 'Client',
-                            'Serveur', 'Paiement', 'Nb articles', 'Total (FC)',
-                            'Total (\$)', 'Note']));
+    // Regroupement par jour (ordre chronologique).
+    final byDay = <DateTime, List<SaleWithLines>>{};
     for (final s in sales) {
-      ventes.appendRow(_row([
-        s.sale.id,
-        DateFormat('yyyy-MM-dd').format(s.sale.soldAt),
-        DateFormat('HH:mm:ss').format(s.sale.soldAt),
-        s.sale.location.label,
-        s.sale.customerName ?? '',
-        s.server?.fullName ?? '—',
-        s.sale.payment.label,
-        s.itemsCount,
-        Currency.centsToFc(s.totalCents),
-        double.parse((s.totalCents / 100).toStringAsFixed(2)),
-        s.sale.note ?? '',
-      ]));
-    }
-
-    // Onglet par emplacement
-    final parLieu = xl['Par emplacement'];
-    parLieu.appendRow(_row(['Emplacement', 'Ventes', 'Total (FC)', 'Total (\$)']));
-    final byLoc = <String, List<SaleWithLines>>{};
-    for (final s in sales) {
-      byLoc.putIfAbsent(s.sale.location.label, () => []).add(s);
-    }
-    for (final e in byLoc.entries) {
-      final total = e.value.fold<int>(0, (a, b) => a + b.totalCents);
-      parLieu.appendRow(_row([
-        e.key,
-        e.value.length,
-        Currency.centsToFc(total),
-        double.parse((total / 100).toStringAsFixed(2)),
-      ]));
-    }
-
-    // Onglet Lignes
-    final lignes = xl['Lignes'];
-    lignes.appendRow(_row(['Vente ID', 'Date', 'Article', 'Qté',
-                             'Prix U. (FC)', 'Total ligne (FC)']));
-    for (final s in sales) {
-      for (final l in s.lines) {
-        lignes.appendRow(_row([
-          s.sale.id,
-          DateFormat('yyyy-MM-dd HH:mm').format(s.sale.soldAt),
-          l.articleName,
-          l.qty,
-          Currency.centsToFc(l.unitPriceCents),
-          Currency.centsToFc(l.unitPriceCents * l.qty),
-        ]));
-      }
-    }
-
-    // Onglet Résumé par jour
-    final resume = xl['Résumé'];
-    resume.appendRow(_row(['Date', 'Ventes', 'Total (FC)', 'Total (\$)']));
-    final byDay = <String, List<SaleWithLines>>{};
-    for (final s in sales) {
-      final k = DateFormat('yyyy-MM-dd').format(s.sale.soldAt);
-      byDay.putIfAbsent(k, () => []).add(s);
+      final d =
+          debutDeJourneeLubumbashi(s.sale.soldAt);
+      byDay.putIfAbsent(d, () => []).add(s);
     }
     final days = byDay.keys.toList()..sort();
+    if (days.isEmpty) days.add(DateTime.now());
+
+    final hasHotel = sales.any((s) => s.sale.location == DbLocation.hotel);
+    // Nombre de lignes de crédit max (pour aligner "Total Crédit").
+    int maxCredit = 1;
     for (final d in days) {
-      final entries = byDay[d]!;
-      final total = entries.fold<int>(0, (s, e) => s + e.totalCents);
-      resume.appendRow(_row([
-        d,
-        entries.length,
-        Currency.centsToFc(total),
-        double.parse((total / 100).toStringAsFixed(2)),
-      ]));
+      final n = byDay[d]?.where((s) => s.sale.onCredit).length ?? 0;
+      if (n > maxCredit) maxCredit = n;
+    }
+
+    // Indices de lignes (0-based).
+    const rTitle = 0, rDay = 1, rResto = 2, rTerr = 3;
+    final rHotel = hasHotel ? 4 : -1;
+    final rCredit = hasHotel ? 5 : 4;
+    final rTotalCash = rCredit + 2;
+    final rDetails = rTotalCash + 2;
+    final rDetailStart = rDetails + 1;
+    final rTotalCredit = rDetailStart + maxCredit;
+
+    CellStyle bold(
+            {int size = 11,
+            HorizontalAlign align = HorizontalAlign.Left,
+            ExcelColor fill = ExcelColor.none}) =>
+        CellStyle(
+            bold: true,
+            fontSize: size,
+            horizontalAlign: align,
+            backgroundColorHex: fill);
+    CellStyle normal(
+            {int size = 11,
+            HorizontalAlign align = HorizontalAlign.Left,
+            ExcelColor fill = ExcelColor.none}) =>
+        CellStyle(
+            fontSize: size, horizontalAlign: align, backgroundColorHex: fill);
+
+    final headerFill = ExcelColor.fromHexString('#DCE6F1'); // bleu clair
+    final totalFill = ExcelColor.fromHexString('#F2F2F2'); // gris clair
+
+    void put(int col, int row, String text, CellStyle style) {
+      final c =
+          sh.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+      c.value = TextCellValue(text);
+      c.cellStyle = style;
+    }
+
+    // Titre (fusionné sur toutes les colonnes).
+    final fmtD = DateFormat('d MMM y', 'fr_FR');
+    sh.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rTitle),
+        CellIndex.indexByColumnRow(
+            columnIndex: days.length * 2 - 1, rowIndex: rTitle),
+        customValue: TextCellValue(
+            'RAPPORT DES VENTES DU ${fmtD.format(aLubumbashi(days.first))} AU ${fmtD.format(aLubumbashi(days.last))}'));
+    sh
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rTitle))
+        .cellStyle = bold(size: 14, align: HorizontalAlign.Center);
+
+    for (int i = 0; i < days.length; i++) {
+      final lc = i * 2, ac = i * 2 + 1; // colonne libellé / montant
+      final daySales = byDay[days[i]] ?? const [];
+      sh.setColumnWidth(lc, 18);
+      sh.setColumnWidth(ac, 13);
+
+      int cashAt(DbLocation loc) => daySales
+          .where((s) => !s.sale.onCredit && s.sale.location == loc)
+          .fold(0, (a, b) => a + b.totalCents);
+      final resto = cashAt(DbLocation.restaurant);
+      final terr = cashAt(DbLocation.terrasse);
+      final hotel = cashAt(DbLocation.hotel);
+      final credits = daySales.where((s) => s.sale.onCredit).toList();
+      final creditTotal = credits.fold(0, (a, b) => a + b.totalCents);
+
+      // Nom du jour (fusionné, centré, fond bleu).
+      final dayName = _cap(DateFormat('EEEE d MMMM', 'fr_FR').format(aLubumbashi(days[i])));
+      sh.merge(CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: rDay),
+          CellIndex.indexByColumnRow(columnIndex: ac, rowIndex: rDay),
+          customValue: TextCellValue(dayName));
+      sh
+          .cell(CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: rDay))
+          .cellStyle = bold(align: HorizontalAlign.Center, fill: headerFill);
+
+      put(lc, rResto, 'Restaurant SKY', bold());
+      put(ac, rResto, moneyCents(resto), normal(align: HorizontalAlign.Center));
+      put(lc, rTerr, 'Terrasse SKY', bold());
+      put(ac, rTerr, moneyCents(terr), normal(align: HorizontalAlign.Center));
+      if (hasHotel) {
+        put(lc, rHotel, 'Hôtel SKY', bold());
+        put(ac, rHotel, moneyCents(hotel),
+            normal(align: HorizontalAlign.Center));
+      }
+      put(lc, rCredit, 'Crédit SKY', bold());
+      put(ac, rCredit, moneyCents(creditTotal),
+          normal(align: HorizontalAlign.Center));
+
+      // Total Cash Vendu (Restaurant + Terrasse + Hôtel).
+      put(lc, rTotalCash, 'Total Cash Vendu :', normal(fill: totalFill));
+      put(ac, rTotalCash, moneyCents(resto + terr + hotel),
+          bold(align: HorizontalAlign.Center, fill: totalFill));
+
+      // Détails Crédit.
+      sh.merge(CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: rDetails),
+          CellIndex.indexByColumnRow(columnIndex: ac, rowIndex: rDetails),
+          customValue: TextCellValue('Détails Crédit'));
+      sh
+          .cell(CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: rDetails))
+          .cellStyle = bold(align: HorizontalAlign.Center);
+
+      for (int k = 0; k < credits.length; k++) {
+        final s = credits[k];
+        final who = s.sale.roomNumber != null
+            ? 'Chambre ${s.sale.roomNumber}'
+            : (s.sale.customerName ?? 'Client');
+        final items =
+            s.lines.map((l) => '${l.qty} ${l.articleName}').join(' + ');
+        final line = '$who : $items = ${moneyCents(s.totalCents)}'
+            '${s.sale.settledAt != null ? " (payé)" : ""}';
+        final r = rDetailStart + k;
+        sh.merge(CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: r),
+            CellIndex.indexByColumnRow(columnIndex: ac, rowIndex: r),
+            customValue: TextCellValue(line));
+        sh
+            .cell(CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: r))
+            .cellStyle = normal(size: 10, align: HorizontalAlign.Left);
+      }
+
+      // Total Crédit (ligne alignée pour tous les jours).
+      put(lc, rTotalCredit, 'Total Crédit :', normal(fill: totalFill));
+      put(ac, rTotalCredit, moneyCents(creditTotal),
+          bold(align: HorizontalAlign.Center, fill: totalFill));
     }
 
     final bytes = xl.encode();
     if (bytes == null) return null;
-
-    final ts = DateFormat("yyyyMMddHHmm").format(DateTime.now());
+    final ts = DateFormat("yyyyMMddHHmm").format(aLubumbashi(Horloge.maintenant()));
     final path = await getSaveLocation(
-      suggestedName: 'rapport_ventes_excel_$ts.xlsx',
+      suggestedName: 'rapport_ventes_$ts.xlsx',
       acceptedTypeGroups: [
         const XTypeGroup(label: 'Excel', extensions: ['xlsx']),
       ],
@@ -137,12 +205,6 @@ class BackupService {
     return path.path;
   }
 
-  static List<CellValue> _row(List<Object?> values) {
-    return values.map<CellValue>((v) {
-      if (v == null) return TextCellValue('');
-      if (v is int) return IntCellValue(v);
-      if (v is double) return DoubleCellValue(v);
-      return TextCellValue(v.toString());
-    }).toList();
-  }
+  static String _cap(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }

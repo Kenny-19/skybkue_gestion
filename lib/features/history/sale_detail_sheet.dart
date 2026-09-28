@@ -7,11 +7,25 @@ import '../../data/repos.dart';
 import '../../services/pdf_service.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../../core/temps.dart';
 
 class SaleDetailSheet extends StatelessWidget {
   final SaleWithLines sale;
   final VoidCallback onClose;
-  const SaleDetailSheet({super.key, required this.sale, required this.onClose});
+  final bool canDelete;
+  final VoidCallback? onDelete;
+  final VoidCallback? onSettle; // régler une dette
+  const SaleDetailSheet({
+    super.key,
+    required this.sale,
+    required this.onClose,
+    this.canDelete = false,
+    this.onDelete,
+    this.onSettle,
+  });
+
+  bool get _isOutstandingDebt =>
+      sale.sale.onCredit && sale.sale.settledAt == null;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +46,10 @@ class SaleDetailSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (sale.sale.onCredit) ...[
+                      _debtBanner(),
+                      const SizedBox(height: BsSpace.md),
+                    ],
                     _metaGrid(),
                     const SizedBox(height: BsSpace.lg),
                     Text('ARTICLES', style: BsType.eyebrow()),
@@ -97,11 +115,12 @@ class SaleDetailSheet extends StatelessWidget {
                     style: BsType.display(28, w: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(
-                    DateFormat("EEEE d MMMM y", 'fr_FR').format(sale.sale.soldAt),
+                    DateFormat("EEEE d MMMM y", 'fr_FR')
+                        .format(aLubumbashi(sale.sale.soldAt)),
                     style: BsType.body(12, color: BsColors.slate)),
                 const SizedBox(height: 2),
                 Text(
-                    'à ${DateFormat("HH:mm:ss", 'fr_FR').format(sale.sale.soldAt)}',
+                    'à ${DateFormat("HH:mm:ss", 'fr_FR').format(aLubumbashi(sale.sale.soldAt))}',
                     style: BsType.mono(13, w: FontWeight.w600)),
               ],
             ),
@@ -114,8 +133,17 @@ class SaleDetailSheet extends StatelessWidget {
 
   Widget _metaGrid() {
     return Column(children: [
-      if (sale.sale.customerName != null) ...[
-        _meta('Client', sale.sale.customerName!, icon: Icons.person_outline),
+      if (sale.sale.customerName != null || sale.sale.roomNumber != null) ...[
+        Row(children: [
+          if (sale.sale.customerName != null)
+            Expanded(
+                child: _meta('Client', sale.sale.customerName!,
+                    icon: Icons.person_outline)),
+          if (sale.sale.roomNumber != null)
+            Expanded(
+                child: _meta('Chambre', 'N° ${sale.sale.roomNumber}',
+                    icon: Icons.hotel_outlined)),
+        ]),
         const SizedBox(height: 12),
       ],
       Row(children: [
@@ -174,20 +202,79 @@ class SaleDetailSheet extends StatelessWidget {
         Text(v, style: BsType.mono(13, w: FontWeight.w500)),
       ]);
 
+  Widget _debtBanner() {
+    final settled = sale.sale.settledAt != null;
+    final color = settled ? BsColors.success : BsColors.sunrise;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(BsRadius.sm),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(children: [
+        Icon(
+            settled
+                ? Icons.check_circle_outline
+                : Icons.account_balance_wallet_outlined,
+            size: 18,
+            color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            settled
+                ? 'Dette réglée le ${DateFormat("d MMM y 'à' HH:mm", 'fr_FR').format(aLubumbashi(sale.sale.settledAt!))}'
+                : 'DETTE EN COURS — non réglée',
+            style: BsType.body(12, w: FontWeight.w700, color: color),
+          ),
+        ),
+      ]),
+    );
+  }
+
   Widget _actions() {
     return Container(
       padding: const EdgeInsets.all(BsSpace.lg),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: BsColors.line)),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton.icon(
-          icon: const Icon(Icons.picture_as_pdf, size: 16),
-          onPressed: () => PdfService.previewInvoice(sale),
-          label: const Text('Voir facture PDF'),
+      child: Column(children: [
+        if (_isOutstandingDebt && onSettle != null) ...[
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.payments_outlined, size: 16),
+              style: FilledButton.styleFrom(backgroundColor: BsColors.success),
+              onPressed: onSettle,
+              label: const Text('Régler la dette'),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            icon: const Icon(Icons.picture_as_pdf, size: 16),
+            onPressed: () => PdfService.previewInvoice(sale),
+            label: const Text('Voir facture PDF'),
+          ),
         ),
-      ),
+        if (canDelete && onDelete != null) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.delete_outline, size: 16),
+              onPressed: onDelete,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: BsColors.danger,
+                side: const BorderSide(color: BsColors.danger),
+              ),
+              label: const Text('Supprimer la facture'),
+            ),
+          ),
+        ],
+      ]),
     );
   }
 }
@@ -201,14 +288,17 @@ class _LineRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        border: last ? null : const Border(bottom: BorderSide(color: BsColors.line)),
+        border: last
+            ? null
+            : const Border(bottom: BorderSide(color: BsColors.line)),
       ),
       child: Row(children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(line.articleName, style: BsType.body(13, w: FontWeight.w600)),
+              Text(line.articleName,
+                  style: BsType.body(13, w: FontWeight.w600)),
               const SizedBox(height: 2),
               Text('${moneyCents(line.unitPriceCents)} l\'unité',
                   style: BsType.mono(11, color: BsColors.slate)),

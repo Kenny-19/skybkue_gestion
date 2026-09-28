@@ -5,7 +5,10 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/user_error.dart';
+import '../../widgets/bs_widgets.dart';
 import '../../core/article_thumb.dart';
+import '../../core/auth.dart';
 import '../../core/cat_ui.dart';
 import '../../core/format.dart';
 import '../../data/database.dart';
@@ -13,6 +16,7 @@ import '../../data/providers.dart';
 import '../../data/schema.dart';
 import '../../services/cloud_service.dart';
 import '../../services/mirror_service.dart';
+import '../../services/supply_requests_service.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -25,9 +29,12 @@ class StockScreen extends ConsumerWidget {
     final async = ref.watch(articlesStreamProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, st) =>
+          BsErrorView(error: handleError(e, st, context: 'stock_screen')),
       data: (items) {
-        final low = items.where((a) => a.trackStock && a.stockQty <= a.threshold).length;
+        final low = items
+            .where((a) => a.trackStock && a.stockQty <= a.threshold)
+            .length;
         return SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,12 +74,15 @@ class StockScreen extends ConsumerWidget {
                           _Row(
                             article: items[i],
                             last: i == items.length - 1,
-                            onAdjust: (d) =>
-                                ref.read(articlesRepoProvider).adjustQty(items[i].id, d),
+                            onAdjust: (d) => ref
+                                .read(articlesRepoProvider)
+                                .adjustQty(items[i].id, d),
                             onEdit: () =>
                                 _showProductDialog(context, ref, items[i]),
                             onRestock: () =>
                                 _showRestockDialog(context, ref, items[i]),
+                            onRequestSupply: () => _showSupplyRequestDialog(
+                                context, ref, items[i]),
                           ),
                       ],
                     ),
@@ -87,12 +97,13 @@ class StockScreen extends ConsumerWidget {
   }
 
   Widget _headerRow() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: BsSpace.lg, vertical: 14),
+        padding:
+            const EdgeInsets.symmetric(horizontal: BsSpace.lg, vertical: 14),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: BsColors.line)),
         ),
         child: Row(children: [
-          const SizedBox(width: 52),
+          const SizedBox(width: 48),
           Expanded(flex: 4, child: Text('PRODUIT', style: BsType.eyebrow())),
           Expanded(flex: 2, child: Text('CATÉGORIE', style: BsType.eyebrow())),
           Expanded(
@@ -109,10 +120,11 @@ class StockScreen extends ConsumerWidget {
   void _showProductDialog(BuildContext ctx, WidgetRef ref, Article? existing) {
     final name = TextEditingController(text: existing?.name ?? '');
     final price = TextEditingController(
-        text: existing == null ? '' : (existing.priceCents / 100).toString());
+        text: existing == null ? '' : existing.priceCents.toString());
     final unit = TextEditingController(text: existing?.unit ?? 'unité');
     final qty = TextEditingController(text: '${existing?.stockQty ?? 0}');
-    final threshold = TextEditingController(text: '${existing?.threshold ?? 0}');
+    final threshold =
+        TextEditingController(text: '${existing?.threshold ?? 0}');
     DbCategory cat = existing?.category ?? DbCategory.boissons;
     bool trackStock = existing?.trackStock ?? true;
     String? imagePath = existing?.imagePath;
@@ -123,8 +135,8 @@ class StockScreen extends ConsumerWidget {
       builder: (_) => StatefulBuilder(builder: (context, setSt) {
         return Dialog(
           backgroundColor: BsColors.paper,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(BsRadius.md)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(BsRadius.md)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480, maxHeight: 680),
             child: Padding(
@@ -158,13 +170,19 @@ class StockScreen extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   OutlinedButton.icon(
-                                    icon: const Icon(Icons.image_outlined, size: 16),
+                                    icon: const Icon(Icons.image_outlined,
+                                        size: 16),
                                     onPressed: () async {
                                       final file = await openFile(
                                         acceptedTypeGroups: const [
-                                          XTypeGroup(label: 'Images', extensions: [
-                                            'jpg', 'jpeg', 'png', 'webp'
-                                          ]),
+                                          XTypeGroup(
+                                              label: 'Images',
+                                              extensions: [
+                                                'jpg',
+                                                'jpeg',
+                                                'png',
+                                                'webp'
+                                              ]),
                                         ],
                                       );
                                       if (file != null) {
@@ -177,7 +195,8 @@ class StockScreen extends ConsumerWidget {
                                   ),
                                   if (imagePath != null)
                                     TextButton(
-                                      onPressed: () => setSt(() => imagePath = null),
+                                      onPressed: () =>
+                                          setSt(() => imagePath = null),
                                       child: Text('Retirer',
                                           style: BsType.body(11,
                                               color: BsColors.slate)),
@@ -190,21 +209,20 @@ class StockScreen extends ConsumerWidget {
                           _label('NOM'),
                           TextField(
                               controller: name,
-                              decoration:
-                                  const InputDecoration(hintText: 'ex. Café expresso')),
+                              decoration: const InputDecoration(
+                                  hintText: 'ex. Café expresso')),
                           const SizedBox(height: 12),
                           Row(children: [
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _label('PRIX (\$)'),
+                                  _label('PRIX (FC)'),
                                   TextField(
                                     controller: price,
-                                    keyboardType: const TextInputType
-                                        .numberWithOptions(decimal: true),
-                                    decoration:
-                                        const InputDecoration(hintText: '1.50'),
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                        hintText: '5000', suffixText: 'FC'),
                                   ),
                                 ],
                               ),
@@ -227,7 +245,10 @@ class StockScreen extends ConsumerWidget {
                           const SizedBox(height: 12),
                           _label('CATÉGORIE'),
                           Wrap(spacing: 8, children: [
-                            for (final c in DbCategory.values)
+                            // Chambres = géré exclusivement dans l'onglet
+                            // Chambres, plus proposé comme catégorie produit.
+                            for (final c in DbCategory.values
+                                .where((c) => c != DbCategory.chambres))
                               GestureDetector(
                                 onTap: () => setSt(() => cat = c),
                                 child: Container(
@@ -238,21 +259,25 @@ class StockScreen extends ConsumerWidget {
                                         ? BsColors.ink
                                         : Colors.transparent,
                                     border: Border.all(color: BsColors.ink),
-                                    borderRadius: BorderRadius.circular(BsRadius.sm),
+                                    borderRadius:
+                                        BorderRadius.circular(BsRadius.sm),
                                   ),
-                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    Icon(c.icon,
-                                        size: 14,
-                                        color:
-                                            c == cat ? Colors.white : BsColors.ink),
-                                    const SizedBox(width: 6),
-                                    Text(c.label,
-                                        style: BsType.body(12,
-                                            w: FontWeight.w700,
+                                  child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(c.icon,
+                                            size: 14,
                                             color: c == cat
                                                 ? Colors.white
-                                                : BsColors.ink)),
-                                  ]),
+                                                : BsColors.ink),
+                                        const SizedBox(width: 6),
+                                        Text(c.label,
+                                            style: BsType.body(12,
+                                                w: FontWeight.w700,
+                                                color: c == cat
+                                                    ? Colors.white
+                                                    : BsColors.ink)),
+                                      ]),
                                 ),
                               ),
                           ]),
@@ -271,7 +296,8 @@ class StockScreen extends ConsumerWidget {
                                 Row(children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text('SUIVI DU STOCK',
                                             style: BsType.eyebrow()),
@@ -286,7 +312,8 @@ class StockScreen extends ConsumerWidget {
                                   Switch(
                                     value: trackStock,
                                     activeThumbColor: BsColors.sky,
-                                    onChanged: (v) => setSt(() => trackStock = v),
+                                    onChanged: (v) =>
+                                        setSt(() => trackStock = v),
                                   ),
                                 ]),
                                 if (trackStock) ...[
@@ -294,7 +321,8 @@ class StockScreen extends ConsumerWidget {
                                   Row(children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           _label('QUANTITÉ'),
                                           TextField(
@@ -309,7 +337,8 @@ class StockScreen extends ConsumerWidget {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           _label('SEUIL D\'ALERTE'),
                                           TextField(
@@ -359,12 +388,14 @@ class StockScreen extends ConsumerWidget {
                     const SizedBox(width: 6),
                     FilledButton(
                       onPressed: () async {
-                        final p = double.tryParse(price.text.replaceAll(',', '.'));
+                        // Prix en FC entier (ex : 5000, 12000).
+                        final p =
+                            int.tryParse(price.text.trim().replaceAll(' ', ''));
                         if (name.text.trim().isEmpty || p == null || p < 0) {
                           setSt(() => err = 'Nom et prix valides requis');
                           return;
                         }
-                        final cents = (p * 100).round();
+                        final cents = p;
                         var savedImage = imagePath;
                         if (imagePath != null &&
                             !imagePath!.startsWith('http') &&
@@ -437,8 +468,8 @@ class StockScreen extends ConsumerWidget {
       builder: (_) => StatefulBuilder(builder: (context, setSt) {
         return Dialog(
           backgroundColor: BsColors.paper,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(BsRadius.md)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(BsRadius.md)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 380),
             child: Padding(
@@ -449,12 +480,14 @@ class StockScreen extends ConsumerWidget {
                 children: [
                   Text('RAVITAILLEMENT', style: BsType.eyebrow()),
                   const SizedBox(height: 6),
-                  Text(item.name, style: BsType.display(22, w: FontWeight.w700)),
+                  Text(item.name,
+                      style: BsType.display(22, w: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text('Stock actuel : ${item.stockQty} ${item.unit}',
                       style: BsType.body(12, color: BsColors.slate)),
                   const SizedBox(height: 20),
-                  Text('QUANTITÉ REÇUE (${item.unit})', style: BsType.eyebrow()),
+                  Text('QUANTITÉ REÇUE (${item.unit})',
+                      style: BsType.eyebrow()),
                   const SizedBox(height: 6),
                   TextField(
                     controller: qty,
@@ -480,7 +513,9 @@ class StockScreen extends ConsumerWidget {
                           setSt(() => err = 'Entrer un nombre positif');
                           return;
                         }
-                        await ref.read(articlesRepoProvider).adjustQty(item.id, n);
+                        await ref
+                            .read(articlesRepoProvider)
+                            .adjustQty(item.id, n);
                         if (context.mounted) {
                           Navigator.of(context).pop();
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -499,6 +534,166 @@ class StockScreen extends ConsumerWidget {
       }),
     );
   }
+
+  /// Dialog "Demande de ravitaillement" — envoie à Supabase, visible côté
+  /// site pour validation par la propriétaire.
+  void _showSupplyRequestDialog(BuildContext ctx, WidgetRef ref, Article item) {
+    // Quantité suggérée : compléter jusqu'à 2× le seuil (règle usuelle
+    // resto/hôtel pour avoir une marge de sécurité).
+    final suggestedQty = (item.threshold * 2 - item.stockQty).clamp(1, 9999);
+    final qtyCtrl = TextEditingController(text: '$suggestedQty');
+    final noteCtrl = TextEditingController();
+    DbLocation location = DbLocation.hotel; // défaut : chambre/hôtel
+    String? err;
+    bool busy = false;
+
+    showDialog(
+      context: ctx,
+      builder: (_) => StatefulBuilder(builder: (context, setSt) {
+        return Dialog(
+          backgroundColor: BsColors.paper,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(BsRadius.md)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('DEMANDE DE RAVITAILLEMENT',
+                      style: BsType.eyebrow(color: BsColors.sunrise)),
+                  const SizedBox(height: 6),
+                  Text(item.name,
+                      style: BsType.display(20, w: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                      'Stock actuel : ${item.stockQty} ${item.unit} · seuil ${item.threshold}',
+                      style: BsType.body(12, color: BsColors.slate)),
+                  const SizedBox(height: BsSpace.lg),
+                  Text('POUR QUEL EMPLACEMENT', style: BsType.eyebrow()),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, children: [
+                    for (final loc in DbLocation.values)
+                      GestureDetector(
+                        onTap: () => setSt(() => location = loc),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: loc == location
+                                ? loc.color
+                                : Colors.transparent,
+                            border: Border.all(color: loc.color),
+                            borderRadius: BorderRadius.circular(BsRadius.sm),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(loc.icon,
+                                size: 14,
+                                color:
+                                    loc == location ? Colors.white : loc.color),
+                            const SizedBox(width: 6),
+                            Text(loc.label,
+                                style: BsType.body(12,
+                                    w: FontWeight.w700,
+                                    color: loc == location
+                                        ? Colors.white
+                                        : loc.color)),
+                          ]),
+                        ),
+                      ),
+                  ]),
+                  const SizedBox(height: BsSpace.md),
+                  Text('QUANTITÉ SOUHAITÉE', style: BsType.eyebrow()),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: qtyCtrl,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                        hintText: '$suggestedQty', suffixText: item.unit),
+                  ),
+                  const SizedBox(height: BsSpace.md),
+                  Text('NOTE (optionnel)', style: BsType.eyebrow()),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: noteCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                        hintText: 'Urgent, préciser marque, etc.'),
+                  ),
+                  if (err != null) ...[
+                    const SizedBox(height: 12),
+                    Text(err!, style: BsType.body(12, color: BsColors.danger)),
+                  ],
+                  const SizedBox(height: BsSpace.lg),
+                  Row(children: [
+                    TextButton(
+                      onPressed:
+                          busy ? null : () => Navigator.of(context).pop(),
+                      child: const Text('Annuler'),
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      icon: busy
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.send, size: 16),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: BsColors.sunrise),
+                      onPressed: busy
+                          ? null
+                          : () async {
+                              final q = int.tryParse(qtyCtrl.text.trim());
+                              if (q == null || q <= 0) {
+                                setSt(() => err = 'Quantité invalide');
+                                return;
+                              }
+                              final me = ref.read(authProvider).user;
+                              setSt(() {
+                                busy = true;
+                                err = null;
+                              });
+                              final id = await SupplyRequestsService.submit(
+                                articleId: item.id,
+                                articleName: item.name,
+                                location: location,
+                                qtyRequested: q,
+                                qtyAtRequest: item.stockQty,
+                                thresholdAtRequest: item.threshold,
+                                requestedByLogin: me?.login ?? 'inconnu',
+                                note: noteCtrl.text.trim().isEmpty
+                                    ? null
+                                    : noteCtrl.text.trim(),
+                              );
+                              if (!context.mounted) return;
+                              if (id == null) {
+                                setSt(() {
+                                  busy = false;
+                                  err = 'Échec — pas de réseau ou Supabase ?';
+                                });
+                                return;
+                              }
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(
+                                      'Demande envoyée à Pamela pour ${location.label}')));
+                            },
+                      label: const Text('Envoyer la demande'),
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
 }
 
 class _Row extends StatelessWidget {
@@ -507,12 +702,14 @@ class _Row extends StatelessWidget {
   final ValueChanged<int> onAdjust;
   final VoidCallback onEdit;
   final VoidCallback onRestock;
+  final VoidCallback onRequestSupply;
   const _Row({
     required this.article,
     required this.last,
     required this.onAdjust,
     required this.onEdit,
     required this.onRestock,
+    required this.onRequestSupply,
   });
 
   @override
@@ -522,7 +719,9 @@ class _Row extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: BsSpace.lg, vertical: 12),
       decoration: BoxDecoration(
-        border: last ? null : const Border(bottom: BorderSide(color: BsColors.line)),
+        border: last
+            ? null
+            : const Border(bottom: BorderSide(color: BsColors.line)),
       ),
       child: Row(children: [
         ArticleThumb(
@@ -534,15 +733,15 @@ class _Row extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
             flex: 4,
-            child: Text(article.name,
-                style: BsType.body(13, w: FontWeight.w600))),
+            child:
+                Text(article.name, style: BsType.body(13, w: FontWeight.w600))),
         Expanded(
             flex: 2,
             child: Text(article.category.label,
                 style: BsType.body(12, color: BsColors.slate))),
         Expanded(
           flex: 2,
-          child: Text(moneyCents(article.priceCents),
+          child: Text(prixArticle(article.priceCents),
               textAlign: TextAlign.right,
               style: BsType.mono(13, w: FontWeight.w700)),
         ),
@@ -558,8 +757,8 @@ class _Row extends StatelessWidget {
                             color: low ? BsColors.danger : BsColors.ink)),
                     const SizedBox(width: 8),
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: (low ? BsColors.danger : BsColors.success)
                             .withValues(alpha: 0.12),
@@ -590,11 +789,31 @@ class _Row extends StatelessWidget {
               OutlinedButton(
                 onPressed: onRestock,
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  minimumSize: const Size(0, 30),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  minimumSize: const Size(0, BsControl.compact),
                 ),
-                child: Text('Ravitailler', style: BsType.body(11, w: FontWeight.w600)),
+                child: Text('Ravitailler',
+                    style: BsType.body(11, w: FontWeight.w600)),
               ),
+              // Bouton "Demander" visible UNIQUEMENT sous seuil — envoie
+              // une demande de ravitaillement à Pamela via Supabase.
+              if (low) ...[
+                const SizedBox(width: 4),
+                OutlinedButton.icon(
+                  onPressed: onRequestSupply,
+                  icon: const Icon(Icons.forward_to_inbox, size: 14),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: BsColors.sunrise,
+                    side: const BorderSide(color: BsColors.sunrise),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    minimumSize: const Size(0, BsControl.compact),
+                  ),
+                  label: Text('Demander',
+                      style: BsType.body(11, w: FontWeight.w600)),
+                ),
+              ],
             ],
             IconButton(
                 tooltip: 'Éditer',
@@ -618,7 +837,8 @@ class _EmptyState extends StatelessWidget {
         borderRadius: BorderRadius.circular(BsRadius.md),
       ),
       child: Column(children: [
-        const Icon(Icons.inventory_2_outlined, size: 40, color: BsColors.slateSoft),
+        const Icon(Icons.inventory_2_outlined,
+            size: 40, color: BsColors.slateSoft),
         const SizedBox(height: 12),
         Text('Aucun produit', style: BsType.body(14, w: FontWeight.w600)),
         const SizedBox(height: 4),

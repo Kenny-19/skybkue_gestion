@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/schema.dart';
+import '../theme/tokens.dart';
 
 extension DbCategoryUi on DbCategory {
   String get label => switch (this) {
@@ -39,10 +40,16 @@ extension DbLocationUi on DbLocation {
         DbLocation.terrasse => Icons.deck_outlined,
         DbLocation.hotel => Icons.hotel_outlined,
       };
+
+  /// Couleurs prises dans la charte, pas réécrites en littéral.
+  ///
+  /// `restaurant` était un bleu Material (0xFF3D8BFD) qui n'existait
+  /// nulle part ailleurs dans l'application : il jurait avec le teal de
+  /// la marque sur l'écran le plus regardé.
   Color get color => switch (this) {
-        DbLocation.restaurant => const Color(0xFF3D8BFD),
-        DbLocation.terrasse => const Color(0xFF2E8B57),
-        DbLocation.hotel => const Color(0xFFF4A261),
+        DbLocation.restaurant => BsColors.sky,
+        DbLocation.terrasse => BsColors.success,
+        DbLocation.hotel => BsColors.sunrise,
       };
 }
 
@@ -54,9 +61,12 @@ extension DbRoomStatusUi on DbRoomStatus {
         DbRoomStatus.maintenance => 'Maintenance',
       };
   Color get color => switch (this) {
-        DbRoomStatus.libre => const Color(0xFF2E8B57),
-        DbRoomStatus.occupee => const Color(0xFFF4A261),
-        DbRoomStatus.nettoyage => const Color(0xFF3D8BFD),
-        DbRoomStatus.maintenance => const Color(0xFFC0392B),
+        // Couleurs prises dans la charte. `nettoyage` était le même bleu
+        // Material étranger (0xFF3D8BFD) que l'emplacement Restaurant —
+        // il devient `warning`, qui dit mieux « une tâche attend ».
+        DbRoomStatus.libre => BsColors.success,
+        DbRoomStatus.occupee => BsColors.sunrise,
+        DbRoomStatus.nettoyage => BsColors.warning,
+        DbRoomStatus.maintenance => BsColors.danger,
       };
 }

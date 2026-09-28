@@ -150,6 +150,17 @@ bool Win32Window::Create(const std::wstring& title,
 }
 
 bool Win32Window::Show() {
+  // Garantit une fenêtre en état "fenêtré normal" avec barre de titre
+  // (WS_CAPTION + WS_SYSMENU + WS_MINIMIZEBOX + WS_MAXIMIZEBOX + WS_THICKFRAME),
+  // même si un précédent état borderless / plein écran (WS_POPUP) était
+  // en place. SWP_FRAMECHANGED est indispensable pour que le nouveau
+  // cadre soit effectivement redessiné.
+  LONG_PTR style = GetWindowLongPtr(window_handle_, GWL_STYLE);
+  style &= ~WS_POPUP;
+  style |= WS_OVERLAPPEDWINDOW;
+  SetWindowLongPtr(window_handle_, GWL_STYLE, style);
+  SetWindowPos(window_handle_, nullptr, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
   return ShowWindow(window_handle_, SW_SHOWNORMAL);
 }
 
@@ -204,6 +215,22 @@ Win32Window::MessageHandler(HWND hwnd,
         MoveWindow(child_content_, rect.left, rect.top, rect.right - rect.left,
                    rect.bottom - rect.top, TRUE);
       }
+      return 0;
+    }
+
+    case WM_GETMINMAXINFO: {
+      // La UI (POS, Dashboard, ...) est pensée desktop : on empêche la fenêtre
+      // d'être réduite en dessous d'une taille où les grilles / colonnes
+      // débordent. Valeurs en pixels logiques, mises à l'échelle selon le DPI
+      // du moniteur courant.
+      auto* mmi = reinterpret_cast<MINMAXINFO*>(lparam);
+      UINT dpi = GetDpiForWindow(hwnd);
+      if (dpi == 0) {
+        dpi = 96;
+      }
+      const double scale = dpi / 96.0;
+      mmi->ptMinTrackSize.x = static_cast<LONG>(1024 * scale);
+      mmi->ptMinTrackSize.y = static_cast<LONG>(700 * scale);
       return 0;
     }
 

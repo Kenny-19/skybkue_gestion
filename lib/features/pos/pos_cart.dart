@@ -9,11 +9,13 @@ class PosCartState {
   final DbPayment payment;
   final DbLocation location;
   final String? customerName;
+  final String? roomNumber; // chambre rattachée (optionnel)
   const PosCartState({
     this.lines = const {},
     this.payment = DbPayment.cash,
     this.location = DbLocation.restaurant,
     this.customerName,
+    this.roomNumber,
   });
 
   PosCartState copyWith({
@@ -22,12 +24,16 @@ class PosCartState {
     DbLocation? location,
     String? customerName,
     bool clearCustomer = false,
+    String? roomNumber,
+    bool clearRoom = false,
   }) =>
       PosCartState(
         lines: lines ?? this.lines,
         payment: payment ?? this.payment,
         location: location ?? this.location,
-        customerName: clearCustomer ? null : (customerName ?? this.customerName),
+        customerName:
+            clearCustomer ? null : (customerName ?? this.customerName),
+        roomNumber: clearRoom ? null : (roomNumber ?? this.roomNumber),
       );
 
   bool get isEmpty => lines.isEmpty;
@@ -65,8 +71,20 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
     );
   }
 
+  /// Rattache une chambre (et pré-remplit le nom du client si fourni).
+  void setRoom(String? number, {String? guest}) {
+    if (number == null) {
+      state = state.copyWith(clearRoom: true);
+    } else {
+      state = state.copyWith(
+        roomNumber: number,
+        customerName: guest ?? state.customerName,
+      );
+    }
+  }
+
   void clear() => state = PosCartState(location: state.location);
 }
 
-final posCartProvider =
-    StateNotifierProvider<PosCartNotifier, PosCartState>((_) => PosCartNotifier());
+final posCartProvider = StateNotifierProvider<PosCartNotifier, PosCartState>(
+    (_) => PosCartNotifier());

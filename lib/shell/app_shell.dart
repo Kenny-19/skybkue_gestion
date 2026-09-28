@@ -4,12 +4,19 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../core/auth.dart';
+import '../core/cat_ui.dart';
 import '../core/theme_mode.dart';
 import '../core/user_ui.dart';
 import '../data/providers.dart';
 import '../data/schema.dart';
+import '../services/supply_notifications.dart';
+import '../services/supply_requests_service.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import 'notifications_bell.dart';
+import 'update_banner.dart';
+import '../core/temps.dart';
+import '../core/horloge.dart';
 
 class NavDest {
   final String label;
@@ -21,32 +28,132 @@ class NavDest {
 
 final navDests = <NavDest>[
   NavDest('Dashboard', Icons.dashboard_outlined, '/', (p) => p.canDashboard),
-  NavDest('Point de vente', Icons.point_of_sale_outlined, '/pos', (p) => p.canPos),
-  NavDest('Catalogue', Icons.menu_book_outlined, '/catalog', (p) => p.canViewCatalog),
+  NavDest(
+      'Point de vente', Icons.point_of_sale_outlined, '/pos', (p) => p.canPos),
+  NavDest('Catalogue', Icons.menu_book_outlined, '/catalog',
+      (p) => p.canViewCatalog),
   NavDest('Stock', Icons.inventory_2_outlined, '/stock', (p) => p.canStock),
   NavDest('Chambres', Icons.hotel_outlined, '/rooms', (p) => p.canRooms),
-  NavDest('Historique', Icons.query_stats_outlined, '/history', (p) => p.canHistory),
-  NavDest('Comptes', Icons.people_outline, '/users', (p) => p.canManageServeurs),
-  NavDest('Paramètres', Icons.settings_outlined, '/settings', (p) => p.canCurrency),
+  NavDest('Réservations', Icons.calendar_month_outlined, '/reservations',
+      (p) => p.canReservations),
+  NavDest('Historique', Icons.query_stats_outlined, '/history',
+      (p) => p.canHistory),
+  NavDest(
+      'Comptes', Icons.people_outline, '/users', (p) => p.canManageServeurs),
+  NavDest('Clients', Icons.badge_outlined, '/clients', (p) => p.canClients),
+  NavDest('Sociétés', Icons.business_outlined, '/payers', (p) => p.canPayers),
+  NavDest('Paramètres', Icons.settings_outlined, '/settings',
+      (p) => p.role != null),
 ];
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   final Widget child;
   final String location;
   const AppShell({super.key, required this.child, required this.location});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  void Function(SupplyRequest)? _statusChangeCb;
+
+  @override
+  void initState() {
+    super.initState();
+    // Demarre / arrete le watcher notifications selon l'utilisateur
+    // connecte. `listen` sur authProvider = re-declenche sur logout/login.
+    Future.microtask(() {
+      _wireForCurrentUser();
+      ref.listenManual<AuthState>(authProvider, (prev, next) {
+        _wireForCurrentUser();
+      });
+    });
+  }
+
+  void _wireForCurrentUser() {
+    final service = ref.read(supplyNotifsProvider);
+    final user = ref.read(authProvider).user;
+
+    // Detache l'ancien callback si present.
+    if (_statusChangeCb != null) {
+      service.offStatusChange(_statusChangeCb!);
+      _statusChangeCb = null;
+    }
+
+    if (user == null) {
+      service.stop();
+      return;
+    }
+
+    // Demarre le polling pour ce user.
+    service.startFor(user.login);
+
+    // Enregistre un callback qui affiche un SnackBar quand une decision
+    // arrive pendant que l'utilisateur est dans l'app.
+    _statusChangeCb = (req) {
+      if (!mounted) return;
+      final approved = req.status == 'approved';
+      final label = approved ? 'Demande APPROUVÉE' : 'Demande rejetée';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: approved ? BsColors.success : BsColors.danger,
+        duration: const Duration(seconds: 6),
+        content: Row(children: [
+          Icon(approved ? Icons.check_circle : Icons.cancel,
+              color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+                // Demande hôtel note-only (article_id == null) : on montre
+                // le texte directement au lieu d'un "1× {longue phrase}".
+                req.articleId == null && req.location == DbLocation.hotel
+                    ? '$label — hôtel : ${req.articleName}'
+                    : '$label : ${req.qtyRequested}× ${req.articleName} pour ${req.location.label}',
+                style:
+                    BsType.body(13, w: FontWeight.w600, color: Colors.white)),
+          ),
+        ]),
+        action: SnackBarAction(
+          label: 'Voir',
+          textColor: Colors.white,
+          onPressed: () {
+            // Le panel se trouve via la cloche sidebar.
+          },
+        ),
+      ));
+    };
+    service.onStatusChange(_statusChangeCb!);
+  }
+
+  @override
+  void dispose() {
+    if (_statusChangeCb != null) {
+      ref.read(supplyNotifsProvider).offStatusChange(_statusChangeCb!);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final perms = ref.watch(permsProvider);
     final dests = navDests.where((d) => d.allowed(perms)).toList();
-    final index = dests.indexWhere((d) =>
-        d.route == '/' ? location == '/' : location.startsWith(d.route));
+    final index = dests.indexWhere((d) => d.route == '/'
+        ? widget.location == '/'
+        : widget.location.startsWith(d.route));
     return Scaffold(
       body: Row(
         children: [
           _Sidebar(index: index < 0 ? 0 : index, dests: dests),
           const VerticalDivider(width: 1, color: BsColors.line),
-          Expanded(child: child),
+          Expanded(
+            child: Column(
+              children: [
+                // Banniere de mise a jour (auto-hide si aucune dispo).
+                const UpdateBanner(),
+                Expanded(child: widget.child),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -61,38 +168,46 @@ class _Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final roomsAsync = ref.watch(roomsStreamProvider);
-    final overdueCount = roomsAsync.asData?.value
-            .where((r) {
-              if (r.status != DbRoomStatus.occupee || r.checkoutDate == null) {
-                return false;
-              }
-              final today = DateTime.now();
-              final tDay = DateTime(today.year, today.month, today.day);
-              final cDay = DateTime(r.checkoutDate!.year,
-                  r.checkoutDate!.month, r.checkoutDate!.day);
-              return cDay.isBefore(tDay);
-            })
-            .length ??
+    final overdueCount = roomsAsync.asData?.value.where((r) {
+          if (r.status != DbRoomStatus.occupee || r.checkoutDate == null) {
+            return false;
+          }
+          final today = DateTime.now();
+          final tDay = debutDeJourneeLubumbashi(today);
+          final cDay = debutDeJourneeLubumbashi(r.checkoutDate!);
+          return cDay.isBefore(tDay);
+        }).length ??
         0;
 
     return Container(
-      width: 240,
+      width: 200,
       color: BsColors.ink,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _Brand(),
           const SizedBox(height: 12),
-          for (int i = 0; i < dests.length; i++)
-            _NavItem(
-              dest: dests[i],
-              active: i == index,
-              badge: dests[i].route == '/rooms' && overdueCount > 0
-                  ? '$overdueCount'
-                  : null,
-              onTap: () => context.go(dests[i].route),
+          // Zone nav scrollable — évite l'overflow sur petits écrans
+          // (10+ entrées possibles avec Clients/Sociétés/Historique).
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (int i = 0; i < dests.length; i++)
+                    _NavItem(
+                      dest: dests[i],
+                      active: i == index,
+                      badge: dests[i].route == '/rooms' && overdueCount > 0
+                          ? '$overdueCount'
+                          : null,
+                      onTap: () => context.go(dests[i].route),
+                    ),
+                ],
+              ),
             ),
-          const Spacer(),
+          ),
+          const NotificationsBell(),
           const _ThemeToggle(),
           const _UserChip(),
         ],
@@ -160,8 +275,8 @@ class _MiniTrack extends StatelessWidget {
         child: Container(
           width: 12,
           height: 12,
-          decoration: const BoxDecoration(
-              color: Colors.white, shape: BoxShape.circle),
+          decoration:
+              const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
         ),
       ),
     );
@@ -234,7 +349,9 @@ class _NavItemState extends State<_NavItem> {
     final active = widget.active;
     final bg = active
         ? BsColors.inkSoft
-        : (_hover ? BsColors.inkSoft.withValues(alpha: 0.5) : Colors.transparent);
+        : (_hover
+            ? BsColors.inkSoft.withValues(alpha: 0.5)
+            : Colors.transparent);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -273,7 +390,8 @@ class _NavItemState extends State<_NavItem> {
               ),
               if (widget.badge != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: const BoxDecoration(
                     color: BsColors.danger,
                     borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -316,8 +434,8 @@ class _UserChip extends ConsumerWidget {
               ),
               alignment: Alignment.center,
               child: Text(user.initials,
-                  style: BsType.body(12,
-                      w: FontWeight.w700, color: Colors.white)),
+                  style:
+                      BsType.body(12, w: FontWeight.w700, color: Colors.white)),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -339,7 +457,8 @@ class _UserChip extends ConsumerWidget {
                 ref.read(authProvider.notifier).logout();
                 context.go('/login');
               },
-              icon: const Icon(Icons.logout, size: 16, color: BsColors.slateSoft),
+              icon:
+                  const Icon(Icons.logout, size: 16, color: BsColors.slateSoft),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             ),
@@ -365,9 +484,14 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateFormat("EEEE d MMMM y", 'fr_FR').format(DateTime.now());
+    final today = DateFormat("EEEE d MMMM y", 'fr_FR').format(aLubumbashi(Horloge.maintenant()));
+    // Titre à 24 px et marges resserrées : l'en-tête passe d'environ
+    // 170 px à ~100 px sur CHACUN des onze écrans. Sur un logiciel de
+    // bureau, la barre latérale dit déjà où l'on est — le titre confirme,
+    // il n'a pas à occuper un sixième de la hauteur utile.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(BsSpace.xl, BsSpace.xl, BsSpace.xl, BsSpace.md),
+      padding: const EdgeInsets.fromLTRB(
+          BsSpace.xl, BsSpace.lg, BsSpace.xl, BsSpace.smd),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -376,11 +500,12 @@ class PageHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(eyebrow.toUpperCase(), style: BsType.eyebrow()),
-                const SizedBox(height: 8),
-                Text(title, style: BsType.display(38, w: FontWeight.w600)),
+                const SizedBox(height: BsSpace.xs),
+                Text(title, style: BsType.display(24, w: FontWeight.w700)),
                 if (subtitle != null) ...[
                   const SizedBox(height: 6),
-                  Text(subtitle!, style: BsType.body(14, color: BsColors.slate)),
+                  Text(subtitle!,
+                      style: BsType.body(14, color: BsColors.slate)),
                 ] else ...[
                   const SizedBox(height: 6),
                   Text(today,

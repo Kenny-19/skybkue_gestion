@@ -1,7 +1,8 @@
 import 'package:blue_sky/data/database.dart';
 import 'package:blue_sky/data/repos.dart';
 import 'package:blue_sky/data/schema.dart';
-import 'package:drift/drift.dart';
+import 'package:blue_sky/services/stock_service.dart';
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
@@ -37,36 +38,76 @@ void main() {
       expect(after.stockQty, 15);
     });
 
-    test('le stock ne descend jamais sous zéro', () async {
+    test('un stock insuffisant descend en négatif, et on le montre', () async {
+      // Règle changée avec le passage aux deltas, volontairement.
+      //
+      // Borner à zéro effaçait l'information la plus utile : si on a
+      // vendu 100 poissons alors que la base en annonçait 6, ces ventes
+      // ont EU LIEU — le client a payé et il est parti. Le négatif dit
+      // que le stock initial était faux, ou qu'il y a eu de la casse ou
+      // du vol. Le cacher derrière un zéro rassurant ne fait perdre que
+      // l'écart à justifier.
       final poisson = await byName('Poisson du jour'); // seed: 6
       await sales.createSale(
-        articleQuantities: {poisson.id: 100}, // bien plus que le stock
+        articleQuantities: {poisson.id: 100},
         payment: DbPayment.cash,
         location: DbLocation.terrasse,
         serverUserId: null,
       );
       final after = await byName('Poisson du jour');
-      expect(after.stockQty, 0);
+      expect(after.stockQty, 6 - 100);
     });
 
-    test('un produit non suivi (chambre) ne bouge pas', () async {
-      final chambre = await byName('Chambre simple'); // trackStock=false
-      expect(chambre.trackStock, false);
+    test("chaque sortie laisse un mouvement en attente d'envoi", () async {
+      // C'est ce qui rend le hors-ligne viable : la vente s'enregistre
+      // ici, et le mouvement partira dès que le réseau revient.
+      final biere = await byName('Bière locale 50cl');
+      final avant = await StockService(db).enAttente();
       await sales.createSale(
-        articleQuantities: {chambre.id: 2},
+        articleQuantities: {biere.id: 2},
+        payment: DbPayment.cash,
+        location: DbLocation.restaurant,
+        serverUserId: null,
+      );
+      expect(await StockService(db).enAttente(), avant + 1);
+
+      final mvt = await (db.select(db.stockMoves)
+            ..where((m) => m.articleId.equals(biere.id))
+            ..orderBy([(m) => OrderingTerm.desc(m.occurredAt)]))
+          .get();
+      expect(mvt.first.delta, -2, reason: 'une sortie est un delta négatif');
+      expect(mvt.first.reason, 'vente');
+      expect(mvt.first.sentAt, isNull, reason: 'pas encore confirmé');
+    });
+
+    test('un produit non suivi ne bouge pas', () async {
+      // Le seed ne contient plus de produit non suivi (les chambres ont
+      // leur propre table) : on en crée un pour l'occasion.
+      await articles.create(
+        name: 'Service non suivi',
+        priceCents: 5000,
+        category: DbCategory.nourriture,
+        stockQty: 7,
+      );
+      final item = await byName('Service non suivi');
+      expect(item.trackStock, false);
+      await sales.createSale(
+        articleQuantities: {item.id: 2},
         payment: DbPayment.card,
         location: DbLocation.hotel,
         serverUserId: null,
       );
-      final after = await byName('Chambre simple');
-      expect(after.stockQty, chambre.stockQty); // inchangé
+      final after = await byName('Service non suivi');
+      expect(after.stockQty, item.stockQty); // inchangé
     });
   });
 
   group('Intégrité de la vente', () {
     test('total et lignes correctement enregistrés', () async {
-      final coca = await byName('Coca Cola 33cl'); // 200 cents
-      final cafe = await byName('Café'); // 150 cents
+      final coca = await byName('Coca Cola 33cl');
+      final cafe = await byName('Café');
+      // Total calculé à partir des vrais prix (robuste au seed).
+      final expected = coca.priceCents * 2 + cafe.priceCents;
       final id = await sales.createSale(
         articleQuantities: {coca.id: 2, cafe.id: 1},
         payment: DbPayment.mobileMoney,
@@ -76,7 +117,7 @@ void main() {
       );
       final recent = await sales.watchRecent(days: 1).first;
       final sale = recent.firstWhere((s) => s.sale.id == id);
-      expect(sale.totalCents, 200 * 2 + 150); // 550
+      expect(sale.totalCents, expected);
       expect(sale.itemsCount, 3);
       expect(sale.sale.customerName, 'M. Test');
       expect(sale.lines.length, 2);
@@ -116,10 +157,14 @@ void main() {
       expect((await byName('Coca Cola 33cl')).stockQty, 42);
     });
 
-    test('adjustQty ne descend pas sous zéro', () async {
+    test("adjustQty peut descendre en négatif : l'écart est une information",
+        () async {
+      // Borner à zéro effaçait l'écart. Si la base annonce 18 et qu'on
+      // en retire 100, c'est que l'inventaire était faux : le montrer
+      // vaut mieux que le masquer derrière un zéro rassurant.
       final coca = await byName('Coca Cola 33cl'); // 18
       await articles.adjustQty(coca.id, -100);
-      expect((await byName('Coca Cola 33cl')).stockQty, 0);
+      expect((await byName('Coca Cola 33cl')).stockQty, 18 - 100);
     });
   });
 

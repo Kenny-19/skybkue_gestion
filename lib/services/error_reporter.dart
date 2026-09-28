@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/cloud_config.dart';
+import '../core/temps.dart';
 
 /// Enregistre les erreurs de l'app dans une table Supabase `error_logs`.
 /// Un déclencheur côté Supabase (Edge Function / webhook) envoie ensuite un
@@ -15,6 +16,24 @@ class ErrorReporter {
 
   static const String _appVersion = '0.1.0';
 
+  /// Le nom de la machine, joint à chaque erreur.
+  ///
+  /// Sans lui, on ne sait pas QUEL poste remonte une panne. Le
+  /// 24 septembre 2026, il a fallu arrêter une application et regarder
+  /// si les erreurs continuaient pour deviner leur origine — deux
+  /// minutes de silence ne prouvant d'ailleurs pas grand-chose. Un nom
+  /// de machine aurait répondu tout de suite.
+  ///
+  /// C'est un nom d'ordinateur, pas une donnée personnelle : « CAISSE-1 »,
+  /// « RECEPTION ». Rien sur qui l'utilisait.
+  static String get _poste {
+    try {
+      return Platform.localHostname;
+    } catch (_) {
+      return 'inconnu';
+    }
+  }
+
   static Future<void> report(Object error, StackTrace? stack,
       {String? context}) async {
     if (!CloudConfig.isConfigured) return;
@@ -25,8 +44,9 @@ class ErrorReporter {
         'stack': stack?.toString(),
         'context': context,
         'app_version': _appVersion,
+        'poste': _poste,
         'platform': _platformLabel(),
-        'occurred_at': DateTime.now().toIso8601String(),
+        'occurred_at': isoServeur(DateTime.now()),
       });
     } catch (_) {
       // Reporting best-effort : on n'aggrave jamais la situation.

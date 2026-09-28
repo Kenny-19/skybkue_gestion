@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skyblue — Créer un compte propriétaire (Supabase)</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: '#0E3A47',
+              inkSoft: '#154B5C',
+              paper: '#FDFBF7',
+              papyrus: '#F3EEE6',
+              line: '#E3DBCE',
+              slate: '#5E6A78',
+              slateSoft: '#9AA5B1',
+              sunrise: '#F19A3E',
+              success: '#3A9D67',
+              danger: '#C7423F',
+            },
+            fontFamily: {
+              display: ['Fraunces', 'serif'],
+              body: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+  </head>
+  <body class="min-h-screen bg-paper font-body text-ink">
+    <div class="max-w-3xl mx-auto px-6 py-10">
+      <p class="uppercase tracking-widest text-xs font-bold text-sunrise">
+        ● Skyblue · utilitaire hors-ligne
+      </p>
+      <h1 class="font-display text-4xl font-bold mt-2">
+        Créer un compte propriétaire
+      </h1>
+      <p class="mt-3 text-slate">
+        Cet outil génère du <span class="font-mono text-ink">SQL</span> prêt à
+        coller dans le
+        <span class="font-mono text-ink">SQL Editor</span> de Supabase pour
+        créer un compte <strong>Super Admin</strong> qui existe
+        <strong>uniquement dans le cloud</strong> (ni synchronisation avec
+        l'app locale, ni création via l'app).
+      </p>
+      <p class="mt-2 text-xs text-slateSoft">
+        Aucun mot de passe n'est envoyé nulle part — tout se passe dans ce
+        navigateur, hachage bcrypt inclus.
+      </p>
+
+      <div class="mt-8 bg-white border border-line rounded-2xl p-6 space-y-4">
+        <div>
+          <label class="text-xs font-bold uppercase tracking-widest text-slate">Nom complet</label>
+          <input
+            id="fullname"
+            type="text"
+            placeholder="Mme Skyblue"
+            class="mt-2 w-full rounded-lg border border-line bg-white px-4 py-3 font-medium focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
+          />
+        </div>
+        <div>
+          <label class="text-xs font-bold uppercase tracking-widest text-slate">Identifiant (login)</label>
+          <input
+            id="login"
+            type="text"
+            placeholder="proprietaire"
+            class="mt-2 w-full rounded-lg border border-line bg-white px-4 py-3 font-mono focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
+          />
+          <p class="mt-1 text-xs text-slateSoft">
+            Doit être unique. Lettres, chiffres, sans espace.
+          </p>
+        </div>
+        <div>
+          <label class="text-xs font-bold uppercase tracking-widest text-slate">Mot de passe</label>
+          <input
+            id="password"
+            type="text"
+            placeholder="au moins 8 caractères"
+            class="mt-2 w-full rounded-lg border border-line bg-white px-4 py-3 font-mono focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
+          />
+          <p class="mt-1 text-xs text-slateSoft">
+            Visible ici pour vérification. À communiquer à la propriétaire
+            hors-ligne (message chiffré, papier, en main propre).
+          </p>
+        </div>
+        <div>
+          <label class="text-xs font-bold uppercase tracking-widest text-slate">
+            ID à utiliser (avancé)
+          </label>
+          <input
+            id="userid"
+            type="number"
+            value="9001"
+            min="1"
+            class="mt-2 w-full rounded-lg border border-line bg-white px-4 py-3 font-mono focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
+          />
+          <p class="mt-1 text-xs text-slateSoft">
+            Choisi volontairement haut (≥ 9000) pour ne jamais entrer en
+            collision avec les ids auto-incrémentés de l'app locale.
+          </p>
+        </div>
+
+        <button
+          id="gen-btn"
+          class="w-full rounded-lg bg-ink text-white font-semibold py-3 hover:bg-inkSoft transition disabled:opacity-50"
+        >
+          Générer le SQL
+        </button>
+      </div>
+
+      <div id="output" class="hidden mt-8 bg-white border border-line rounded-2xl p-6">
+        <p class="text-xs font-bold uppercase tracking-widest text-slate">
+          À coller dans Supabase → SQL Editor → Run
+        </p>
+        <pre id="sql-out" class="mt-3 bg-papyrus rounded-lg p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all"></pre>
+        <button
+          id="copy-btn"
+          class="mt-3 rounded-lg border border-ink text-ink font-semibold px-4 py-2 hover:bg-ink hover:text-white transition"
+        >
+          Copier le SQL
+        </button>
+        <p id="copied-msg" class="mt-2 text-sm text-success font-semibold hidden">
+          Copié dans le presse-papiers ✓
+        </p>
+
+        <div class="mt-6 border-t border-line pt-4 text-sm text-slate space-y-2">
+          <p><strong class="text-ink">Étapes :</strong></p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Va sur ton projet Supabase → menu <strong>SQL Editor</strong>.</li>
+            <li>Colle le SQL ci-dessus dans une nouvelle requête.</li>
+            <li>Clique <strong>Run</strong>. Tu dois voir <em>Success. No rows returned</em>.</li>
+            <li>La propriétaire peut immédiatement se connecter au dashboard web avec l'identifiant et le mot de passe ci-dessus.</li>
+          </ol>
+        </div>
+      </div>
+
+      <p class="mt-10 text-center text-xs text-slateSoft">
+        <a href="../index.html" class="underline hover:text-ink">
+          ← Retour au dashboard
+        </a>
+      </p>
+    </div>
+
+    <script>
+      const bcrypt =
+        (window.dcodeIO && window.dcodeIO.bcrypt) || window.bcrypt;
+
+      function sqlEscape(s) {
+        return String(s).replace(/'/g, "''");
+      }
+
+      document.getElementById('gen-btn').addEventListener('click', () => {
+        const btn = document.getElementById('gen-btn');
+        const fullname = document.getElementById('fullname').value.trim();
+        const login = document.getElementById('login').value.trim();
+        const password = document.getElementById('password').value;
+        const userid = parseInt(document.getElementById('userid').value, 10);
+
+        if (!fullname || !login || !password || !userid) {
+          alert('Renseigne les 4 champs.');
+          return;
+        }
+        if (password.length < 4) {
+          alert('Le mot de passe doit faire au moins 4 caractères.');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Génération du hash bcrypt…';
+        // Laisse le browser peindre avant le calcul (bloquant).
+        setTimeout(() => {
+          try {
+            const salt = bcrypt.genSaltSync(10);
+            const hash = bcrypt.hashSync(password, salt);
+            const now = new Date().toISOString();
+            const sql =
+              `-- Skyblue — création manuelle d'un Super Admin sur Supabase\n` +
+              `-- Utilisateur : ${sqlEscape(fullname)} (login: ${sqlEscape(login)})\n` +
+              `-- ID choisi : ${userid} (haut pour éviter collision avec l'app)\n\n` +
+              `-- 1. Ajoute la colonne password_hash si absente (l'app ne la\n` +
+              `--    pousse jamais par sécurité — seul le web_dashboard\n` +
+              `--    l'utilise). Idempotent : OK d'exécuter plusieurs fois.\n` +
+              `ALTER TABLE public.mirror_users\n` +
+              `  ADD COLUMN IF NOT EXISTS password_hash text;\n\n` +
+              `-- 2. Crée (ou met à jour) le compte propriétaire.\n` +
+              `INSERT INTO public.mirror_users\n` +
+              `  (id, full_name, login, password_hash, role, active, created_at, last_login)\n` +
+              `VALUES (\n` +
+              `  ${userid},\n` +
+              `  '${sqlEscape(fullname)}',\n` +
+              `  '${sqlEscape(login)}',\n` +
+              `  '${sqlEscape(hash)}',\n` +
+              `  0,          -- 0 = superAdmin (voir DbUserRole)\n` +
+              `  true,\n` +
+              `  '${now}',\n` +
+              `  NULL\n` +
+              `)\n` +
+              `ON CONFLICT (id) DO UPDATE SET\n` +
+              `  full_name     = EXCLUDED.full_name,\n` +
+              `  login         = EXCLUDED.login,\n` +
+              `  password_hash = EXCLUDED.password_hash,\n` +
+              `  role          = EXCLUDED.role,\n` +
+              `  active        = EXCLUDED.active;\n`;
+            document.getElementById('sql-out').textContent = sql;
+            document.getElementById('output').classList.remove('hidden');
+          } catch (e) {
+            alert('Erreur : ' + e.message);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Générer le SQL';
+          }
+        }, 30);
+      });
+
+      document.getElementById('copy-btn').addEventListener('click', async () => {
+        const sql = document.getElementById('sql-out').textContent;
+        try {
+          await navigator.clipboard.writeText(sql);
+          const msg = document.getElementById('copied-msg');
+          msg.classList.remove('hidden');
+          setTimeout(() => msg.classList.add('hidden'), 2000);
+        } catch (_) {
+          alert('Copie impossible — sélectionne le texte manuellement.');
+        }
+      });
+    </script>
+  </body>
+</html>

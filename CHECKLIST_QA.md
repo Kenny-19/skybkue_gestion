@@ -10,7 +10,7 @@ Coche au fur et à mesure. Note tout comportement inattendu.
 
 ## 1. Connexion & rôles
 
-- [ ] Login avec **kenny / bluesky** → arrive sur le Dashboard
+- [ ] Login avec **admin / bluesky** → arrive sur le Dashboard
 - [ ] Mauvais mot de passe → message "Mot de passe incorrect", reste sur login
 - [ ] Le dropdown liste bien tous les comptes **sauf** les Super Admins
 - [ ] Un compte **désactivé** apparaît grisé et ne peut pas se connecter

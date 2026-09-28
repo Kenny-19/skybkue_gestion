@@ -31,6 +31,10 @@ class BsColors {
   static const slateDark = Color(0xFFA9B8C4);
   static const slateSoftDark = Color(0xFF6B7B87);
   static const lineDark = Color(0xFF1E4655);
+
+  /// Voile sombre posé sur une photo pour que le texte blanc reste
+  /// lisible quelle que soit l'image (cartes produits de la caisse).
+  static const scrim = Color(0xCC000000);
 }
 
 /// Wrapper contextuel : `context.bs.paper` renvoie la bonne variante
@@ -49,18 +53,77 @@ class BsSurface {
 }
 
 extension BsContext on BuildContext {
-  BsSurface get bs =>
-      BsSurface(Theme.of(this).brightness == Brightness.dark);
+  BsSurface get bs => BsSurface(Theme.of(this).brightness == Brightness.dark);
 }
 
+/// Échelle d'espacement.
+///
+/// Elle ne comptait que 4/8/16/24/32/48, alors que le code utilise
+/// massivement 6, 10, 12 et 20 — 66 % des espacements tombaient donc
+/// « hors échelle ». Le défaut n'était pas dans le code : une échelle
+/// qui double à chaque cran est trop grossière pour de l'interface
+/// dense. Elle décrit maintenant ce qui est réellement utilisé, ce qui
+/// rend enfin l'écart détectable quand il y en a un.
+///
+/// Les paliers intermédiaires servent AU SEIN d'un composant (entre un
+/// libellé et sa valeur) ; les grands paliers séparent les blocs.
 class BsSpace {
   BsSpace._();
+
+  /// 2 — filet entre deux lignes d'un même bloc de texte.
+  static const double xxs = 2;
+
+  /// 4
   static const double xs = 4;
+
+  /// 6 — le plus courant : écart libellé ↔ valeur.
+  static const double xs2 = 6;
+
+  /// 8
   static const double sm = 8;
+
+  /// 10
+  static const double sm2 = 10;
+
+  /// 12 — écart entre deux éléments d'une même carte.
+  static const double smd = 12;
+
+  /// 16
   static const double md = 16;
+
+  /// 20
+  static const double md2 = 20;
+
+  /// 24
   static const double lg = 24;
+
+  /// 32
   static const double xl = 32;
+
+  /// 48
   static const double xxl = 48;
+}
+
+/// Hauteurs de contrôles.
+///
+/// Trois valeurs coexistaient pour le même objet — un bouton compact
+/// faisait 30 px dans Stock et 32 px dans Historique. Personne ne nomme
+/// ce genre d'écart, mais il se voit quand deux écrans se suivent.
+///
+/// Le seuil tactile de 44 px ne s'applique PAS ici : ce logiciel tourne
+/// au clavier et à la souris sur un PC. Il vaut pour le tableau de bord
+/// de Pamela, qui se consulte au téléphone.
+class BsControl {
+  BsControl._();
+
+  /// Bouton secondaire dans une liste dense (« Détail », « Ravitailler »).
+  static const double compact = 32;
+
+  /// Bouton standard d'un formulaire ou d'un en-tête.
+  static const double normal = 40;
+
+  /// Action principale d'un écran (« Encaisser »).
+  static const double primary = 52;
 }
 
 class BsRadius {

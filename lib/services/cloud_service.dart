@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/cloud_config.dart';
 import '../data/database.dart';
+import '../core/temps.dart';
+import '../core/horloge.dart';
 
 /// Résultat d'une opération cloud, pour retour UI clair.
 class CloudResult {
@@ -54,13 +56,14 @@ class CloudService {
   static Future<CloudResult> uploadBackup() async {
     final c = _client;
     if (c == null) return const CloudResult(false, 'Cloud non configuré');
-    if (!await isOnline) return const CloudResult(false, 'Aucune connexion internet');
+    if (!await isOnline)
+      return const CloudResult(false, 'Aucune connexion internet');
     try {
       final file = await AppDatabase.dbFile();
       if (!file.existsSync()) {
         return const CloudResult(false, 'Fichier de base introuvable');
       }
-      final ts = DateFormat('yyyyMMddHHmm').format(DateTime.now());
+      final ts = DateFormat('yyyyMMddHHmm').format(aLubumbashi(Horloge.maintenant()));
       final path = 'auto/blue_sky_$ts.db';
       await c.storage.from(CloudConfig.bucketBackups).uploadBinary(
             path,
@@ -84,14 +87,16 @@ class CloudService {
   static Future<CloudResult> restoreLatestBackup() async {
     final c = _client;
     if (c == null) return const CloudResult(false, 'Cloud non configuré');
-    if (!await isOnline) return const CloudResult(false, 'Aucune connexion internet');
+    if (!await isOnline)
+      return const CloudResult(false, 'Aucune connexion internet');
     try {
       final bytes = await c.storage
           .from(CloudConfig.bucketBackups)
           .download('latest/blue_sky.db');
       final file = await AppDatabase.dbFile();
       await file.writeAsBytes(bytes);
-      return const CloudResult(true, 'Base restaurée — redémarre l\'application');
+      return const CloudResult(
+          true, 'Base restaurée — redémarre l\'application');
     } catch (e) {
       return CloudResult(false, 'Échec : $e');
     }
@@ -102,13 +107,23 @@ class CloudService {
   /// Upload une photo produit vers le bucket "articles".
   /// Retourne l'URL publique, ou null si échec/hors-ligne.
   static Future<String?> uploadArticleImage(File localFile) async {
+    return _uploadImage(localFile, prefix: 'art');
+  }
+
+  /// Upload une photo de chambre vers le même bucket que les produits,
+  /// avec un préfixe distinctif pour repérage.
+  static Future<String?> uploadRoomImage(File localFile) async {
+    return _uploadImage(localFile, prefix: 'room');
+  }
+
+  static Future<String?> _uploadImage(File localFile,
+      {required String prefix}) async {
     final c = _client;
     if (c == null) return null;
     if (!await isOnline) return null;
     try {
       final ext = p.extension(localFile.path);
-      final name =
-          '${DateTime.now().millisecondsSinceEpoch}$ext';
+      final name = '${prefix}_${DateTime.now().millisecondsSinceEpoch}$ext';
       await c.storage.from(CloudConfig.bucketArticles).uploadBinary(
             name,
             await localFile.readAsBytes(),

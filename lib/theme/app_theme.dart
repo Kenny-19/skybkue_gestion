@@ -25,8 +25,7 @@ ThemeData _build(Brightness brightness) {
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor:
-        dark ? BsColors.papyrusDark : BsColors.papyrus,
+    scaffoldBackgroundColor: dark ? BsColors.papyrusDark : BsColors.papyrus,
     textTheme: GoogleFonts.interTextTheme(
       dark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
     ).apply(
@@ -55,18 +54,15 @@ ThemeData _build(Brightness brightness) {
       filled: true,
       fillColor: dark ? BsColors.paperDark : BsColors.paper,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      hintStyle: TextStyle(
-          color:
-              dark ? BsColors.slateSoftDark : BsColors.slateSoft),
+      hintStyle:
+          TextStyle(color: dark ? BsColors.slateSoftDark : BsColors.slateSoft),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(BsRadius.sm),
-        borderSide:
-            BorderSide(color: dark ? BsColors.lineDark : BsColors.line),
+        borderSide: BorderSide(color: dark ? BsColors.lineDark : BsColors.line),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(BsRadius.sm),
-        borderSide:
-            BorderSide(color: dark ? BsColors.lineDark : BsColors.line),
+        borderSide: BorderSide(color: dark ? BsColors.lineDark : BsColors.line),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(BsRadius.sm),
@@ -78,7 +74,8 @@ ThemeData _build(Brightness brightness) {
         backgroundColor: dark ? BsColors.sky : BsColors.ink,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(BsRadius.sm)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(BsRadius.sm)),
         textStyle: GoogleFonts.inter(
             fontWeight: FontWeight.w600, fontSize: 14, letterSpacing: 0.2),
       ),
@@ -88,7 +85,8 @@ ThemeData _build(Brightness brightness) {
         foregroundColor: dark ? Colors.white : BsColors.ink,
         side: BorderSide(color: dark ? Colors.white54 : BsColors.ink),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(BsRadius.sm)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(BsRadius.sm)),
         textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
       ),
     ),

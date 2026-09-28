@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(markitdown \"/home/kenny/Downloads/BLUE SKY Management.xlsx\")",
+      "Bash(python3 -c ' *)",
+      "Bash(pip install *)",
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter devices *)",
+      "Bash(flutter build *)",
+      "Bash(flutter create *)",
+      "Bash(dart run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://wdwhfgawuozhkeflgcvs.supabase.co/storage/v1/bucket\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkd2hmZ2F3dW96aGtlZmxnY3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NDcwNDgsImV4cCI6MjEwMjUyMzA0OH0.Bz1Wt-3h8AYsR59vPPzKTakxJvTf9BXhQ7Bei4cbAvU\")",
+      "Bash(curl -s \"https://wdwhfgawuozhkeflgcvs.supabase.co/storage/v1/bucket\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkd2hmZ2F3dW96aGtlZmxnY3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NDcwNDgsImV4cCI6MjEwMjUyMzA0OH0.Bz1Wt-3h8AYsR59vPPzKTakxJvTf9BXhQ7Bei4cbAvU\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkd2hmZ2F3dW96aGtlZmxnY3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NDcwNDgsImV4cCI6MjEwMjUyMzA0OH0.Bz1Wt-3h8AYsR59vPPzKTakxJvTf9BXhQ7Bei4cbAvU\")",
+      "Bash(flutter test *)",
+      "Bash(python3 -c \"from PIL import Image; im=Image.open\\('assets/images/logo.png'\\); print\\('taille:', im.size, 'mode:', im.mode\\)\")",
+      "Bash(grep -n \"import '../core/format\\\\|import 'package:blue_sky/core/format\\\\|NumberFormat\\\\|\\(\\\\\\\\\\\\$\\)\\\\|\\(\\\\$\\)\" /home/kenny/blue_sky_ventes/lib/services/pdf_service.dart)",
+      "Bash(grep -n \"\\\\\\\\\\\\$\\\\|dollar\\\\|USD\" /home/kenny/blue_sky_ventes/lib/services/pdf_service.dart)",
+      "Bash(grep -n \"\\\\\\\\\\\\$\\\\|/ 100\\\\|toStringAsFixed\\\\|Total\\\\|format\" /home/kenny/blue_sky_ventes/lib/services/backup_service.dart)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

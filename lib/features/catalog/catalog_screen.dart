@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/user_error.dart';
+import '../../widgets/bs_widgets.dart';
 import '../../core/article_thumb.dart';
 import '../../core/cat_ui.dart';
 import '../../core/format.dart';
@@ -22,7 +24,8 @@ class CatalogScreen extends ConsumerWidget {
 
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, st) =>
+          BsErrorView(error: handleError(e, st, context: 'catalog_screen')),
       data: (all) {
         return SingleChildScrollView(
           child: Column(
@@ -39,10 +42,11 @@ class CatalogScreen extends ConsumerWidget {
                   child: _Empty(),
                 )
               else
-                for (final cat in DbCategory.values) ...[
+                // Chambres n'apparaissent plus au catalogue produits.
+                for (final cat in DbCategory.values
+                    .where((c) => c != DbCategory.chambres)) ...[
                   Builder(builder: (_) {
-                    final rows =
-                        all.where((x) => x.category == cat).toList();
+                    final rows = all.where((x) => x.category == cat).toList();
                     if (rows.isEmpty) return const SizedBox.shrink();
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,12 +64,13 @@ class CatalogScreen extends ConsumerWidget {
                                 style: BsType.body(11, color: BsColors.slate)),
                             const SizedBox(width: 12),
                             Expanded(
-                                child: Container(height: 1, color: BsColors.line)),
+                                child:
+                                    Container(height: 1, color: BsColors.line)),
                           ]),
                         ),
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: BsSpace.xl),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: BsSpace.xl),
                           child: LayoutBuilder(builder: (ctx, c) {
                             final cross =
                                 (c.maxWidth / 260).floor().clamp(1, 5);
@@ -80,7 +85,8 @@ class CatalogScreen extends ConsumerWidget {
                                 childAspectRatio: 2.6,
                               ),
                               itemCount: rows.length,
-                              itemBuilder: (_, i) => _MenuCard(article: rows[i]),
+                              itemBuilder: (_, i) =>
+                                  _MenuCard(article: rows[i]),
                             );
                           }),
                         ),
@@ -130,7 +136,7 @@ class _MenuCard extends StatelessWidget {
                   style: BsType.body(14, w: FontWeight.w600)),
               const SizedBox(height: 4),
               Row(children: [
-                Text(moneyCents(article.priceCents),
+                Text(prixArticle(article.priceCents),
                     style: BsType.mono(15,
                         w: FontWeight.w700, color: BsColors.sky)),
                 if (out) ...[
@@ -167,7 +173,8 @@ class _Empty extends StatelessWidget {
         borderRadius: BorderRadius.circular(BsRadius.md),
       ),
       child: Column(children: [
-        const Icon(Icons.menu_book_outlined, size: 40, color: BsColors.slateSoft),
+        const Icon(Icons.menu_book_outlined,
+            size: 40, color: BsColors.slateSoft),
         const SizedBox(height: 12),
         Text('Le menu est vide', style: BsType.body(14, w: FontWeight.w600)),
         const SizedBox(height: 4),

@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m", "http.server", "8765",
+        "--directory",
+        "C:\Users\Kenny\Desktop\blue_sky_ventes\blue_sky_ventes\web_dashboard"
+      ],
+      "port": 8765
+    }
+  ]
+}

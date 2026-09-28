@@ -100,7 +100,7 @@ Tes ventes/produits apparaîtront dans **Table Editor → mirror_sales**, etc.
 ## Étape 3 — Email sur erreur (optionnel)
 
 L'app enregistre déjà les erreurs dans `error_logs`. Pour **recevoir un email**
-à `kennytshibangu9@gmail.com` à chaque erreur, il faut un fournisseur d'envoi
+à `votre-email@exemple.com` à chaque erreur, il faut un fournisseur d'envoi
 (l'app ne peut pas envoyer d'email elle-même, pour des raisons de sécurité).
 
 Le plus simple : **Resend** (gratuit jusqu'à 100 emails/jour).
@@ -121,7 +121,7 @@ serve(async (req) => {
     },
     body: JSON.stringify({
       from: "Skyblue <onboarding@resend.dev>",
-      to: "kennytshibangu9@gmail.com",
+      to: "votre-email@exemple.com",
       subject: `⚠ Erreur Skyblue — ${record.platform}`,
       text: `Contexte : ${record.context}\n`
           + `Message : ${record.message}\n`
@@ -157,3 +157,138 @@ pas cette étape 3, les erreurs restent quand même visibles dans la table
 
 L'app reste **100% fonctionnelle hors ligne** — tout ceci se synchronise
 uniquement quand il y a du réseau.
+
+---
+
+## Comptes utilisateurs — Supabase fait foi (depuis v0.4 / schéma 18)
+
+### Le modèle en trois phrases
+
+1. Les **vrais comptes nominatifs** vivent dans la table Supabase `app_users`.
+   Le hash du mot de passe **ne descend jamais** sur un poste.
+2. Chaque poste garde un **cache local** (`users`) : il alimente l'écran de
+   connexion, et conserve un hash bcrypt du mot de passe **des comptes qui se
+   sont déjà connectés sur ce poste** — c'est ce qui autorise la reconnexion
+   quand Internet est coupé.
+3. Trois **comptes de secours** sont créés à l'installation et ne quittent
+   jamais le poste :
+
+   | Identifiant | Code   | Rôle      |
+   |-------------|--------|-----------|
+   | `reception` | `0000` | Réception |
+   | `serveuse`  | `2000` | Serveur   |
+   | `admin`     | `7000` | Admin     |
+
+   ⚠️ **Ces codes sont publics** (ils sont dans le code source et connus de
+   toute l'équipe). Ils servent à ouvrir l'application le jour de
+   l'installation et à dépanner quand le serveur est injoignable. Aucun n'est
+   super admin : l'administration réelle passe par un compte Supabase.
+   Change-les depuis Réglages → Mot de passe sur chaque poste en production.
+
+### Ce que la sécurité repose vraiment sur
+
+La clé `anon` **n'est pas un secret** : elle est extractible du binaire livré.
+La protection vient de la RLS et des fonctions `SECURITY DEFINER` :
+
+* `app_users` n'est lisible par personne avec la clé anon — les hashs restent
+  sur le serveur ;
+* la liste des comptes passe par la vue `app_users_public` (sans hash) ;
+* `bs_verify_login()` compare le mot de passe côté serveur, avec un
+  rate-limit de 5 échecs par 5 minutes et par identifiant ;
+* **créer, renommer, désactiver ou supprimer un compte exige les identifiants
+  d'un admin**, revérifiés dans la fonction. Posséder la clé anon ne suffit
+  pas.
+
+### Installation
+
+1. Exécuter `sql/2026_09_comptes_supabase.sql` dans Supabase → SQL Editor.
+2. **Modifier le mot de passe du super admin d'amorçage** en bas du fichier
+   *avant* de l'exécuter (section 9).
+3. Créer les comptes de l'équipe depuis l'app (écran Comptes), connecté avec
+   ce super admin.
+
+### Les clés ne sont plus dans le code
+
+Elles sont injectées au build :
+
+```
+flutter build windows --release ^
+  --dart-define=SUPABASE_URL=https://xxxx.supabase.co ^
+  --dart-define=SUPABASE_ANON_KEY=eyJhbGciOi...
+```
+
+`installer/release.ps1` le fait automatiquement en lisant
+`installer/supabase.env` (copie de `supabase.env.example`, ignoré par git).
+Sans ce fichier, le build produit une application 100 % locale : seuls les
+comptes de secours fonctionnent, et l'app le signale au démarrage.
+
+### Ce qui a changé pour l'exploitation
+
+* `mirror_users` n'est plus utilisée. Les comptes ne transitent plus par le
+  miroir — c'est ce qui expliquait qu'un compte créé sur un poste **ne
+  pouvait pas se connecter sur un autre** (il n'y recevait qu'un hash
+  temporaire aléatoire).
+* Un compte supprimé sur Supabase disparaît de tous les postes à la
+  prochaine synchronisation (bouton *Synchroniser* de l'écran Comptes).
+* Dans l'écran Comptes, une pastille **« jamais connecté ici »** indique un
+  compte qui ne pourra pas ouvrir l'application hors ligne sur ce poste tant
+  qu'il ne s'y sera pas connecté une fois avec Internet.
+
+### Reprise des comptes existants (une seule fois)
+
+Les comptes qui existaient avant la bascule sont dans la base SQLite de
+chaque poste. Leur mot de passe y est haché en bcrypt `$2a$` — le format
+exact que `crypt()` sait vérifier côté Postgres. On **recopie donc le hash
+tel quel** : personne ne change de mot de passe, et aucun mot de passe en
+clair ne transite.
+
+Procédure, à faire **une fois**, depuis le poste dont la liste de comptes
+fait référence :
+
+1. Exécuter `sql/2026_09_reprise_comptes.sql` dans Supabase → SQL Editor.
+2. Générer un jeton (valable 60 min) :
+
+   ```sql
+   select public.bs_new_import_token();
+   ```
+
+   Un super admin déjà présent sur le serveur peut sauter cette étape :
+   sa session suffit à autoriser la reprise.
+3. Dans l'app, connecté en super admin : écran **Comptes** → **Reprise vers
+   le serveur**. Coller le jeton, vérifier la liste, lancer.
+4. Lire le rapport ligne par ligne, puis contrôler côté serveur :
+
+   ```sql
+   select login, role, active, left(password_hash, 4) as prefixe
+   from   public.app_users order by role, login;
+
+   select public.bs_verify_login('sabrina', 'son-mot-de-passe');
+   -- attendu : {"status":"ok", ...}
+   ```
+
+5. Sur les **autres postes**, il n'y a rien à reprendre : bouton
+   **Synchroniser** de l'écran Comptes, et chaque employé se reconnecte une
+   fois avec Internet pour retrouver son accès hors-ligne local.
+
+Ce qui n'est jamais repris, et pourquoi :
+
+| Cas | Raison |
+|-----|--------|
+| `reception` / `serveuse` / `admin` **créés par l'installeur** | comptes de secours, local par définition |
+| Compte sans mot de passe utilisable ici | rien à reprendre (jamais connecté sur ce poste) |
+| Login déjà présent sur le serveur | jamais écrasé — relancer la reprise est sans danger |
+
+Sur une installation **existante**, un compte `admin` déjà en service n'est
+pas considéré comme un compte de secours : il garde son mot de passe et
+fait partie de la reprise. Les comptes de secours manquants (`reception`,
+`serveuse`) sont créés à côté.
+
+Le bouton « Reprise vers le serveur » disparaît de lui-même quand plus
+aucun compte local n'attend d'être repris.
+
+Après validation sur tous les postes, nettoyer :
+
+```sql
+delete from public.app_import_tokens;
+-- drop table if exists public.mirror_users;
+```

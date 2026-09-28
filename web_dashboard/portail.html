@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skyblue — Portail technique</title>
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* La charte de la maison, reprise telle quelle depuis le tableau
+         de bord : teal profond sur crème, Fraunces en titres, Inter en
+         texte, JetBrains Mono pour les chiffres.
+
+         Ce portail avait d'abord sa propre palette — bleu et gris froid.
+         Deux pages du même outil qui ne se ressemblent pas donnent
+         l'impression de deux outils, et on doute de savoir où on est. */
+      :root {
+        --ink: #0e3a47;
+        --sky: #2e7fa1;
+        --sunrise: #d97e2b;
+        --success: #2e8b57;
+        --warning: #b8860b;
+        --danger: #b93b33;
+        --slate: #55606d;
+        --slate-soft: #8b939c;
+        --line: #e0d8c9;
+        --paper: #ffffff;
+        --ground: #f3eee6;
+        --radius: 14px;
+      }
+      * { box-sizing: border-box; }
+      html, body { overflow-x: hidden; max-width: 100vw; }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font: 15px/1.6 'Inter', system-ui, -apple-system, sans-serif;
+      }
+      /* Les chiffres s'alignent en colonne : on compare des montants et
+         des décomptes, pas du texte. */
+      .num, .valeur, td.num, th.num, table {
+        font-variant-numeric: tabular-nums;
+      }
+
+      header {
+        background: var(--ink);
+        color: #fff;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      header h1 {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 20px;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: 0.01em;
+      }
+      header .eyebrow {
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--sunrise);
+        font-weight: 600;
+      }
+      header .spacer { flex: 1; }
+
+      main { padding: 24px; max-width: 1180px; margin: 0 auto; }
+
+      .carte {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 18px;
+      }
+      .carte > h2 {
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--slate);
+        font-weight: 600;
+        margin: 0 0 14px;
+      }
+
+      table { width: 100%; border-collapse: collapse; }
+      th, td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      tr:last-child td { border-bottom: none; }
+      th {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--slate-soft);
+        font-weight: 600;
+      }
+      td.num, th.num { text-align: right; }
+      /* Un tableau large défile dans sa propre boîte. La page, elle, ne
+         part jamais en travers. */
+      .defile { overflow-x: auto; }
+
+      .pastille {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .vert   { background: #e7f2ec; color: var(--success); }
+      .ambre  { background: #faf0dc; color: var(--warning); }
+      .rouge  { background: #f8e8e7; color: var(--danger); }
+      .gris   { background: #f0ece4; color: var(--slate); }
+
+      .tuiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .tuile {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+      }
+      .tuile .libelle {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--slate-soft);
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .tuile .valeur {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      button {
+        font: inherit;
+        font-size: 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        background: transparent;
+        color: #fff;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+      button:disabled { opacity: 0.45; cursor: default; }
+      button.primaire {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+        font-weight: 600;
+        padding: 13px 18px;
+        border-radius: 10px;
+      }
+      button.primaire:hover:not(:disabled) { background: #134a5b; }
+
+      input {
+        font: inherit;
+        padding: 11px 13px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        width: 100%;
+        background: var(--paper);
+        color: var(--ink);
+      }
+      input:focus {
+        outline: 2px solid var(--sky);
+        outline-offset: -1px;
+        border-color: var(--sky);
+      }
+
+      #ecran-login {
+        max-width: 420px;
+        margin: 9vh auto;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 36px 34px;
+        box-shadow: 0 18px 50px rgba(14, 58, 71, 0.10);
+      }
+      #ecran-login .eyebrow {
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--sunrise);
+        font-weight: 600;
+      }
+      #ecran-login h1 {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 30px;
+        font-weight: 700;
+        margin: 8px 0 6px;
+      }
+      #ecran-login p { color: var(--slate); margin: 0 0 20px; font-size: 14px; }
+      #ecran-login label {
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--slate-soft);
+        font-weight: 600;
+        margin: 16px 0 6px;
+      }
+
+      .erreur { color: var(--danger); font-size: 14px; margin-top: 14px; font-weight: 500; }
+      .discret { color: var(--slate); font-size: 12.5px; }
+      .vide { color: var(--slate-soft); font-style: italic; padding: 12px; }
+      .cache { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="ecran-login">
+      <p class="eyebrow">Sky Blue</p>
+      <h1>Portail technique</h1>
+      <p>Réservé au super admin. Les identifiants sont vérifiés par le
+         serveur — rien n'est comparé dans ce navigateur.</p>
+      <label for="login">Identifiant</label>
+      <input id="login" autocomplete="username" autofocus />
+      <label for="mdp">Mot de passe</label>
+      <input id="mdp" type="password" autocomplete="current-password" />
+      <div style="margin-top: 18px">
+        <button class="primaire" id="btn-entrer" style="width: 100%">
+          Ouvrir le portail
+        </button>
+      </div>
+      <div id="login-erreur" class="erreur cache"></div>
+      <p class="discret" style="margin-top: 18px">
+        La session tient douze heures, par un jeton délivré par le
+        serveur. Ton mot de passe n'est pas conservé dans ce navigateur.
+      </p>
+      <p class="discret" style="margin-top: 14px; text-align: center">
+        <a href="index.html" style="color: inherit">← Tableau de bord</a>
+      </p>
+    </div>
+
+    <div id="ecran-portail" class="cache">
+      <header>
+        <div>
+          <div class="eyebrow">Skyblue</div>
+          <h1>Portail technique</h1>
+        </div>
+        <div class="spacer"></div>
+        <span id="horodatage" class="discret" style="color: #9fb3c8"></span>
+        <button id="btn-copier">Copier le diagnostic</button>
+        <button id="btn-rafraichir">Rafraîchir</button>
+        <button id="btn-sortir">Quitter</button>
+        <a
+          href="index.html"
+          style="color: #9fb3c8; text-decoration: none; font-size: 13px"
+          >Tableau de bord</a
+        >
+      </header>
+      <main>
+        <div class="tuiles" id="tuiles"></div>
+
+        <div class="carte">
+          <h2>Postes</h2>
+          <div class="defile"><table id="t-postes"></table></div>
+        </div>
+
+        <div class="carte">
+          <h2>Erreurs des 7 derniers jours</h2>
+          <div class="defile"><table id="t-erreurs"></table></div>
+        </div>
+
+        <div class="carte">
+          <h2>Stock au seuil</h2>
+          <div class="defile"><table id="t-stock"></table></div>
+        </div>
+
+        <div class="carte">
+          <h2>Chambres</h2>
+          <div class="defile"><table id="t-chambres"></table></div>
+        </div>
+
+        <div class="carte">
+          <h2>Comptes</h2>
+          <div class="defile"><table id="t-comptes"></table></div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+    <script src="config.js"></script>
+    <script src="portail.js"></script>
+  </body>
+</html>

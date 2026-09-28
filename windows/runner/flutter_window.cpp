@@ -27,6 +27,10 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // À la première frame Flutter, on montre la fenêtre. Win32Window::Show()
+  // force les styles WS_OVERLAPPEDWINDOW → barre de titre + boutons
+  // Windows garantis, même si une session précédente avait un état
+  // borderless / plein écran persistant.
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });

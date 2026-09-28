@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'cloud_service.dart';
+import '../core/temps.dart';
 
 /// Sauvegarde cloud automatique une fois par jour, à 00:00.
 ///
@@ -70,7 +71,10 @@ class AutoBackup {
   static void _scheduleMidnight() {
     _timer?.cancel();
     final now = DateTime.now();
-    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    // Minuit à Lubumbashi : la sauvegarde doit tomber à la clôture
+    // de la journée commerciale, pas à celle de l'horloge du poste.
+    final nextMidnight =
+        debutDeJourneeLubumbashi(now).add(const Duration(days: 1));
     final delay = nextMidnight.difference(now);
     _timer = Timer(delay, () async {
       await _run();

@@ -286,7 +286,8 @@ class PdfService {
   static String _money(int cents) => moneyCents(cents);
 
   /// Horodatage compact pour le nom des fichiers générés : YYYYMMDDHHmm.
-  static String _stamp() => DateFormat('yyyyMMddHHmm').format(aLubumbashi(Horloge.maintenant()));
+  static String _stamp() =>
+      DateFormat('yyyyMMddHHmm').format(aLubumbashi(Horloge.maintenant()));
 
   // Thème PDF — Inter (même famille que l'UI) pour un rendu cohérent
   // entre l'écran et le papier. Chargé une seule fois.
@@ -656,7 +657,8 @@ class PdfService {
         ),
         pw.Center(
           child: pw.Text(
-              DateFormat("dd/MM/yyyy HH:mm:ss", 'fr_FR').format(aLubumbashi(soldAt)),
+              DateFormat("dd/MM/yyyy HH:mm:ss", 'fr_FR')
+                  .format(aLubumbashi(soldAt)),
               style: const pw.TextStyle(fontSize: 7)),
         ),
         // ── Note client (optionnelle) ──
@@ -1001,10 +1003,12 @@ class PdfService {
             _td(r.currentGuest ?? '—'),
             _td(r.checkinAt == null
                 ? '—'
-                : DateFormat('d MMM · HH:mm', 'fr_FR').format(aLubumbashi(r.checkinAt!))),
+                : DateFormat('d MMM · HH:mm', 'fr_FR')
+                    .format(aLubumbashi(r.checkinAt!))),
             _td(r.checkoutDate == null
                 ? '—'
-                : DateFormat('d MMM', 'fr_FR').format(aLubumbashi(r.checkoutDate!))),
+                : DateFormat('d MMM', 'fr_FR')
+                    .format(aLubumbashi(r.checkoutDate!))),
             _td(r.checkinNote ?? ''),
           ]),
       ],
@@ -1100,8 +1104,7 @@ class PdfService {
       List<SaleWithLines> sales) {
     final map = <DateTime, List<SaleWithLines>>{};
     for (final s in sales) {
-      final d =
-          debutDeJourneeLubumbashi(s.sale.soldAt);
+      final d = debutDeJourneeLubumbashi(s.sale.soldAt);
       map.putIfAbsent(d, () => []).add(s);
     }
     final sorted = map.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -1241,7 +1244,8 @@ class PdfService {
         ),
         for (final e in byDay.entries)
           pw.TableRow(children: [
-            _td(DateFormat("EEEE d MMMM y", 'fr_FR').format(aLubumbashi(e.key))),
+            _td(DateFormat("EEEE d MMMM y", 'fr_FR')
+                .format(aLubumbashi(e.key))),
             _td('${e.value.length}', align: pw.TextAlign.right),
             _td(_money(e.value.fold<int>(0, (s, x) => s + x.totalCents)),
                 align: pw.TextAlign.right, bold: true),
@@ -1361,12 +1365,15 @@ class PdfService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  _refRow('Émise le :', dfmt.format(aLubumbashi(d.generatedAt))),
+                  _refRow(
+                      'Émise le :', dfmt.format(aLubumbashi(d.generatedAt))),
                   _refRow('N° Réservation :', d.reservationNumber),
                   pw.SizedBox(height: 8),
-                  _dashedBox('Arrivée', dfmtLong.format(aLubumbashi(d.checkinDate))),
+                  _dashedBox(
+                      'Arrivée', dfmtLong.format(aLubumbashi(d.checkinDate))),
                   pw.SizedBox(height: 4),
-                  _dashedBox('Départ', dfmtLong.format(aLubumbashi(d.checkoutDate))),
+                  _dashedBox(
+                      'Départ', dfmtLong.format(aLubumbashi(d.checkoutDate))),
                   pw.SizedBox(height: 4),
                   _dashedBox('Nuits', '${d.nights}'),
                 ],
@@ -1419,7 +1426,8 @@ class PdfService {
                     r.aUnPrixEnDollars
                         ? '${moneyUsdCourt(r.priceUsdCents * d.nights)}\n${_money(r.pricePerNightCents * d.nights)}'
                         : _money(r.pricePerNightCents * d.nights),
-                    align: pw.TextAlign.right, bold: true),
+                    align: pw.TextAlign.right,
+                    bold: true),
               ]),
           ],
         ),
@@ -1806,7 +1814,8 @@ class PdfService {
                     r.aUnPrixEnDollars
                         ? '${moneyUsdCourt(r.priceUsdCents * r.nights)}\n${_money(r.accommodationCents)}'
                         : _money(r.accommodationCents),
-                    align: pw.TextAlign.right, bold: true),
+                    align: pw.TextAlign.right,
+                    bold: true),
               ]),
           ],
         ),
@@ -1898,8 +1907,8 @@ class PdfService {
               // Les deux acomptes gardent leur devise de versement :
               // ce sont des billets reçus, pas des conversions.
               if (d.acompteUsdCents > 0)
-                _totalsLine('Acompte reçu (USD)',
-                    moneyUsdCourt(d.acompteUsdCents),
+                _totalsLine(
+                    'Acompte reçu (USD)', moneyUsdCourt(d.acompteUsdCents),
                     bg: PdfColors.grey200),
               if (d.acompteFcCents > 0)
                 _totalsLine('Acompte reçu (FC)',
@@ -1959,8 +1968,8 @@ class PdfService {
       padding: pw.EdgeInsets.symmetric(horizontal: 8, vertical: big ? 8 : 5),
       decoration: pw.BoxDecoration(
         color: bg,
-        border:
-            pw.Border(top: pw.BorderSide(color: PdfColors.grey400, width: 0.4)),
+        border: const pw.Border(
+            top: pw.BorderSide(color: PdfColors.grey400, width: 0.4)),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,

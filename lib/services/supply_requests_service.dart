@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/cloud_config.dart';
 import '../data/schema.dart';
+import 'supabase_pages.dart';
 
 /// Représentation d'une demande de ravitaillement (cloud).
 class SupplyRequest {
@@ -121,15 +122,13 @@ class SupplyRequestsService {
           .subtract(Duration(days: days))
           .toUtc()
           .toIso8601String();
-      final data = await c
+      final data = await toutesLesPages(() => c
           .from('supply_requests')
           .select()
           .gte('requested_at', since)
-          .order('requested_at', ascending: false);
-      return (data as List)
-          .cast<Map<String, dynamic>>()
-          .map(SupplyRequest.fromJson)
-          .toList();
+          .order('requested_at', ascending: false)
+          .order('id', ascending: false));
+      return data.map(SupplyRequest.fromJson).toList();
     } catch (_) {
       return const [];
     }
@@ -147,16 +146,14 @@ class SupplyRequestsService {
           .subtract(Duration(days: days))
           .toUtc()
           .toIso8601String();
-      final data = await c
+      final data = await toutesLesPages(() => c
           .from('supply_requests')
           .select()
           .eq('requested_by_login', login)
           .gte('requested_at', since)
-          .order('requested_at', ascending: false);
-      return (data as List)
-          .cast<Map<String, dynamic>>()
-          .map(SupplyRequest.fromJson)
-          .toList();
+          .order('requested_at', ascending: false)
+          .order('id', ascending: false));
+      return data.map(SupplyRequest.fromJson).toList();
     } catch (_) {
       return const [];
     }

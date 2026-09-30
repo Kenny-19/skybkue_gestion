@@ -259,8 +259,9 @@ class UsersScreen extends ConsumerWidget {
     } on AccountException catch (e) {
       if (ctx.mounted) _snack(ctx, e.message, ok: false);
     } catch (e) {
-      if (ctx.mounted)
+      if (ctx.mounted) {
         _snack(ctx, 'Échec de la synchronisation : $e', ok: false);
+      }
     }
   }
 
@@ -486,8 +487,9 @@ class UsersScreen extends ConsumerWidget {
                                       password: pwd.text,
                                       role: role,
                                     );
-                                if (context.mounted)
+                                if (context.mounted) {
                                   Navigator.of(context).pop();
+                                }
                               } on AccountException catch (e) {
                                 setSt(() {
                                   busy = false;
@@ -643,40 +645,55 @@ class _UserRow extends StatelessWidget {
                       w: FontWeight.w700, color: user.role.color)),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Text(user.fullName,
-                      style: BsType.body(13, w: FontWeight.w600)),
-                  if (isMe) ...[
-                    const SizedBox(width: 6),
-                    _tag('vous', BsColors.sunrise),
-                  ],
-                  // D'où vient ce compte, et peut-il se connecter sans
-                  // Internet ? C'est la première question qu'on se pose
-                  // quand quelqu'un « n'arrive pas à se connecter ».
-                  if (user.isLocalDefault) ...[
-                    const SizedBox(width: 6),
-                    _tag('secours · local', BsColors.slate),
-                  ] else if (!isUsableHash(user.passwordHash)) ...[
-                    const SizedBox(width: 6),
-                    _tag('jamais connecté ici', BsColors.danger),
-                  ],
-                ]),
-                Text(
-                    user.isLocalDefault
-                        ? 'Compte de secours — ne quitte pas ce poste'
-                        : 'Créé le ${DateFormat("d MMM y", 'fr_FR').format(aLubumbashi(user.createdAt))}'
-                            '${user.syncedAt == null ? "" : " · synchronisé ${_relative(user.syncedAt!)}"}',
-                    style: BsType.body(11, color: BsColors.slate)),
-              ],
-            ),
+            // Expanded + ellipses : sans ça, un nom long comme « Serveuse
+            // (compte de secours) » plus sa pastille débordait sur la
+            // colonne Identifiant.
+            Expanded(
+                child: Padding(
+              padding: const EdgeInsets.only(right: BsSpace.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text(user.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: BsType.body(13, w: FontWeight.w600)),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 6),
+                      _tag('vous', BsColors.sunrise),
+                    ],
+                    // D'où vient ce compte, et peut-il se connecter sans
+                    // Internet ? C'est la première question qu'on se pose
+                    // quand quelqu'un « n'arrive pas à se connecter ».
+                    if (user.isLocalDefault) ...[
+                      const SizedBox(width: 6),
+                      _tag('secours · local', BsColors.slate),
+                    ] else if (!isUsableHash(user.passwordHash)) ...[
+                      const SizedBox(width: 6),
+                      _tag('jamais connecté ici', BsColors.danger),
+                    ],
+                  ]),
+                  Text(
+                      user.isLocalDefault
+                          ? 'Compte de secours — ne quitte pas ce poste'
+                          : 'Créé le ${DateFormat("d MMM y", 'fr_FR').format(aLubumbashi(user.createdAt))}'
+                              '${user.syncedAt == null ? "" : " · synchronisé ${_relative(user.syncedAt!)}"}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: BsType.body(11, color: BsColors.slate)),
+                ],
+              ),
+            )),
           ]),
         ),
         Expanded(
           flex: 2,
           child: Text('@${user.login}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: BsType.mono(12, color: BsColors.slate)),
         ),
         Expanded(

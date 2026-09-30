@@ -291,6 +291,41 @@ function updateTodayLabel() {
 
 document.getElementById('refresh-btn').addEventListener('click', refreshDashboard);
 
+// ── Pagination ─────────────────────────────────────────────────────────
+//
+// Supabase ne renvoie jamais plus de 1000 lignes par requête (max_rows),
+// et le fait SANS erreur. Toute lecture qui peut dépasser ce chiffre
+// passe donc par ici. La même règle existe côté application Windows
+// (lib/services/supabase_pages.dart).
+const TAILLE_PAGE = 1000;
+
+/**
+ * Lit toutes les pages d'une requête. `fabrique` doit reconstruire la
+ * requête à chaque appel et la trier sur une colonne unique, sinon deux
+ * pages peuvent se chevaucher. Renvoie { data, error } comme supabase-js.
+ */
+async function toutesLesPages(fabrique) {
+  const tout = [];
+  for (let debut = 0; ; debut += TAILLE_PAGE) {
+    const { data, error } = await fabrique().range(debut, debut + TAILLE_PAGE - 1);
+    if (error) return { data: null, error };
+    const lot = data || [];
+    tout.push(...lot);
+    if (lot.length < TAILLE_PAGE) return { data: tout, error: null };
+  }
+}
+
+/** Même chose pour un filtre `in` sur une longue liste d'ids. */
+async function toutesLesPagesParIds(ids, fabrique, taillePaquet = 100) {
+  const tout = [];
+  for (let i = 0; i < ids.length; i += taillePaquet) {
+    const res = await toutesLesPages(() => fabrique(ids.slice(i, i + taillePaquet)));
+    if (res.error) return res;
+    tout.push(...res.data);
+  }
+  return { data: tout, error: null };
+}
+
 // ── Fetch + agrégations ────────────────────────────────────────────────
 async function fetchPeriod() {
   // days=0 → aujourd'hui à partir de minuit local.
@@ -309,27 +344,48 @@ async function fetchPeriod() {
   const debutPrecedent = new Date(debut);
   debutPrecedent.setDate(debutPrecedent.getDate() - dureeJours);
   const depuisIsoAvecPrecedent = debutPrecedent.toISOString();
-  const [salesRes, linesRes, articlesRes, usersRes, staysRes] =
-      await Promise.all([
-    supa.from('mirror_sales').select('*').gte('sold_at', depuisIsoAvecPrecedent).order('sold_at', { ascending: false }),
-    supa.from('mirror_sale_lines').select('*'),
+  // Tout est paginé (cf. toutesLesPages). Les lignes d'articles étaient
+  // lues d'un bloc, TOUTE la table : 1000 lignes reçues sur 2792, et les
+  // ventes récentes arrivaient sans leurs articles.
+  const [salesRes, articlesRes, usersRes, staysRes] = await Promise.all([
+    toutesLesPages(() => supa
+        .from('mirror_sales')
+        .select('*')
+        .gte('sold_at', depuisIsoAvecPrecedent)
+        .order('sold_at', { ascending: false })
+        .order('id', { ascending: false })),
     // Sélection étendue : les colonnes stock sont nécessaires pour
     // afficher la carte "Stock à ravitailler".
-    supa
+    toutesLesPages(() => supa
         .from('mirror_articles')
         .select(
-            'id, name, category, track_stock, stock_qty, threshold, unit, active'),
-    supa.from('mirror_users').select('id, full_name'),
+            'id, name, category, track_stock, stock_qty, threshold, unit, active')
+        .order('id')),
+    toutesLesPages(() => supa
+        .from('mirror_users')
+        .select('id, full_name')
+        .order('id')),
     // Séjours facturés : le chiffre d'affaires hôtel, invisible
     // jusqu'ici faute d'être miroité.
-    supa
+    toutesLesPages(() => supa
         .from('mirror_stays')
         .select(
             'id, checkout_at, guest_full_name, subtotal_cents, remise_cents, payer_name')
         .gte('checkout_at', depuisIsoAvecPrecedent)
-        .order('checkout_at', { ascending: false }),
+        .order('checkout_at', { ascending: false })
+        .order('id', { ascending: false })),
   ]);
   if (salesRes.error) throw new Error(salesRes.error.message);
+
+  // Seulement les lignes des ventes de la période (et de la précédente),
+  // plus toute la table à chaque rafraîchissement.
+  const linesRes = await toutesLesPagesParIds(
+      (salesRes.data || []).map((s) => s.id),
+      (paquet) => supa
+          .from('mirror_sale_lines')
+          .select('*')
+          .in('sale_id', paquet)
+          .order('id'));
   if (linesRes.error) throw new Error(linesRes.error.message);
 
   const allLines = linesRes.data || [];
@@ -1049,10 +1105,10 @@ const ROOM_STATUS_COLOR = {
 };
 
 async function refreshRooms() {
-  const { data, error } = await supa
+  const { data, error } = await toutesLesPages(() => supa
     .from('mirror_rooms')
     .select('*')
-    .order('number', { ascending: true });
+    .order('number', { ascending: true }));
   if (error) throw error;
   const rooms = data || [];
   majTauxDepuisChambres(rooms);
@@ -1168,11 +1224,12 @@ const SUPPLY_LOC_ICON = {
 };
 
 async function refreshSupplyRequests() {
-  const { data, error } = await supa
+  const { data, error } = await toutesLesPages(() => supa
     .from('supply_requests')
     .select('*')
     .eq('status', 'pending')
-    .order('requested_at', { ascending: false });
+    .order('requested_at', { ascending: false })
+    .order('id', { ascending: false }));
   if (error) throw error;
 
   const list = (data || []).map((r) => ({

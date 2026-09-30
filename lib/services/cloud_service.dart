@@ -56,14 +56,16 @@ class CloudService {
   static Future<CloudResult> uploadBackup() async {
     final c = _client;
     if (c == null) return const CloudResult(false, 'Cloud non configuré');
-    if (!await isOnline)
+    if (!await isOnline) {
       return const CloudResult(false, 'Aucune connexion internet');
+    }
     try {
       final file = await AppDatabase.dbFile();
       if (!file.existsSync()) {
         return const CloudResult(false, 'Fichier de base introuvable');
       }
-      final ts = DateFormat('yyyyMMddHHmm').format(aLubumbashi(Horloge.maintenant()));
+      final ts =
+          DateFormat('yyyyMMddHHmm').format(aLubumbashi(Horloge.maintenant()));
       final path = 'auto/blue_sky_$ts.db';
       await c.storage.from(CloudConfig.bucketBackups).uploadBinary(
             path,
@@ -87,8 +89,9 @@ class CloudService {
   static Future<CloudResult> restoreLatestBackup() async {
     final c = _client;
     if (c == null) return const CloudResult(false, 'Cloud non configuré');
-    if (!await isOnline)
+    if (!await isOnline) {
       return const CloudResult(false, 'Aucune connexion internet');
+    }
     try {
       final bytes = await c.storage
           .from(CloudConfig.bucketBackups)

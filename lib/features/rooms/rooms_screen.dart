@@ -1083,7 +1083,7 @@ class RoomsScreen extends ConsumerWidget {
                                 onChanged: (_) => setSt(() {}),
                                 decoration: InputDecoration(
                                   hintText: '0',
-                                  prefixText: String.fromCharCode(36) + ' ',
+                                  prefixText: '${String.fromCharCode(36)} ',
                                   isDense: true,
                                   helperText: _usdEnCents(remiseAmount.text) >
                                           0
@@ -1358,8 +1358,9 @@ class RoomsScreen extends ConsumerWidget {
                                       payerId: payer?.id,
                                       negotiatedPriceCents: negotiated,
                                     );
-                                if (context.mounted)
+                                if (context.mounted) {
                                   Navigator.of(context).pop();
+                                }
                               },
                         child: const Text('Enregistrer'),
                       ),

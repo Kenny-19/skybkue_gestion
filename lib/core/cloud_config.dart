@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+
 /// Configuration Supabase — comptes, miroir multi-postes, sauvegardes,
 /// photos produits.
 ///
@@ -28,17 +32,70 @@
 ///
 /// N'utilise JAMAIS la clé `service_role` ici : elle contourne la RLS.
 ///
-/// Tant que ces valeurs restent vides, l'app fonctionne 100 % en local :
-/// le cloud est simplement désactivé (aucun crash, aucun upload), et
-/// seuls les comptes de secours permettent de se connecter.
+/// ── Plus de build « 100 % local » par accident ─────────────────────────
+///
+/// Un `flutter run` tapé au terminal n'a pas les `--dart-define` : l'app
+/// démarrait sans cloud, avec la bannière rouge et les seuls comptes de
+/// secours. En DEBUG, on va donc chercher les clés dans
+/// `installer/supabase.env` quand le build ne les porte pas. Jamais en
+/// release (le fichier n'est pas livré, et `release.ps1` refuse de
+/// compiler sans clés), jamais sous `flutter test` (les tests ne doivent
+/// pas parler au vrai Supabase).
 class CloudConfig {
   CloudConfig._();
 
-  static const String supabaseUrl =
+  static const String _urlBuild =
       String.fromEnvironment('SUPABASE_URL', defaultValue: '');
 
-  static const String supabaseAnonKey =
+  static const String _anonKeyBuild =
       String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+
+  static String get supabaseUrl => _urlBuild.isNotEmpty
+      ? _urlBuild
+      : (_depuisEnvLocal['SUPABASE_URL'] ?? '');
+
+  static String get supabaseAnonKey => _anonKeyBuild.isNotEmpty
+      ? _anonKeyBuild
+      : (_depuisEnvLocal['SUPABASE_ANON_KEY'] ?? '');
+
+  /// Clés lues une fois dans `installer/supabase.env`, en debug seulement.
+  static final Map<String, String> _depuisEnvLocal = _lireEnvLocal();
+
+  static Map<String, String> _lireEnvLocal() {
+    if (!kDebugMode || kIsWeb) return const {};
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) return const {};
+      // Le dossier courant n'est pas forcément le projet : selon la façon
+      // dont l'app est lancée, c'est celui de l'exécutable
+      // (build\windows\x64\runner\Debug). On remonte depuis les deux.
+      File? f;
+      for (final depart in [
+        Directory.current,
+        File(Platform.resolvedExecutable).parent,
+      ]) {
+        var d = depart;
+        for (var i = 0; i < 7 && f == null; i++) {
+          final essai = File('${d.path}${Platform.pathSeparator}installer'
+              '${Platform.pathSeparator}supabase.env');
+          if (essai.existsSync()) f = essai;
+          d = d.parent;
+        }
+        if (f != null) break;
+      }
+      if (f == null) return const {};
+      final cles = <String, String>{};
+      for (final ligne in f.readAsLinesSync()) {
+        final t = ligne.trim();
+        if (t.isEmpty || t.startsWith('#')) continue;
+        final i = t.indexOf('=');
+        if (i < 1) continue;
+        cles[t.substring(0, i).trim()] = t.substring(i + 1).trim();
+      }
+      return cles;
+    } catch (_) {
+      return const {};
+    }
+  }
 
   /// Noms des buckets Storage à créer dans le dashboard Supabase.
   static const String bucketBackups = 'backups';

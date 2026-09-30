@@ -273,7 +273,7 @@ class _PayerPickerSectionState extends ConsumerState<PayerPickerSection> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                      'Facturation à : ${_selected!.name}${_selected!.taxId != null && _selected!.taxId!.isNotEmpty ? " · " + _selected!.taxId! : ""}',
+                      'Facturation à : ${_selected!.name}${_selected!.taxId != null && _selected!.taxId!.isNotEmpty ? " · ${_selected!.taxId!}" : ""}',
                       style: BsType.body(11,
                           w: FontWeight.w700, color: BsColors.sky)),
                 ),

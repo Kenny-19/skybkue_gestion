@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/cloud_config.dart';
 import 'error_reporter.dart';
+import 'supabase_pages.dart';
 
 // Accès aux comptes utilisateurs — Supabase est la SOURCE DE VÉRITÉ.
 //
@@ -173,14 +174,19 @@ class AccountsService {
   static Future<List<RemoteAccount>> listAccounts() async {
     final c = _requireClient();
     try {
-      final rows = await c
-          .from('app_users_public')
-          .select()
-          .order('full_name')
-          .timeout(timeout);
+      // Paginé : `syncFromCloud` retire du poste tout compte absent de
+      // cette liste. Tronquée, elle ferait disparaître des comptes.
+      // Tri par nom puis login : le login est unique, l'ordre est stable
+      // d'une page à l'autre.
+      final rows = await toutesLesPages(
+          () => c
+              .from('app_users_public')
+              .select()
+              .order('full_name', ascending: true)
+              .order('login', ascending: true),
+          delaiParPage: timeout);
       return [
-        for (final r in (rows as List))
-          RemoteAccount.fromJson(Map<String, dynamic>.from(r as Map)),
+        for (final r in rows) RemoteAccount.fromJson(r),
       ];
     } catch (e, st) {
       throw _translate(e, st, 'listAccounts');

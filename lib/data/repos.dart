@@ -116,6 +116,12 @@ class UsersRepo {
   /// l'appelant affiche l'erreur, le cache reste inchangé.
   Future<int> syncFromCloud() async {
     final remote = await AccountsService.listAccounts();
+    // Une liste VIDE ne veut pas dire « tout le monde est parti » : c'est
+    // presque toujours une réponse filtrée ou un serveur à moitié en
+    // place. La prendre au mot effacerait tous les comptes du poste, avec
+    // leur accès hors ligne. Maintenant que cette synchro tourne seule au
+    // démarrage, on ne peut plus compter sur quelqu'un pour le remarquer.
+    if (remote.isEmpty) return 0;
     final local = await _db.select(_db.users).get();
     final byLogin = {for (final u in local) u.login.toLowerCase(): u};
     final remoteLogins = <String>{};
@@ -1377,7 +1383,8 @@ class SalesRepo {
       await (_db.update(_db.sales)..where((s) => s.id.equals(saleId))).write(
         SalesCompanion(
           // Soldée seulement si plus rien n'est dû.
-          settledAt: reste <= 0 ? Value(Horloge.maintenant()) : const Value(null),
+          settledAt:
+              reste <= 0 ? Value(Horloge.maintenant()) : const Value(null),
           payment: Value(payment),
         ),
       );

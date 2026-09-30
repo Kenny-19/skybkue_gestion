@@ -28,7 +28,8 @@ import 'mirror_service.dart';
 class VentesOutbox {
   VentesOutbox(this._db);
 
-  static VentesOutbox get instance => _instance ??= VentesOutbox(AppDatabase.instance);
+  static VentesOutbox get instance =>
+      _instance ??= VentesOutbox(AppDatabase.instance);
   static VentesOutbox? _instance;
 
   final AppDatabase _db;
@@ -92,8 +93,7 @@ class VentesOutbox {
       await marquerEnvoyee(saleId);
       return true;
     } catch (e) {
-      final v = await (_db.select(_db.sales)
-            ..where((s) => s.id.equals(saleId)))
+      final v = await (_db.select(_db.sales)..where((s) => s.id.equals(saleId)))
           .getSingleOrNull();
       if (v != null) await marquerEchec(saleId, e, v.syncAttempts);
       return false;

@@ -119,8 +119,7 @@ class HorlogeService {
       // instants diffèrent forcément du temps écoulé entre les deux, et
       // comparer ça ferait passer quelques secondes de réseau pour un
       // désaccord d'horloge.
-      final ecart =
-          (meilleure.decalagePoste - temoin.decalagePoste).abs();
+      final ecart = (meilleure.decalagePoste - temoin.decalagePoste).abs();
       _desaccord = ecart > toleranceDesaccord ? ecart : null;
     } else {
       _desaccord = null;

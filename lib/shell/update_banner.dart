@@ -123,7 +123,7 @@ class _UpdateProgressDialog extends ConsumerWidget {
             color: decrit.kind == ErrorKind.offline
                 ? BsColors.slate
                 : BsColors.danger),
-        title: Text('Mise à jour impossible'),
+        title: const Text('Mise à jour impossible'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

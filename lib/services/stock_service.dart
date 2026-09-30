@@ -140,7 +140,8 @@ class StockService {
           await (_db.update(_db.stockMoves)
                 ..where((x) => x.opId.equals(m.opId)))
               .write(StockMovesCompanion(
-                  sentAt: Value(Horloge.maintenant()), lastError: const Value(null)));
+                  sentAt: Value(Horloge.maintenant()),
+                  lastError: const Value(null)));
         } catch (e) {
           // Échec : on garde le mouvement et on note pourquoi. Il ne
           // disparaît jamais en silence — c'est du stock réel.

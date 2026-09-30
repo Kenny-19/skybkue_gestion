@@ -79,13 +79,14 @@ class SettingsScreen extends ConsumerWidget {
               // EFFACE. Les deux portaient le même nom, et c'est
               // exactement ce qui a conduit à la catastrophe de septembre.
               if (perms.canManageServeurs)
-                _Section(
+                const _Section(
                   title: 'Récupérer les données du cloud',
-                  subtitle: "Va chercher les articles, chambres, clients et "
-                      "sociétés créés sur les autres postes. Rien n'est "
-                      "supprimé ni écrasé — le stock de ce poste reste "
-                      "intact.",
-                  child: const _PullNowButton(),
+                  subtitle: "Va chercher les ventes, articles, chambres, "
+                      "clients, sociétés et comptes des autres postes. Seul "
+                      "ce qui manque est ajouté : rien n'est supprimé, "
+                      "aucune vente de ce poste n'est touchée, le stock "
+                      "reste intact.",
+                  child: _PullNowButton(),
                 ),
               // Récupération d'urgence — SUPER ADMIN SEUL.
               //
@@ -99,6 +100,10 @@ class SettingsScreen extends ConsumerWidget {
               // rafraîchissent tout seuls toutes les 15 secondes. Il ne
               // reste qu'un secours, pour un poste dont la base est
               // perdue ou corrompue.
+              //
+              // Le gérant n'en a pas besoin : « Récupérer maintenant »
+              // ramène les mêmes données, ventes comprises, sans rien
+              // effacer.
               if (isSuper) ...[
                 _Section(
                   title: 'Récupération d\'urgence (données miroir)',
@@ -967,19 +972,23 @@ class _AppUpdateSectionState extends ConsumerState<_AppUpdateSection> {
   }
 }
 
-/// Déclenche à la main la synchronisation qui tourne déjà toute seule.
+/// La récupération des données miroir, en version qui n'efface rien.
 ///
-/// Rien de destructif : c'est exactement le cycle automatique, lancé
-/// sans attendre les 15 secondes. Le bouton existe pour le moment où
-/// l'on vient de créer un article sur un autre poste et qu'on le veut
-/// tout de suite.
-class _PullNowButton extends StatefulWidget {
+/// Elle ramène ce que ramène la récupération d'urgence — catalogue,
+/// chambres, clients, sociétés, séjours, comptes ET ventes — mais en
+/// AJOUTANT ce qui manque au lieu de raser la base d'abord. Aucune vente
+/// locale n'est touchée, le stock du poste reste intact. C'est ce qui
+/// permet de la laisser au gérant.
+///
+/// Les ventes ne sont relues qu'ici, pas dans le cycle des 15 secondes :
+/// relire toute la table à chaque tour coûterait trop cher.
+class _PullNowButton extends ConsumerStatefulWidget {
   const _PullNowButton();
   @override
-  State<_PullNowButton> createState() => _PullNowButtonState();
+  ConsumerState<_PullNowButton> createState() => _PullNowButtonState();
 }
 
-class _PullNowButtonState extends State<_PullNowButton> {
+class _PullNowButtonState extends ConsumerState<_PullNowButton> {
   bool _busy = false;
   String? _message;
 
@@ -988,12 +997,38 @@ class _PullNowButtonState extends State<_PullNowButton> {
       _busy = true;
       _message = null;
     });
+    final erreurs = <String>[];
+
     await MirrorPullService.instance.pullNow();
+    final errSynchro = MirrorPullService.instance.lastError;
+    if (errSynchro != null) erreurs.add(describeError(errSynchro).message);
+
+    var ventes = 0;
+    try {
+      ventes = await MirrorService.pullSalesIntoLocal();
+    } catch (e) {
+      erreurs.add('Ventes : ${describeError(e).message}');
+    }
+
+    try {
+      await ref.read(usersRepoProvider).syncFromCloud();
+    } catch (e) {
+      erreurs.add('Comptes : ${describeError(e).message}');
+    }
+
     if (!mounted) return;
-    final err = MirrorPullService.instance.lastError;
+    if (ventes > 0) {
+      ref.invalidate(recentSalesProvider);
+      ref.invalidate(metricsWeekProvider);
+    }
     setState(() {
       _busy = false;
-      _message = err == null ? 'Données à jour.' : describeError(err).message;
+      _message = erreurs.isNotEmpty
+          ? erreurs.join('\n')
+          : ventes > 0
+              ? 'Données à jour — $ventes vente(s) récupérée(s) des autres '
+                  'postes.'
+              : 'Données à jour.';
     });
   }
 
@@ -1020,7 +1055,6 @@ class _PullNowButtonState extends State<_PullNowButton> {
     );
   }
 }
-
 
 /// Contrôle de l'horloge du poste.
 ///
@@ -1070,10 +1104,11 @@ class _HorlogeSectionState extends State<_HorlogeSection> {
               decoration: BoxDecoration(
                 color: BsColors.danger.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: BsColors.danger.withValues(alpha: 0.35)),
+                border:
+                    Border.all(color: BsColors.danger.withValues(alpha: 0.35)),
               ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Icon(Icons.schedule_outlined,
                     size: 18, color: BsColors.danger),
                 const SizedBox(width: BsSpace.sm),
@@ -1101,8 +1136,7 @@ class _HorlogeSectionState extends State<_HorlogeSection> {
                   'restent datées sur le serveur. À signaler.',
                   style: BsType.body(13, color: BsColors.warning)),
             ],
-          ]
-          else
+          ] else
             Text(
                 _busy
                     ? "Mesure en cours…"
@@ -1119,7 +1153,6 @@ class _HorlogeSectionState extends State<_HorlogeSection> {
     );
   }
 }
-
 
 /// Les ventes qui n'ont pas encore atteint le serveur.
 ///
@@ -1150,10 +1183,12 @@ class _FileVentesSectionState extends State<_FileVentesSection> {
     final f = VentesOutbox.instance;
     final n = await f.enAttente();
     final a = await f.plusAncienneEnAttente();
-    if (mounted) setState(() {
-          _enAttente = n;
-          _plusAncienne = a;
-        });
+    if (mounted) {
+      setState(() {
+        _enAttente = n;
+        _plusAncienne = a;
+      });
+    }
   }
 
   Future<void> _envoyer() async {
@@ -1196,27 +1231,25 @@ class _FileVentesSectionState extends State<_FileVentesSection> {
                     color: (vieille ? BsColors.danger : BsColors.warning)
                         .withValues(alpha: 0.35)),
               ),
-              child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.cloud_upload_outlined,
-                        size: 18,
-                        color: vieille ? BsColors.danger : BsColors.warning),
-                    const SizedBox(width: BsSpace.sm),
-                    Expanded(
-                      child: Text(
-                          vieille
-                              ? "La plus ancienne attend depuis plus d'une "
-                                  "heure. Ces ventes n'existent que sur ce "
-                                  'poste : si le disque lâche, elles sont '
-                                  'perdues.'
-                              : "Elles partiront d'elles-mêmes dès que la "
-                                  'connexion le permettra.',
-                          style: BsType.body(13,
-                              color:
-                                  vieille ? BsColors.danger : BsColors.slate)),
-                    ),
-                  ]),
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.cloud_upload_outlined,
+                    size: 18,
+                    color: vieille ? BsColors.danger : BsColors.warning),
+                const SizedBox(width: BsSpace.sm),
+                Expanded(
+                  child: Text(
+                      vieille
+                          ? "La plus ancienne attend depuis plus d'une "
+                              "heure. Ces ventes n'existent que sur ce "
+                              'poste : si le disque lâche, elles sont '
+                              'perdues.'
+                          : "Elles partiront d'elles-mêmes dès que la "
+                              'connexion le permettra.',
+                      style: BsType.body(13,
+                          color: vieille ? BsColors.danger : BsColors.slate)),
+                ),
+              ]),
             )
           else
             Text(

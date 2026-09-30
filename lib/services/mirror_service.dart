@@ -7,6 +7,7 @@ import '../core/temps.dart';
 import '../data/database.dart';
 import '../data/schema.dart';
 import '../core/horloge.dart';
+import 'supabase_pages.dart';
 import 'ventes_outbox.dart';
 
 /// Miroir des données locales vers Supabase (sens unique : local = maître).
@@ -101,9 +102,9 @@ class MirrorService {
         .get();
 
     final deja = await _dejaPayeParVente([saleId]);
-    await c.from('mirror_sales').upsert(
-        _saleJson(sale, dejaPaye: deja[saleId] ?? 0),
-        onConflict: 'id');
+    await c
+        .from('mirror_sales')
+        .upsert(_saleJson(sale, dejaPaye: deja[saleId] ?? 0), onConflict: 'id');
     if (lines.isNotEmpty) {
       await c
           .from('mirror_sale_lines')
@@ -154,19 +155,39 @@ class MirrorService {
           ok: false, message: 'Cloud non configuré');
     }
     try {
-      // 1. Fetch de toutes les tables miroir en parallèle.
+      // 0. Refus tant qu'une vente du poste n'est pas sur le serveur.
+      //
+      // La restauration efface TOUTES les ventes locales. Une vente
+      // encaissée pendant une coupure n'existe qu'ici : l'effacer, c'est
+      // la perdre pour de bon, recette comprise. On vide la file d'abord ;
+      // si le réseau ne suit pas, on s'arrête et on dit pourquoi.
+      await VentesOutbox.instance.vider(lot: 1000);
+      final enAttente = await VentesOutbox.instance.enAttente();
+      if (enAttente > 0) {
+        return MirrorRestoreResult(
+            ok: false,
+            message: '$enAttente vente(s) de ce poste ne sont pas encore sur '
+                'le serveur. La restauration les effacerait. Rétablis la '
+                'connexion et attends qu\'elles partent, puis réessaie.');
+      }
+
+      // 1. Fetch de toutes les tables miroir en parallèle, EN ENTIER.
+      //
+      // Sans pagination, cette restauration effaçait toutes les ventes
+      // locales puis n'en recopiait que les 1000 premières lignes :
+      // au-delà, l'historique disparaissait pour de bon.
       final results = await Future.wait([
-        c.from('mirror_articles').select(),
-        c.from('mirror_rooms').select(),
-        c.from('mirror_sales').select(),
-        c.from('mirror_sale_lines').select(),
-        c.from('mirror_users').select(),
+        toutesLesPages(() => c.from('mirror_articles').select().order('id')),
+        toutesLesPages(() => c.from('mirror_rooms').select().order('number')),
+        toutesLesPages(() => c.from('mirror_sales').select().order('id')),
+        toutesLesPages(() => c.from('mirror_sale_lines').select().order('id')),
+        toutesLesPages(() => c.from('mirror_users').select().order('id')),
       ]);
-      final articles = (results[0] as List).cast<Map<String, dynamic>>();
-      final rooms = (results[1] as List).cast<Map<String, dynamic>>();
-      final sales = (results[2] as List).cast<Map<String, dynamic>>();
-      final lines = (results[3] as List).cast<Map<String, dynamic>>();
-      final users = (results[4] as List).cast<Map<String, dynamic>>();
+      final articles = results[0];
+      final rooms = results[1];
+      final sales = results[2];
+      final lines = results[3];
+      final users = results[4];
 
       // 2. Écriture atomique côté local — soit tout, soit rien.
       await _db.transaction(() async {
@@ -237,8 +258,8 @@ class MirrorService {
                     passwordHash: hash,
                     role: role,
                     active: Value(active),
-                    createdAt:
-                        Value(_parseDate(u['created_at']) ?? Horloge.maintenant()),
+                    createdAt: Value(
+                        _parseDate(u['created_at']) ?? Horloge.maintenant()),
                     lastLogin: Value(lastLogin),
                   ),
                 );
@@ -307,6 +328,10 @@ class MirrorService {
                   onCredit: Value((s['on_credit'] as bool?) ?? false),
                   settledAt: Value(_parseDate(s['settled_at'])),
                   note: Value(s['note'] as String?),
+                  // Elle vient du serveur : déjà en lieu sûr. Sans ça,
+                  // toute la base restaurée repartait dans la file des
+                  // ventes en attente.
+                  syncedAt: Value(Horloge.maintenant()),
                 ),
               );
         }
@@ -398,8 +423,13 @@ class MirrorService {
     final c = _c;
     if (c == null) return 0;
     try {
-      final remote = await c.from('mirror_rooms').select();
-      final rows = (remote as List).cast<Map<String, dynamic>>();
+      // Paginé : cette fonction SUPPRIME les chambres absentes de la
+      // réponse. Une réponse tronquée y deviendrait une suppression.
+      final rows = await toutesLesPages(
+          () => c.from('mirror_rooms').select().order('number'));
+      // Même logique pour une réponse vide : c'est un serveur filtré ou
+      // à moitié en place, pas un hôtel sans chambres.
+      if (rows.isEmpty) return 0;
       final remoteNumbers = rows.map((r) => r['number'] as String).toSet();
 
       await _db.transaction(() async {
@@ -478,11 +508,14 @@ class MirrorService {
       if (rows.isEmpty) return 0;
 
       final ids = rows.map((r) => (r['id'] as num).toInt()).toList();
-      final chambres = await c
-          .from('mirror_stay_rooms')
-          .select()
-          .inFilter('stay_id', ids);
-      final lignes = (chambres as List).cast<Map<String, dynamic>>();
+      // 500 séjours peuvent porter plus de 1000 chambres : paginé.
+      final lignes = await toutesLesPagesParIds(
+          ids,
+          (paquet) => c
+              .from('mirror_stay_rooms')
+              .select()
+              .inFilter('stay_id', paquet)
+              .order('id'));
 
       await _db.transaction(() async {
         for (final r in rows) {
@@ -490,9 +523,11 @@ class MirrorService {
                 id: (r['id'] as num).toInt(),
                 receiptNumber: r['receipt_number'] as String,
                 reservationNumber: r['reservation_number'] as String?,
-                generatedAt: _parseDate(r['generated_at']) ?? Horloge.maintenant(),
+                generatedAt:
+                    _parseDate(r['generated_at']) ?? Horloge.maintenant(),
                 checkinAt: _parseDate(r['checkin_at']) ?? Horloge.maintenant(),
-                checkoutAt: _parseDate(r['checkout_at']) ?? Horloge.maintenant(),
+                checkoutAt:
+                    _parseDate(r['checkout_at']) ?? Horloge.maintenant(),
                 guestFullName: r['guest_full_name'] as String,
                 guestNationality: r['guest_nationality'] as String?,
                 guestPhone: r['guest_phone'] as String?,
@@ -514,8 +549,7 @@ class MirrorService {
                 serverLogin: r['server_login'] as String?,
                 note: r['note'] as String?,
                 extrasJson: (r['extras_json'] as String?) ?? '[]',
-                clientVisitsAtCheckout:
-                    _entier(r['client_visits_at_checkout']),
+                clientVisitsAtCheckout: _entier(r['client_visits_at_checkout']),
                 // Le taux figé du séjour. Absent côté miroir sur les
                 // séjours d'avant la bascule : 0 signifie « retombe sur
                 // le taux courant », et l'écran le dit.
@@ -529,7 +563,8 @@ class MirrorService {
                 roomNumber: l['room_number'] as String,
                 roomType: l['room_type'] as String,
                 checkinAt: _parseDate(l['checkin_at']) ?? Horloge.maintenant(),
-                checkoutAt: _parseDate(l['checkout_at']) ?? Horloge.maintenant(),
+                checkoutAt:
+                    _parseDate(l['checkout_at']) ?? Horloge.maintenant(),
                 pricePerNightCents: _entier(l['price_per_night_cents']),
                 priceUsdCents: _entier(l['price_usd_cents']),
                 listPriceCents: (l['list_price_cents'] as num?)?.toInt(),
@@ -548,6 +583,146 @@ class MirrorService {
 
   static int _entier(Object? v, {int defaut = 0}) =>
       v is num ? v.toInt() : defaut;
+
+  /// Ventes du miroir absentes de ce poste : on les AJOUTE, rien d'autre.
+  ///
+  /// C'est la moitié sûre de la récupération d'urgence. Celle-ci efface
+  /// toutes les ventes locales avant de recopier le miroir ; ici :
+  ///   * une vente dont l'id existe déjà en local n'est JAMAIS touchée,
+  ///     même si le miroir dit autre chose (les ids sont propres à chaque
+  ///     poste tant que la bascule UUID n'est pas faite — la ligne locale
+  ///     peut être une tout autre vente) ;
+  ///   * rien n'est supprimé, le stock n'est pas bougé ;
+  ///   * la vente ajoutée est marquée « déjà sur le serveur » : elle ne
+  ///     repart pas dans la file, et ne peut donc pas écraser au serveur
+  ///     le `paid_cents` qu'un autre poste y a mis.
+  ///
+  /// Pas appelée par la synchro des 15 secondes : relire toute la table
+  /// des ventes à chaque tour coûterait ce que la file a justement
+  /// supprimé. Seulement sur le bouton « Récupérer maintenant ».
+  static Future<int> pullSalesIntoLocal() async {
+    final c = _c;
+    if (c == null) return 0;
+
+    final distantes =
+        await toutesLesPages(() => c.from('mirror_sales').select().order('id'));
+    if (distantes.isEmpty) return 0;
+
+    // Ventes locales : id → heure de vente, et celles qui n'ont AUCUNE
+    // ligne.
+    final ventesLocales = {
+      for (final v in await _db.select(_db.sales).get()) v.id: v.soldAt
+    };
+    final idsAvecLignes = (await (_db.selectOnly(_db.saleLines, distinct: true)
+              ..addColumns([_db.saleLines.saleId]))
+            .get())
+        .map((r) => r.read(_db.saleLines.saleId)!)
+        .toSet();
+
+    final manquantes = distantes
+        .where((s) => !ventesLocales.containsKey((s['id'] as num).toInt()))
+        .toList();
+
+    // Ventes déjà là mais SANS aucune ligne : ce sont les factures vides
+    // laissées par la première version de cette fonction (cf. plus bas).
+    // On les complète — seulement si c'est bien la même vente, à la
+    // seconde près : un même id peut désigner une autre vente d'un autre
+    // poste, et on ne greffe pas ses articles sur une facture étrangère.
+    final aCompleter = <int>{
+      for (final s in distantes)
+        if (_memeVente(ventesLocales[(s['id'] as num).toInt()], s) &&
+            !idsAvecLignes.contains((s['id'] as num).toInt()))
+          (s['id'] as num).toInt(),
+    };
+    if (manquantes.isEmpty && aCompleter.isEmpty) return 0;
+
+    final ids = [
+      ...manquantes.map((s) => (s['id'] as num).toInt()),
+      ...aCompleter,
+    ];
+    // La première version demandait les lignes de 200 ventes d'un coup,
+    // sans pagination : 1000 lignes reçues sur 2792, 117 factures vides.
+    final lignes = await toutesLesPagesParIds(
+        ids,
+        (paquet) => c
+            .from('mirror_sale_lines')
+            .select()
+            .inFilter('sale_id', paquet)
+            .order('id'));
+
+    // Le serveur de la vente : id miroir → login → compte local. Au mieux
+    // seulement — une vente sans serveur reste une vente.
+    final loginParIdMiroir = <int, String>{};
+    try {
+      final res = await toutesLesPages(
+          () => c.from('mirror_users').select('id, login').order('id'));
+      for (final u in res) {
+        loginParIdMiroir[(u['id'] as num).toInt()] =
+            (u['login'] as String).toLowerCase();
+      }
+    } catch (_) {}
+    final comptes = await _db.select(_db.users).get();
+    final idLocalParLogin = {
+      for (final u in comptes) u.login.toLowerCase(): u.id
+    };
+
+    // L'article de la ligne : rapproché par NOM, comme le catalogue. Le
+    // nom figé sur la ligne suffit à la facture si l'article n'existe pas.
+    final articles = await _db.select(_db.articles).get();
+    final articleParNom = {
+      for (final a in articles) a.name.trim().toLowerCase(): a.id
+    };
+
+    await _db.transaction(() async {
+      for (final s in manquantes) {
+        final idServeurMiroir = (s['server_user_id'] as num?)?.toInt();
+        final login =
+            idServeurMiroir == null ? null : loginParIdMiroir[idServeurMiroir];
+        await _db.into(_db.sales).insert(
+              SalesCompanion.insert(
+                id: Value((s['id'] as num).toInt()),
+                soldAt: _parseDate(s['sold_at']) ?? Horloge.maintenant(),
+                serverUserId:
+                    Value(login == null ? null : idLocalParLogin[login]),
+                payment: DbPayment.values[(s['payment'] as num).toInt()],
+                location:
+                    Value(DbLocation.values[(s['location'] as num).toInt()]),
+                customerName: Value(s['customer_name'] as String?),
+                roomNumber: Value(s['room_number'] as String?),
+                onCredit: Value((s['on_credit'] as bool?) ?? false),
+                settledAt: Value(_parseDate(s['settled_at'])),
+                note: Value(s['note'] as String?),
+                syncedAt: Value(Horloge.maintenant()),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+      }
+      for (final l in lignes) {
+        final nom = l['article_name'] as String;
+        await _db.into(_db.saleLines).insert(
+              SaleLinesCompanion.insert(
+                saleId: (l['sale_id'] as num).toInt(),
+                articleId: Value(articleParNom[nom.trim().toLowerCase()]),
+                articleName: nom,
+                qty: (l['qty'] as num).toInt(),
+                unitPriceCents: (l['unit_price_cents'] as num).toInt(),
+              ),
+            );
+      }
+    });
+    return manquantes.length + aCompleter.length;
+  }
+
+  /// La vente locale (heure [locale]) est-elle celle du miroir [distante] ?
+  /// Même id ne suffit pas tant que les ids sont propres à chaque poste :
+  /// on exige aussi la même heure de vente, à la seconde.
+  static bool _memeVente(DateTime? locale, Map<String, dynamic> distante) {
+    if (locale == null) return false;
+    final d = _parseDate(distante['sold_at']);
+    if (d == null) return false;
+    return locale.millisecondsSinceEpoch ~/ 1000 ==
+        d.millisecondsSinceEpoch ~/ 1000;
+  }
 
   /// Récupère les comptes du miroir et fusionne dans local (merge par
   /// login — le passwordHash local est préservé). Un nouveau compte
@@ -603,11 +778,11 @@ class MirrorService {
     final c = _c;
     if (c == null) return 0;
     try {
-      final remote = await c
+      final rows = await toutesLesPages(() => c
           .from('mirror_articles')
           .select('id, name, price_cents, category, active, image_path, '
-              'track_stock, unit, stock_qty, threshold');
-      final rows = (remote as List).cast<Map<String, dynamic>>();
+              'track_stock, unit, stock_qty, threshold')
+          .order('id'));
       int applied = 0;
       await _db.transaction(() async {
         for (final r in rows) {
@@ -675,8 +850,8 @@ class MirrorService {
     final c = _c;
     if (c == null) return 0;
     try {
-      final remote = await c.from('mirror_clients').select();
-      final rows = (remote as List).cast<Map<String, dynamic>>();
+      final rows = await toutesLesPages(
+          () => c.from('mirror_clients').select().order('id'));
       int applied = 0;
       await _db.transaction(() async {
         for (final r in rows) {
@@ -720,10 +895,10 @@ class MirrorService {
                       : Value(r['notes'] as String?),
                   visitsCount: Value(visitsR),
                   totalSpentCents: Value(spentR),
-                  firstSeenAt:
-                      Value(_parseDate(r['first_seen_at']) ?? Horloge.maintenant()),
-                  lastSeenAt:
-                      Value(_parseDate(r['last_seen_at']) ?? Horloge.maintenant()),
+                  firstSeenAt: Value(
+                      _parseDate(r['first_seen_at']) ?? Horloge.maintenant()),
+                  lastSeenAt: Value(
+                      _parseDate(r['last_seen_at']) ?? Horloge.maintenant()),
                 ));
           }
           applied++;
@@ -762,8 +937,8 @@ class MirrorService {
     final c = _c;
     if (c == null) return 0;
     try {
-      final remote = await c.from('mirror_payers').select();
-      final rows = (remote as List).cast<Map<String, dynamic>>();
+      final rows = await toutesLesPages(
+          () => c.from('mirror_payers').select().order('id'));
       int applied = 0;
       await _db.transaction(() async {
         for (final r in rows) {
@@ -797,8 +972,8 @@ class MirrorService {
                   notes: r['notes'] == null
                       ? const Value.absent()
                       : Value(r['notes'] as String?),
-                  createdAt:
-                      Value(_parseDate(r['created_at']) ?? Horloge.maintenant()),
+                  createdAt: Value(
+                      _parseDate(r['created_at']) ?? Horloge.maintenant()),
                 ));
           }
           applied++;
@@ -979,7 +1154,7 @@ class MirrorService {
   static Set<String> get champsFicheArticle =>
       _articleJson(_articleTemoin).keys.toSet();
 
-  static final _articleTemoin = Article(
+  static const _articleTemoin = Article(
     id: 0,
     name: '',
     priceCents: 0,

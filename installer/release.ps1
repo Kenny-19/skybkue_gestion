@@ -100,9 +100,12 @@ if (Test-Path $EnvFile) {
     }
   }
 }
+# Plus de build 100 % local : une version sans cloud envoyee aux postes
+# les couperait des comptes et de la synchro. On s'arrete net.
 if ($SupabaseDefines.Count -lt 2) {
-  Write-Host "  [ATTENTION] Cles Supabase absentes de installer\supabase.env." -ForegroundColor Yellow
-  Write-Host "              L'app sera compilee SANS cloud (comptes de secours seulement)." -ForegroundColor Yellow
+  Write-Host "[ERREUR] Cles Supabase absentes de installer\supabase.env." -ForegroundColor Red
+  Write-Host "         Renseigne SUPABASE_URL et SUPABASE_ANON_KEY, puis relance." -ForegroundColor Yellow
+  Pop-Location; exit 1
 } else {
   Write-Host "  [OK] Cles Supabase chargees depuis supabase.env" -ForegroundColor Green
 }

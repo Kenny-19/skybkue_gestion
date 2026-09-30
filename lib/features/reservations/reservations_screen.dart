@@ -38,7 +38,9 @@ class ReservationsScreen extends ConsumerWidget {
         final upcoming = all.where((r) {
           final s = r.reservation.status;
           if (s == DbReservationStatus.cancelled ||
-              s == DbReservationStatus.checkedIn) return false;
+              s == DbReservationStatus.checkedIn) {
+            return false;
+          }
           return !r.reservation.checkinDate.isBefore(today);
         }).toList();
         final past = all.where((r) => !upcoming.contains(r)).toList();

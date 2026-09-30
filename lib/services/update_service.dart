@@ -249,7 +249,6 @@ class _ValueListenableNotifier<T> extends ChangeNotifier {
   }
 }
 
-
 /// Retire la marque d'ordre des octets en tête d'un texte JSON.
 ///
 /// `jsonDecode` lève sur un BOM : « Unexpected character (at character

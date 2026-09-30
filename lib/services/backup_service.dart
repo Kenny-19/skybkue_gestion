@@ -18,7 +18,8 @@ class BackupService {
   static Future<String?> exportDatabase() async {
     final src = await AppDatabase.dbFile();
     if (!src.existsSync()) return null;
-    final ts = DateFormat("yyyyMMddHHmm").format(aLubumbashi(Horloge.maintenant()));
+    final ts =
+        DateFormat("yyyyMMddHHmm").format(aLubumbashi(Horloge.maintenant()));
     final path = await getSaveLocation(
       suggestedName: 'sauvegarde_bdd_$ts.db',
       acceptedTypeGroups: [
@@ -55,8 +56,7 @@ class BackupService {
     // Regroupement par jour (ordre chronologique).
     final byDay = <DateTime, List<SaleWithLines>>{};
     for (final s in sales) {
-      final d =
-          debutDeJourneeLubumbashi(s.sale.soldAt);
+      final d = debutDeJourneeLubumbashi(s.sale.soldAt);
       byDay.putIfAbsent(d, () => []).add(s);
     }
     final days = byDay.keys.toList()..sort();
@@ -133,7 +133,8 @@ class BackupService {
       final creditTotal = credits.fold(0, (a, b) => a + b.totalCents);
 
       // Nom du jour (fusionné, centré, fond bleu).
-      final dayName = _cap(DateFormat('EEEE d MMMM', 'fr_FR').format(aLubumbashi(days[i])));
+      final dayName =
+          _cap(DateFormat('EEEE d MMMM', 'fr_FR').format(aLubumbashi(days[i])));
       sh.merge(CellIndex.indexByColumnRow(columnIndex: lc, rowIndex: rDay),
           CellIndex.indexByColumnRow(columnIndex: ac, rowIndex: rDay),
           customValue: TextCellValue(dayName));
@@ -193,7 +194,8 @@ class BackupService {
 
     final bytes = xl.encode();
     if (bytes == null) return null;
-    final ts = DateFormat("yyyyMMddHHmm").format(aLubumbashi(Horloge.maintenant()));
+    final ts =
+        DateFormat("yyyyMMddHHmm").format(aLubumbashi(Horloge.maintenant()));
     final path = await getSaveLocation(
       suggestedName: 'rapport_ventes_$ts.xlsx',
       acceptedTypeGroups: [

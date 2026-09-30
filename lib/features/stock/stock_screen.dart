@@ -21,6 +21,10 @@ import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 
+/// Largeur de la colonne des actions, partagée par l'en-tête et les
+/// lignes pour que tout reste aligné.
+const double _actionsWidth = 310;
+
 class StockScreen extends ConsumerWidget {
   const StockScreen({super.key});
 
@@ -111,7 +115,7 @@ class StockScreen extends ConsumerWidget {
               child: Text('PRIX',
                   textAlign: TextAlign.right, style: BsType.eyebrow())),
           Expanded(flex: 3, child: Text('STOCK', style: BsType.eyebrow())),
-          const SizedBox(width: 260),
+          const SizedBox(width: _actionsWidth),
         ]),
       );
 
@@ -733,8 +737,10 @@ class _Row extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
             flex: 4,
-            child:
-                Text(article.name, style: BsType.body(13, w: FontWeight.w600))),
+            child: Text(article.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: BsType.body(13, w: FontWeight.w600))),
         Expanded(
             flex: 2,
             child: Text(article.category.label,
@@ -775,15 +781,20 @@ class _Row extends StatelessWidget {
           ),
         ),
         SizedBox(
-          width: 260,
+          // Largeur calée sur le pire cas : stock bas, donc « Demander » en
+          // plus de « Ravitailler ». À 260, cette ligne-là débordait de
+          // 26 px. Garder en phase avec l'en-tête (_actionsWidth).
+          width: _actionsWidth,
           child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             if (tracked) ...[
               IconButton(
                   tooltip: 'Retirer 1',
+                  visualDensity: VisualDensity.compact,
                   onPressed: article.stockQty <= 0 ? null : () => onAdjust(-1),
                   icon: const Icon(Icons.remove, size: 16)),
               IconButton(
                   tooltip: 'Ajouter 1',
+                  visualDensity: VisualDensity.compact,
                   onPressed: () => onAdjust(1),
                   icon: const Icon(Icons.add, size: 16)),
               OutlinedButton(

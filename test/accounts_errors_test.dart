@@ -17,7 +17,7 @@ void main() {
   group('Traduction des pannes serveur', () {
     test('fonction SQL absente (42883) → panne technique, PAS un refus', () {
       final e = AccountsService.translateForMigration(
-        PostgrestException(
+        const PostgrestException(
           message: 'function public.bs_verify_login(text, text) does not exist',
           code: '42883',
         ),
@@ -47,7 +47,7 @@ void main() {
 
     test('refus métier → rejected, et PAS de repli local', () {
       final e = AccountsService.translateForMigration(
-        PostgrestException(message: 'LOGIN_DEJA_PRIS', code: 'P0001'),
+        const PostgrestException(message: 'LOGIN_DEJA_PRIS', code: 'P0001'),
       );
       expect(e.kind, AccountErrorKind.rejected);
       expect(e.code, 'LOGIN_DEJA_PRIS');
@@ -80,7 +80,7 @@ void main() {
 
     test('un code inconnu ne plante pas : message générique lisible', () {
       final e = AccountsService.translateForMigration(
-          PostgrestException(message: 'boom inattendu', code: '99999'));
+          const PostgrestException(message: 'boom inattendu', code: '99999'));
       expect(e.kind, AccountErrorKind.unexpected);
       expect(e.message, isNotEmpty);
     });

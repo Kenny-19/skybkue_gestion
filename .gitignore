@@ -56,3 +56,6 @@ installer/supabase.env
 # Même contenu au format JSON, pour --dart-define-from-file (VS Code).
 # Généré depuis le .env — jamais versionné, il porte la clé anon.
 installer/supabase.json
+
+# Cle API Resend (envoi d'e-mails) - jamais versionnee.
+ter.txt

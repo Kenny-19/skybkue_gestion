@@ -7,6 +7,8 @@ import '../core/temps.dart';
 import '../data/database.dart';
 import '../data/schema.dart';
 import '../core/horloge.dart';
+import '../core/identite.dart';
+import 'heartbeat_service.dart';
 import 'supabase_pages.dart';
 import 'ventes_outbox.dart';
 
@@ -16,6 +18,27 @@ import 'ventes_outbox.dart';
 /// l'app locale plante. Chaque écriture importante est repoussée vers des
 /// tables `mirror_*`. Hors ligne → ignoré (les données restent en local, une
 /// synchro complète les rattrapera).
+/// Bilan de [MirrorService.verifierVentesDuPoste].
+class VerificationVentes {
+  /// Ventes de ce poste que le serveur n'a pas. Non renvoyées d'office.
+  final List<Sale> absentes;
+
+  /// Lignes que le serveur avait perdues, renvoyées.
+  final int lignesRestaurees;
+
+  /// Ventes dont l'heure était décalée sur le serveur, corrigées.
+  final int heuresCorrigees;
+
+  final int ventesVerifiees;
+
+  const VerificationVentes({
+    required this.absentes,
+    required this.lignesRestaurees,
+    required this.heuresCorrigees,
+    required this.ventesVerifiees,
+  });
+}
+
 /// Résultat structuré d'une synchronisation complète (syncAll).
 /// Chaque table est traitée indépendamment ; une table qui échoue
 /// n'empêche pas les autres. Les erreurs sont collectées ici pour
@@ -101,14 +124,37 @@ class MirrorService {
           ..where((l) => l.saleId.equals(saleId)))
         .get();
 
+    // Le serveur reconnaît la vente par son uid, plus par son numéro :
+    // la vente n° 345 de deux postes, ce sont deux ventes.
+    final uid = sale.uid ?? uidVenteHerite(sale.id, sale.soldAt);
+    if (sale.uid == null) {
+      await (_db.update(_db.sales)..where((s) => s.id.equals(saleId)))
+          .write(SalesCompanion(uid: Value(uid)));
+    }
     final deja = await _dejaPayeParVente([saleId]);
-    await c
+    final corps = _saleJson(sale, uid, dejaPaye: deja[saleId] ?? 0);
+
+    // 1. Création seulement (« on conflict do nothing ») : le numéro du
+    //    ticket et le poste d'origine. Une copie de la vente sur un autre
+    //    poste, renvoyée plus tard, ne doit jamais les écraser.
+    await c.from('mirror_sales').upsert({
+      ...corps,
+      'numero_local': sale.id,
+      'poste': HeartbeatService.nomDuPoste,
+    }, onConflict: 'uid', ignoreDuplicates: true);
+    // 2. Ce qui peut changer (règlement d'une dette) ; et le numéro que le
+    //    serveur a donné à la vente, auquel les lignes se rattachent.
+    final rangee = await c
         .from('mirror_sales')
-        .upsert(_saleJson(sale, dejaPaye: deja[saleId] ?? 0), onConflict: 'id');
+        .upsert(corps, onConflict: 'uid')
+        .select('id')
+        .single();
+    final idServeur = (rangee['id'] as num).toInt();
+
     if (lines.isNotEmpty) {
-      await c
-          .from('mirror_sale_lines')
-          .upsert(lines.map(_lineJson).toList(), onConflict: 'id');
+      await c.from('mirror_sale_lines').upsert(
+          [for (final l in lines) _lineJson(l, uid, idServeur)],
+          onConflict: 'uid');
     }
   }
 
@@ -311,13 +357,21 @@ class MirrorService {
         // Ventes — on préserve l'id miroir + on remappe le serverUserId
         // via userIdMap. Un miroir user_id qui ne matche aucun login
         // local → null (le lien serveur est perdu mais la vente reste).
+        //
+        // Le numéro du serveur est unique sur le serveur : il peut servir
+        // de numéro local dans une base vidée. L'uid, lui, est repris tel
+        // quel — c'est ce qui permet au poste de retrouver ses ventes.
+        final uidParVente = <int, String>{};
         for (final s in sales) {
           final mirrorServerId = (s['server_user_id'] as num?)?.toInt();
           final localServerId =
               mirrorServerId == null ? null : userIdMap[mirrorServerId];
+          final uid = _uidDeVente(s);
+          uidParVente[(s['id'] as num).toInt()] = uid;
           await _db.into(_db.sales).insert(
                 SalesCompanion.insert(
                   id: Value((s['id'] as num).toInt()),
+                  uid: Value(uid),
                   soldAt: _parseDate(s['sold_at']) ?? Horloge.maintenant(),
                   serverUserId: Value(localServerId),
                   payment: DbPayment.values[(s['payment'] as num).toInt()],
@@ -339,13 +393,15 @@ class MirrorService {
         // Lignes de vente — sale_id et article_id ont leurs ids miroir
         // préservés ci-dessus, les FK restent valides.
         for (final l in lines) {
+          final venteServeur = (l['sale_id'] as num).toInt();
           await _db.into(_db.saleLines).insert(
                 SaleLinesCompanion.insert(
-                  saleId: (l['sale_id'] as num).toInt(),
+                  saleId: venteServeur,
                   articleId: Value((l['article_id'] as num?)?.toInt()),
                   articleName: l['article_name'] as String,
                   qty: (l['qty'] as num).toInt(),
                   unitPriceCents: (l['unit_price_cents'] as num).toInt(),
+                  uid: Value(_uidDeLigne(l, uidParVente[venteServeur])),
                 ),
               );
         }
@@ -364,6 +420,18 @@ class MirrorService {
       return MirrorRestoreResult(ok: false, message: 'Échec : $e');
     }
   }
+
+  /// L'uid d'une vente lue sur le serveur. Avant le script
+  /// 2026_10_identite_ventes.sql, la colonne n'existe pas : on le déduit
+  /// alors comme le serveur le fera.
+  static String _uidDeVente(Map<String, dynamic> s) =>
+      (s['uid'] as String?) ??
+      uidVenteHerite((s['id'] as num).toInt(),
+          _parseDate(s['sold_at']) ?? DateTime.fromMillisecondsSinceEpoch(0));
+
+  static String _uidDeLigne(Map<String, dynamic> l, String? uidVente) =>
+      (l['uid'] as String?) ??
+      uidLigneHerite(uidVente ?? nouvelUid(), (l['id'] as num).toInt());
 
   static DateTime? _parseDate(dynamic v) {
     if (v == null) return null;
@@ -588,10 +656,12 @@ class MirrorService {
   ///
   /// C'est la moitié sûre de la récupération d'urgence. Celle-ci efface
   /// toutes les ventes locales avant de recopier le miroir ; ici :
-  ///   * une vente dont l'id existe déjà en local n'est JAMAIS touchée,
-  ///     même si le miroir dit autre chose (les ids sont propres à chaque
-  ///     poste tant que la bascule UUID n'est pas faite — la ligne locale
-  ///     peut être une tout autre vente) ;
+  ///   * une vente est reconnue par son UID, jamais par son numéro : la
+  ///     vente n° 345 d'un autre poste n'est pas celle de ce poste ;
+  ///   * une vente déjà présente n'est jamais modifiée ; si elle est
+  ///     restée sans aucune ligne (factures vides de septembre), ses
+  ///     lignes sont complétées ;
+  ///   * la copie reçoit un numéro de CE poste, et garde l'uid d'origine ;
   ///   * rien n'est supprimé, le stock n'est pas bougé ;
   ///   * la vente ajoutée est marquée « déjà sur le serveur » : elle ne
   ///     repart pas dans la file, et ne peut donc pas écraser au serveur
@@ -608,10 +678,10 @@ class MirrorService {
         await toutesLesPages(() => c.from('mirror_sales').select().order('id'));
     if (distantes.isEmpty) return 0;
 
-    // Ventes locales : id → heure de vente, et celles qui n'ont AUCUNE
-    // ligne.
-    final ventesLocales = {
-      for (final v in await _db.select(_db.sales).get()) v.id: v.soldAt
+    // Ventes locales par uid, et celles qui n'ont AUCUNE ligne.
+    final idLocalParUid = <String, int>{
+      for (final v in await _db.select(_db.sales).get())
+        if (v.uid != null) v.uid!: v.id,
     };
     final idsAvecLignes = (await (_db.selectOnly(_db.saleLines, distinct: true)
               ..addColumns([_db.saleLines.saleId]))
@@ -619,31 +689,27 @@ class MirrorService {
         .map((r) => r.read(_db.saleLines.saleId)!)
         .toSet();
 
-    final manquantes = distantes
-        .where((s) => !ventesLocales.containsKey((s['id'] as num).toInt()))
-        .toList();
+    final manquantes = <Map<String, dynamic>>[];
+    // numéro serveur → numéro local, pour rattacher les lignes.
+    final localParServeur = <int, int>{};
+    for (final s in distantes) {
+      final idServeur = (s['id'] as num).toInt();
+      final idLocal = idLocalParUid[_uidDeVente(s)];
+      if (idLocal == null) {
+        manquantes.add(s);
+      } else if (!idsAvecLignes.contains(idLocal)) {
+        localParServeur[idServeur] = idLocal; // vente à compléter
+      }
+    }
+    final aCompleter = localParServeur.length;
+    if (manquantes.isEmpty && aCompleter == 0) return 0;
 
-    // Ventes déjà là mais SANS aucune ligne : ce sont les factures vides
-    // laissées par la première version de cette fonction (cf. plus bas).
-    // On les complète — seulement si c'est bien la même vente, à la
-    // seconde près : un même id peut désigner une autre vente d'un autre
-    // poste, et on ne greffe pas ses articles sur une facture étrangère.
-    final aCompleter = <int>{
-      for (final s in distantes)
-        if (_memeVente(ventesLocales[(s['id'] as num).toInt()], s) &&
-            !idsAvecLignes.contains((s['id'] as num).toInt()))
-          (s['id'] as num).toInt(),
-    };
-    if (manquantes.isEmpty && aCompleter.isEmpty) return 0;
-
-    final ids = [
+    final idsServeur = [
       ...manquantes.map((s) => (s['id'] as num).toInt()),
-      ...aCompleter,
+      ...localParServeur.keys,
     ];
-    // La première version demandait les lignes de 200 ventes d'un coup,
-    // sans pagination : 1000 lignes reçues sur 2792, 117 factures vides.
     final lignes = await toutesLesPagesParIds(
-        ids,
+        idsServeur,
         (paquet) => c
             .from('mirror_sale_lines')
             .select()
@@ -673,14 +739,20 @@ class MirrorService {
       for (final a in articles) a.name.trim().toLowerCase(): a.id
     };
 
+    final uidParServeur = {
+      for (final s in distantes) (s['id'] as num).toInt(): _uidDeVente(s)
+    };
+
     await _db.transaction(() async {
       for (final s in manquantes) {
         final idServeurMiroir = (s['server_user_id'] as num?)?.toInt();
         final login =
             idServeurMiroir == null ? null : loginParIdMiroir[idServeurMiroir];
-        await _db.into(_db.sales).insert(
+        // Pas d'`id` : la copie prend un numéro de ce poste. Celui du
+        // serveur pourrait déjà désigner une vente locale.
+        final idLocal = await _db.into(_db.sales).insert(
               SalesCompanion.insert(
-                id: Value((s['id'] as num).toInt()),
+                uid: Value(_uidDeVente(s)),
                 soldAt: _parseDate(s['sold_at']) ?? Horloge.maintenant(),
                 serverUserId:
                     Value(login == null ? null : idLocalParLogin[login]),
@@ -694,35 +766,187 @@ class MirrorService {
                 note: Value(s['note'] as String?),
                 syncedAt: Value(Horloge.maintenant()),
               ),
-              mode: InsertMode.insertOrIgnore,
             );
+        localParServeur[(s['id'] as num).toInt()] = idLocal;
       }
       for (final l in lignes) {
+        final venteServeur = (l['sale_id'] as num).toInt();
+        final venteLocale = localParServeur[venteServeur];
+        if (venteLocale == null) continue;
         final nom = l['article_name'] as String;
         await _db.into(_db.saleLines).insert(
               SaleLinesCompanion.insert(
-                saleId: (l['sale_id'] as num).toInt(),
+                saleId: venteLocale,
                 articleId: Value(articleParNom[nom.trim().toLowerCase()]),
                 articleName: nom,
                 qty: (l['qty'] as num).toInt(),
                 unitPriceCents: (l['unit_price_cents'] as num).toInt(),
+                uid: Value(_uidDeLigne(l, uidParServeur[venteServeur])),
               ),
+              // L'uid est unique : une ligne déjà là n'est pas doublée.
+              mode: InsertMode.insertOrIgnore,
             );
       }
     });
-    return manquantes.length + aCompleter.length;
+    return manquantes.length + aCompleter;
   }
 
-  /// La vente locale (heure [locale]) est-elle celle du miroir [distante] ?
-  /// Même id ne suffit pas tant que les ids sont propres à chaque poste :
-  /// on exige aussi la même heure de vente, à la seconde.
-  static bool _memeVente(DateTime? locale, Map<String, dynamic> distante) {
-    if (locale == null) return false;
-    final d = _parseDate(distante['sold_at']);
-    if (d == null) return false;
-    return locale.millisecondsSinceEpoch ~/ 1000 ==
-        d.millisecondsSinceEpoch ~/ 1000;
+  /// Compare les ventes de ce poste à celles du serveur, répare ce qui se
+  /// répare sans risque, et liste le reste.
+  ///
+  /// Pourquoi ce passage : tant que le serveur rangeait les ventes par
+  /// numéro local, deux postes écrasaient mutuellement leurs ventes et
+  /// leurs lignes. Avec l'identité (uid), on peut enfin voir lesquelles
+  /// manquent.
+  ///
+  /// Réparé automatiquement :
+  ///   * les LIGNES absentes d'une vente présente sur le serveur. Une ligne
+  ///     ne se modifie jamais après l'encaissement : si le poste en a une
+  ///     que le serveur n'a pas, c'est le serveur qui l'a perdue ;
+  ///   * l'HEURE d'une vente envoyée avec le décalage de fuseau de
+  ///     septembre (même numéro, même lieu, même paiement, heure décalée
+  ///     d'un nombre exact d'heures) : le serveur reprend l'heure et l'uid
+  ///     du poste.
+  ///
+  /// Seulement listé : les ventes ABSENTES du serveur. Ce poste peut
+  /// garder la copie d'une vente qu'un gérant a supprimée ailleurs ; la
+  /// renvoyer d'office la ferait revenir. C'est au super admin de choisir
+  /// (cf. [renvoyerVentes]).
+  static Future<VerificationVentes> verifierVentesDuPoste() async {
+    final c = _c;
+    if (c == null) {
+      throw StateError('Cloud non configuré');
+    }
+    final serveur = await toutesLesPages(() => c
+        .from('mirror_sales')
+        .select('id, uid, sold_at, location, payment, numero_local')
+        .order('id'));
+    final idServeurParUid = <String, int>{
+      for (final s in serveur) _uidDeVente(s): (s['id'] as num).toInt()
+    };
+    final parNumero = <int, List<Map<String, dynamic>>>{};
+    for (final s in serveur) {
+      final n = ((s['numero_local'] ?? s['id']) as num).toInt();
+      (parNumero[n] ??= []).add(s);
+    }
+
+    // Seulement les ventes déjà confirmées : celles en attente sont le
+    // travail de la file d'envoi.
+    final locales = await (_db.select(_db.sales)
+          ..where((s) => s.syncedAt.isNotNull()))
+        .get();
+
+    final absentes = <Sale>[];
+    final presentes = <int, int>{}; // numéro local → numéro serveur
+    var heures = 0;
+    for (final v in locales) {
+      final uid = v.uid ?? uidVenteHerite(v.id, v.soldAt);
+      final trouvee = idServeurParUid[uid];
+      if (trouvee != null) {
+        presentes[v.id] = trouvee;
+        continue;
+      }
+      final decalee = _venteDecalee(v, parNumero[v.id] ?? const []);
+      if (decalee != null) {
+        await c.from('mirror_sales').update({
+          'uid': uid,
+          'sold_at': isoServeur(v.soldAt),
+        }).eq('id', decalee);
+        presentes[v.id] = decalee;
+        heures++;
+        continue;
+      }
+      absentes.add(v);
+    }
+
+    // Lignes : ce que le poste a et que le serveur n'a plus.
+    final lignesServeur = await toutesLesPages(() => c
+        .from('mirror_sale_lines')
+        .select('uid, sale_id, article_name, qty, unit_price_cents')
+        .order('id'));
+    final uidsLignesServeur = {
+      for (final l in lignesServeur) l['uid'] as String?
+    };
+    final contenuServeur = <int, List<String>>{};
+    for (final l in lignesServeur) {
+      (contenuServeur[(l['sale_id'] as num).toInt()] ??= []).add(
+          _signatureLigne(
+              l['article_name'] as String,
+              (l['qty'] as num).toInt(),
+              (l['unit_price_cents'] as num).toInt()));
+    }
+    var lignesRendues = 0;
+    for (final MapEntry(key: idLocal, value: idServeur) in presentes.entries) {
+      final lignesLocales = await (_db.select(_db.saleLines)
+            ..where((l) => l.saleId.equals(idLocal)))
+          .get();
+      final restant = List<String>.of(contenuServeur[idServeur] ?? const []);
+      for (final l in lignesLocales) {
+        if (restant
+            .remove(_signatureLigne(l.articleName, l.qty, l.unitPriceCents))) {
+          continue;
+        }
+        // Absente du serveur. Si son uid y est déjà, rattaché à une autre
+        // vente (ancien écrasement), on lui en donne un neuf : renvoyer
+        // l'ancien la DÉPLACERAIT, et l'autre vente la perdrait.
+        var uidLigne = l.uid;
+        if (uidLigne == null || uidsLignesServeur.contains(uidLigne)) {
+          uidLigne = nouvelUid();
+          await (_db.update(_db.saleLines)..where((x) => x.id.equals(l.id)))
+              .write(SaleLinesCompanion(uid: Value(uidLigne)));
+        }
+        await c.from('mirror_sale_lines').upsert({
+          'uid': uidLigne,
+          'sale_id': idServeur,
+          'article_id': l.articleId,
+          'article_name': l.articleName,
+          'qty': l.qty,
+          'unit_price_cents': l.unitPriceCents,
+        }, onConflict: 'uid');
+        lignesRendues++;
+      }
+    }
+
+    return VerificationVentes(
+      absentes: absentes,
+      lignesRestaurees: lignesRendues,
+      heuresCorrigees: heures,
+      ventesVerifiees: locales.length,
+    );
   }
+
+  /// Renvoie au serveur des ventes absentes, à la demande du super admin.
+  /// Chacune y est créée sous son uid : renvoyer deux fois ne la double
+  /// pas. Renvoie le nombre envoyé.
+  static Future<int> renvoyerVentes(List<int> idsLocaux) async {
+    var n = 0;
+    for (final id in idsLocaux) {
+      await pushSaleOrThrow(id);
+      n++;
+    }
+    return n;
+  }
+
+  /// La vente du serveur qui est cette vente locale envoyée avec un
+  /// décalage de fuseau, s'il y en a une. Même numéro, même lieu, même
+  /// paiement, et une heure décalée d'un nombre EXACT d'heures (1 à 3) :
+  /// une coïncidence de ce genre, à la seconde, n'arrive pas par hasard.
+  static int? _venteDecalee(Sale v, List<Map<String, dynamic>> candidates) {
+    final secondes = v.soldAt.millisecondsSinceEpoch ~/ 1000;
+    for (final s in candidates) {
+      final heure = _parseDate(s['sold_at']);
+      if (heure == null) continue;
+      final ecart = heure.millisecondsSinceEpoch ~/ 1000 - secondes;
+      if (ecart == 0 || ecart % 3600 != 0 || ecart.abs() > 3 * 3600) continue;
+      if ((s['location'] as num).toInt() != v.location.index) continue;
+      if ((s['payment'] as num).toInt() != v.payment.index) continue;
+      return (s['id'] as num).toInt();
+    }
+    return null;
+  }
+
+  static String _signatureLigne(String nom, int qte, int prix) =>
+      '${nom.trim().toLowerCase()}|$qte|$prix';
 
   /// Récupère les comptes du miroir et fusionne dans local (merge par
   /// login — le passwordHash local est préservé). Un nouveau compte
@@ -987,12 +1211,14 @@ class MirrorService {
 
   // ─── Suppression d'une vente (propagation Supabase) ────────────────
 
-  static Future<void> deleteSaleById(int saleId) async {
+  /// Supprime la vente du serveur, par son uid. Le numéro local ne
+  /// suffisait pas : il désignait peut-être la vente d'un autre poste.
+  /// Les lignes partent avec elle (clé étrangère en cascade).
+  static Future<void> deleteSaleByUid(String? uid) async {
     final c = _c;
-    if (c == null) return;
+    if (c == null || uid == null) return;
     try {
-      await c.from('mirror_sale_lines').delete().eq('sale_id', saleId);
-      await c.from('mirror_sales').delete().eq('id', saleId);
+      await c.from('mirror_sales').delete().eq('uid', uid);
     } catch (_) {
       // best-effort
     }
@@ -1109,9 +1335,13 @@ class MirrorService {
   /// alors que le client a peut-être versé les trois quarts. L'encours
   /// annoncé à Pamela serait faux, toujours dans le même sens — trop
   /// gros.
-  static Map<String, dynamic> _saleJson(Sale s, {int dejaPaye = 0}) => {
+  ///
+  /// Pas d'`id` : c'est le serveur qui numérote. `uid` est la clé.
+  static Map<String, dynamic> _saleJson(Sale s, String uid,
+          {int dejaPaye = 0}) =>
+      {
+        'uid': uid,
         'paid_cents': dejaPaye,
-        'id': s.id,
         'sold_at': isoServeur(s.soldAt),
         'server_user_id': s.serverUserId,
         'payment': s.payment.index,
@@ -1123,9 +1353,12 @@ class MirrorService {
         'note': s.note,
       };
 
-  static Map<String, dynamic> _lineJson(SaleLine l) => {
-        'id': l.id,
-        'sale_id': l.saleId,
+  /// [idServeur] : le numéro que le serveur a donné à la vente.
+  static Map<String, dynamic> _lineJson(
+          SaleLine l, String uidVente, int idServeur) =>
+      {
+        'uid': l.uid ?? uidLigneHerite(uidVente, l.id),
+        'sale_id': idServeur,
         'article_id': l.articleId,
         'article_name': l.articleName,
         'qty': l.qty,

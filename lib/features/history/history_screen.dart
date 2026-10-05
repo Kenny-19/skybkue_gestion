@@ -213,7 +213,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     try {
       await ref.read(salesRepoProvider).deleteSale(sale.sale.id);
       // Miroir Supabase : best-effort, ne bloque pas l'UX.
-      MirrorService.deleteSaleById(sale.sale.id);
+      MirrorService.deleteSaleByUid(sale.sale.uid);
       if (!mounted) return;
       setState(() => _selected = null);
       ScaffoldMessenger.of(context).showSnackBar(

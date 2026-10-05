@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:intl/intl.dart';
 
+import '../../core/cat_ui.dart';
 import '../../core/user_error.dart';
 import '../../services/mirror_pull_service.dart';
 import '../../core/app_version.dart';
@@ -121,6 +122,18 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ],
               // Reset transactions pre-prod (super admin uniquement).
+              // Ventes de ce poste absentes du serveur — super admin seul :
+              // renvoyer une vente qu'un gérant a supprimée ailleurs la
+              // ferait revenir, c'est une décision.
+              if (isSuper)
+                const _Section(
+                  title: 'Ventes de ce poste sur le serveur',
+                  subtitle: 'Vérifie que chaque vente de ce poste est bien en '
+                      'ligne. Les lignes perdues et les heures décalées sont '
+                      'réparées automatiquement ; les ventes absentes sont '
+                      'listées, à toi de décider de les renvoyer.',
+                  child: _VerificationVentes(),
+                ),
               if (isSuper) _ResetTransactionsSection(),
               // Sections réservées au Super Admin.
               if (isSuper) ...[
@@ -1285,6 +1298,136 @@ class _FileVentesSectionState extends State<_FileVentesSection> {
           ]),
         ],
       ),
+    );
+  }
+}
+
+/// Vérification des ventes de ce poste sur le serveur (identité des
+/// ventes, sprint de refonte priorité 1).
+///
+/// Les réparations sûres se font pendant la vérification ; le renvoi des
+/// ventes absentes attend une confirmation explicite.
+class _VerificationVentes extends StatefulWidget {
+  const _VerificationVentes();
+  @override
+  State<_VerificationVentes> createState() => _VerificationVentesState();
+}
+
+class _VerificationVentesState extends State<_VerificationVentes> {
+  bool _busy = false;
+  VerificationVentes? _bilan;
+  String? _erreur;
+
+  Future<void> _verifier() async {
+    setState(() {
+      _busy = true;
+      _erreur = null;
+    });
+    try {
+      final b = await MirrorService.verifierVentesDuPoste();
+      if (!mounted) return;
+      setState(() => _bilan = b);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _erreur = describeError(e).message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _renvoyer() async {
+    final absentes = _bilan?.absentes ?? const [];
+    if (absentes.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Renvoyer ${absentes.length} vente(s) au serveur ?'),
+        content: const Text(
+            'Elles réapparaîtront dans le tableau de bord et sur les autres '
+            'postes.\n\nSi l\'une d\'elles a été supprimée volontairement '
+            'par un gérant sur un autre poste, elle reviendra aussi. En cas '
+            'de doute, vérifie la liste avec lui avant.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Renvoyer')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final n =
+          await MirrorService.renvoyerVentes([for (final v in absentes) v.id]);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$n vente(s) renvoyée(s) au serveur.')));
+      await _verifier();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _erreur = describeError(e).message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = _bilan;
+    final fmt = DateFormat('d MMM y · HH:mm', 'fr_FR');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          OutlinedButton.icon(
+            icon: _busy
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.fact_check_outlined, size: 16),
+            onPressed: _busy ? null : _verifier,
+            label: const Text('Vérifier maintenant'),
+          ),
+          if (b != null && b.absentes.isNotEmpty)
+            FilledButton.icon(
+              icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+              onPressed: _busy ? null : _renvoyer,
+              label: Text('Renvoyer ${b.absentes.length} vente(s)'),
+            ),
+        ]),
+        if (_erreur != null) ...[
+          const SizedBox(height: BsSpace.sm),
+          Text(_erreur!, style: BsType.body(12, color: BsColors.danger)),
+        ],
+        if (b != null) ...[
+          const SizedBox(height: BsSpace.sm),
+          Text(
+            '${b.ventesVerifiees} vente(s) vérifiée(s) · '
+            '${b.lignesRestaurees} ligne(s) restaurée(s) · '
+            '${b.heuresCorrigees} heure(s) corrigée(s) · '
+            '${b.absentes.length} absente(s) du serveur',
+            style: BsType.body(12, color: BsColors.slate),
+          ),
+          for (final v in b.absentes.take(50))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '#${v.id.toString().padLeft(4, '0')} · '
+                '${fmt.format(aLubumbashi(v.soldAt))} · ${v.location.label}'
+                '${v.customerName == null ? '' : ' · ${v.customerName}'}',
+                style: BsType.mono(12, color: BsColors.ink),
+              ),
+            ),
+          if (b.absentes.length > 50)
+            Text('… et ${b.absentes.length - 50} autre(s)',
+                style: BsType.body(12, color: BsColors.slate)),
+        ],
+      ],
     );
   }
 }

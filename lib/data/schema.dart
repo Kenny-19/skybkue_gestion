@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import '../core/identite.dart';
+
 // Enums stockés en index int (sqlite n'a pas de vrai enum).
 // L'ordre doit rester stable — ne jamais réordonner.
 
@@ -393,6 +395,14 @@ class Sales extends Table {
   /// Pourquoi la dernière tentative a échoué. Gardé en clair : c'est la
   /// première chose qu'on regarde quand une caisse ne remonte plus.
   TextColumn get syncError => text().nullable()();
+
+  /// Identité de la vente sur tous les postes (cf. core/identite.dart).
+  /// `id` reste le numéro du ticket sur CE poste ; le serveur, lui, ne
+  /// connaît la vente que par cet identifiant.
+  ///
+  /// Nullable pour pouvoir être ajouté à une base existante ; rempli à
+  /// chaque insertion, et à l'ouverture pour les ventes plus anciennes.
+  TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
 }
 
 /// Règlements reçus sur une vente à crédit.
@@ -411,12 +421,14 @@ class DebtPayments extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get saleId =>
       integer().references(Sales, #id, onDelete: KeyAction.cascade)();
+
   /// Montant reçu, en cents. Toujours strictement positif : un
   /// remboursement au client s'enregistre comme une autre opération, pas
   /// comme un versement négatif qu'on oublierait de lire.
   IntColumn get amountCents => integer()();
   IntColumn get payment => intEnum<DbPayment>()();
   DateTimeColumn get receivedAt => dateTime().withDefault(currentDateAndTime)();
+
   /// Qui a encaissé. Conservé en clair : un compte peut être supprimé,
   /// la trace du versement doit lui survivre.
   TextColumn get receivedByLogin => text().nullable()();
@@ -433,4 +445,8 @@ class SaleLines extends Table {
   TextColumn get articleName => text()(); // snapshot au moment de la vente
   IntColumn get qty => integer()();
   IntColumn get unitPriceCents => integer()();
+
+  /// Identité de la ligne sur tous les postes (même raison que
+  /// [Sales.uid] : les numéros de ligne aussi se chevauchaient).
+  TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
 }

@@ -793,7 +793,7 @@ function renderRecentSales({ sales, lines, users }) {
       <div class="py-2.5 flex items-center gap-3">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-mono text-[11px] text-slateSoft">#${String(s.id).padStart(4, '0')}</span>
+            <span class="font-mono text-[11px] text-slateSoft">#${String(s.numero_local ?? s.id).padStart(4, '0')}</span>
             <span class="font-mono text-xs text-ink font-semibold">${dt}</span>
             ${creditBadge}
           </div>

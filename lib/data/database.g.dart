@@ -2487,6 +2487,13 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
   late final GeneratedColumn<String> syncError = GeneratedColumn<String>(
       'sync_error', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      clientDefault: nouvelUid);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -2501,7 +2508,8 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
         note,
         syncedAt,
         syncAttempts,
-        syncError
+        syncError,
+        uid
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2566,6 +2574,10 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
       context.handle(_syncErrorMeta,
           syncError.isAcceptableOrUnknown(data['sync_error']!, _syncErrorMeta));
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -2603,6 +2615,8 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
           .read(DriftSqlType.int, data['${effectivePrefix}sync_attempts'])!,
       syncError: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}sync_error']),
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -2638,6 +2652,14 @@ class Sale extends DataClass implements Insertable<Sale> {
   /// Pourquoi la dernière tentative a échoué. Gardé en clair : c'est la
   /// première chose qu'on regarde quand une caisse ne remonte plus.
   final String? syncError;
+
+  /// Identité de la vente sur tous les postes (cf. core/identite.dart).
+  /// `id` reste le numéro du ticket sur CE poste ; le serveur, lui, ne
+  /// connaît la vente que par cet identifiant.
+  ///
+  /// Nullable pour pouvoir être ajouté à une base existante ; rempli à
+  /// chaque insertion, et à l'ouverture pour les ventes plus anciennes.
+  final String? uid;
   const Sale(
       {required this.id,
       required this.soldAt,
@@ -2651,7 +2673,8 @@ class Sale extends DataClass implements Insertable<Sale> {
       this.note,
       this.syncedAt,
       required this.syncAttempts,
-      this.syncError});
+      this.syncError,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -2688,6 +2711,9 @@ class Sale extends DataClass implements Insertable<Sale> {
     if (!nullToAbsent || syncError != null) {
       map['sync_error'] = Variable<String>(syncError);
     }
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -2718,6 +2744,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncError: syncError == null && nullToAbsent
           ? const Value.absent()
           : Value(syncError),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -2740,6 +2767,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
       syncAttempts: serializer.fromJson<int>(json['syncAttempts']),
       syncError: serializer.fromJson<String?>(json['syncError']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -2761,6 +2789,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
       'syncAttempts': serializer.toJson<int>(syncAttempts),
       'syncError': serializer.toJson<String?>(syncError),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -2777,7 +2806,8 @@ class Sale extends DataClass implements Insertable<Sale> {
           Value<String?> note = const Value.absent(),
           Value<DateTime?> syncedAt = const Value.absent(),
           int? syncAttempts,
-          Value<String?> syncError = const Value.absent()}) =>
+          Value<String?> syncError = const Value.absent(),
+          Value<String?> uid = const Value.absent()}) =>
       Sale(
         id: id ?? this.id,
         soldAt: soldAt ?? this.soldAt,
@@ -2794,6 +2824,7 @@ class Sale extends DataClass implements Insertable<Sale> {
         syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
         syncAttempts: syncAttempts ?? this.syncAttempts,
         syncError: syncError.present ? syncError.value : this.syncError,
+        uid: uid.present ? uid.value : this.uid,
       );
   Sale copyWithCompanion(SalesCompanion data) {
     return Sale(
@@ -2817,6 +2848,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           ? data.syncAttempts.value
           : this.syncAttempts,
       syncError: data.syncError.present ? data.syncError.value : this.syncError,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -2835,7 +2867,8 @@ class Sale extends DataClass implements Insertable<Sale> {
           ..write('note: $note, ')
           ..write('syncedAt: $syncedAt, ')
           ..write('syncAttempts: $syncAttempts, ')
-          ..write('syncError: $syncError')
+          ..write('syncError: $syncError, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -2854,7 +2887,8 @@ class Sale extends DataClass implements Insertable<Sale> {
       note,
       syncedAt,
       syncAttempts,
-      syncError);
+      syncError,
+      uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2871,7 +2905,8 @@ class Sale extends DataClass implements Insertable<Sale> {
           other.note == this.note &&
           other.syncedAt == this.syncedAt &&
           other.syncAttempts == this.syncAttempts &&
-          other.syncError == this.syncError);
+          other.syncError == this.syncError &&
+          other.uid == this.uid);
 }
 
 class SalesCompanion extends UpdateCompanion<Sale> {
@@ -2888,6 +2923,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
   final Value<DateTime?> syncedAt;
   final Value<int> syncAttempts;
   final Value<String?> syncError;
+  final Value<String?> uid;
   const SalesCompanion({
     this.id = const Value.absent(),
     this.soldAt = const Value.absent(),
@@ -2902,6 +2938,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     this.syncedAt = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   SalesCompanion.insert({
     this.id = const Value.absent(),
@@ -2917,6 +2954,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     this.syncedAt = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.uid = const Value.absent(),
   })  : soldAt = Value(soldAt),
         payment = Value(payment);
   static Insertable<Sale> custom({
@@ -2933,6 +2971,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     Expression<DateTime>? syncedAt,
     Expression<int>? syncAttempts,
     Expression<String>? syncError,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2948,6 +2987,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       if (syncedAt != null) 'synced_at': syncedAt,
       if (syncAttempts != null) 'sync_attempts': syncAttempts,
       if (syncError != null) 'sync_error': syncError,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -2964,7 +3004,8 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       Value<String?>? note,
       Value<DateTime?>? syncedAt,
       Value<int>? syncAttempts,
-      Value<String?>? syncError}) {
+      Value<String?>? syncError,
+      Value<String?>? uid}) {
     return SalesCompanion(
       id: id ?? this.id,
       soldAt: soldAt ?? this.soldAt,
@@ -2979,6 +3020,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       syncedAt: syncedAt ?? this.syncedAt,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: syncError ?? this.syncError,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -3026,6 +3068,9 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     if (syncError.present) {
       map['sync_error'] = Variable<String>(syncError.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -3044,7 +3089,8 @@ class SalesCompanion extends UpdateCompanion<Sale> {
           ..write('note: $note, ')
           ..write('syncedAt: $syncedAt, ')
           ..write('syncAttempts: $syncAttempts, ')
-          ..write('syncError: $syncError')
+          ..write('syncError: $syncError, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -3099,9 +3145,16 @@ class $SaleLinesTable extends SaleLines
   late final GeneratedColumn<int> unitPriceCents = GeneratedColumn<int>(
       'unit_price_cents', aliasedName, false,
       type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      clientDefault: nouvelUid);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, saleId, articleId, articleName, qty, unitPriceCents];
+      [id, saleId, articleId, articleName, qty, unitPriceCents, uid];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3147,6 +3200,10 @@ class $SaleLinesTable extends SaleLines
     } else if (isInserting) {
       context.missing(_unitPriceCentsMeta);
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -3168,6 +3225,8 @@ class $SaleLinesTable extends SaleLines
           .read(DriftSqlType.int, data['${effectivePrefix}qty'])!,
       unitPriceCents: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}unit_price_cents'])!,
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -3184,13 +3243,18 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
   final String articleName;
   final int qty;
   final int unitPriceCents;
+
+  /// Identité de la ligne sur tous les postes (même raison que
+  /// [Sales.uid] : les numéros de ligne aussi se chevauchaient).
+  final String? uid;
   const SaleLine(
       {required this.id,
       required this.saleId,
       this.articleId,
       required this.articleName,
       required this.qty,
-      required this.unitPriceCents});
+      required this.unitPriceCents,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3202,6 +3266,9 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
     map['article_name'] = Variable<String>(articleName);
     map['qty'] = Variable<int>(qty);
     map['unit_price_cents'] = Variable<int>(unitPriceCents);
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -3215,6 +3282,7 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
       articleName: Value(articleName),
       qty: Value(qty),
       unitPriceCents: Value(unitPriceCents),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -3228,6 +3296,7 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
       articleName: serializer.fromJson<String>(json['articleName']),
       qty: serializer.fromJson<int>(json['qty']),
       unitPriceCents: serializer.fromJson<int>(json['unitPriceCents']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -3240,6 +3309,7 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
       'articleName': serializer.toJson<String>(articleName),
       'qty': serializer.toJson<int>(qty),
       'unitPriceCents': serializer.toJson<int>(unitPriceCents),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -3249,7 +3319,8 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
           Value<int?> articleId = const Value.absent(),
           String? articleName,
           int? qty,
-          int? unitPriceCents}) =>
+          int? unitPriceCents,
+          Value<String?> uid = const Value.absent()}) =>
       SaleLine(
         id: id ?? this.id,
         saleId: saleId ?? this.saleId,
@@ -3257,6 +3328,7 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
         articleName: articleName ?? this.articleName,
         qty: qty ?? this.qty,
         unitPriceCents: unitPriceCents ?? this.unitPriceCents,
+        uid: uid.present ? uid.value : this.uid,
       );
   SaleLine copyWithCompanion(SaleLinesCompanion data) {
     return SaleLine(
@@ -3269,6 +3341,7 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
       unitPriceCents: data.unitPriceCents.present
           ? data.unitPriceCents.value
           : this.unitPriceCents,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -3280,14 +3353,15 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
           ..write('articleId: $articleId, ')
           ..write('articleName: $articleName, ')
           ..write('qty: $qty, ')
-          ..write('unitPriceCents: $unitPriceCents')
+          ..write('unitPriceCents: $unitPriceCents, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, saleId, articleId, articleName, qty, unitPriceCents);
+      Object.hash(id, saleId, articleId, articleName, qty, unitPriceCents, uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3297,7 +3371,8 @@ class SaleLine extends DataClass implements Insertable<SaleLine> {
           other.articleId == this.articleId &&
           other.articleName == this.articleName &&
           other.qty == this.qty &&
-          other.unitPriceCents == this.unitPriceCents);
+          other.unitPriceCents == this.unitPriceCents &&
+          other.uid == this.uid);
 }
 
 class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
@@ -3307,6 +3382,7 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
   final Value<String> articleName;
   final Value<int> qty;
   final Value<int> unitPriceCents;
+  final Value<String?> uid;
   const SaleLinesCompanion({
     this.id = const Value.absent(),
     this.saleId = const Value.absent(),
@@ -3314,6 +3390,7 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
     this.articleName = const Value.absent(),
     this.qty = const Value.absent(),
     this.unitPriceCents = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   SaleLinesCompanion.insert({
     this.id = const Value.absent(),
@@ -3322,6 +3399,7 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
     required String articleName,
     required int qty,
     required int unitPriceCents,
+    this.uid = const Value.absent(),
   })  : saleId = Value(saleId),
         articleName = Value(articleName),
         qty = Value(qty),
@@ -3333,6 +3411,7 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
     Expression<String>? articleName,
     Expression<int>? qty,
     Expression<int>? unitPriceCents,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3341,6 +3420,7 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
       if (articleName != null) 'article_name': articleName,
       if (qty != null) 'qty': qty,
       if (unitPriceCents != null) 'unit_price_cents': unitPriceCents,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -3350,7 +3430,8 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
       Value<int?>? articleId,
       Value<String>? articleName,
       Value<int>? qty,
-      Value<int>? unitPriceCents}) {
+      Value<int>? unitPriceCents,
+      Value<String?>? uid}) {
     return SaleLinesCompanion(
       id: id ?? this.id,
       saleId: saleId ?? this.saleId,
@@ -3358,6 +3439,7 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
       articleName: articleName ?? this.articleName,
       qty: qty ?? this.qty,
       unitPriceCents: unitPriceCents ?? this.unitPriceCents,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -3382,6 +3464,9 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
     if (unitPriceCents.present) {
       map['unit_price_cents'] = Variable<int>(unitPriceCents.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -3393,7 +3478,8 @@ class SaleLinesCompanion extends UpdateCompanion<SaleLine> {
           ..write('articleId: $articleId, ')
           ..write('articleName: $articleName, ')
           ..write('qty: $qty, ')
-          ..write('unitPriceCents: $unitPriceCents')
+          ..write('unitPriceCents: $unitPriceCents, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -9381,6 +9467,7 @@ typedef $$SalesTableCreateCompanionBuilder = SalesCompanion Function({
   Value<DateTime?> syncedAt,
   Value<int> syncAttempts,
   Value<String?> syncError,
+  Value<String?> uid,
 });
 typedef $$SalesTableUpdateCompanionBuilder = SalesCompanion Function({
   Value<int> id,
@@ -9396,6 +9483,7 @@ typedef $$SalesTableUpdateCompanionBuilder = SalesCompanion Function({
   Value<DateTime?> syncedAt,
   Value<int> syncAttempts,
   Value<String?> syncError,
+  Value<String?> uid,
 });
 
 final class $$SalesTableReferences
@@ -9492,6 +9580,9 @@ class $$SalesTableFilterComposer extends Composer<_$AppDatabase, $SalesTable> {
 
   ColumnFilters<String> get syncError => $composableBuilder(
       column: $table.syncError, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
 
   $$UsersTableFilterComposer get serverUserId {
     final $$UsersTableFilterComposer composer = $composerBuilder(
@@ -9603,6 +9694,9 @@ class $$SalesTableOrderingComposer
   ColumnOrderings<String> get syncError => $composableBuilder(
       column: $table.syncError, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
+
   $$UsersTableOrderingComposer get serverUserId {
     final $$UsersTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -9668,6 +9762,9 @@ class $$SalesTableAnnotationComposer
 
   GeneratedColumn<String> get syncError =>
       $composableBuilder(column: $table.syncError, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   $$UsersTableAnnotationComposer get serverUserId {
     final $$UsersTableAnnotationComposer composer = $composerBuilder(
@@ -9769,6 +9866,7 @@ class $$SalesTableTableManager extends RootTableManager<
             Value<DateTime?> syncedAt = const Value.absent(),
             Value<int> syncAttempts = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               SalesCompanion(
             id: id,
@@ -9784,6 +9882,7 @@ class $$SalesTableTableManager extends RootTableManager<
             syncedAt: syncedAt,
             syncAttempts: syncAttempts,
             syncError: syncError,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -9799,6 +9898,7 @@ class $$SalesTableTableManager extends RootTableManager<
             Value<DateTime?> syncedAt = const Value.absent(),
             Value<int> syncAttempts = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               SalesCompanion.insert(
             id: id,
@@ -9814,6 +9914,7 @@ class $$SalesTableTableManager extends RootTableManager<
             syncedAt: syncedAt,
             syncAttempts: syncAttempts,
             syncError: syncError,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>
@@ -9907,6 +10008,7 @@ typedef $$SaleLinesTableCreateCompanionBuilder = SaleLinesCompanion Function({
   required String articleName,
   required int qty,
   required int unitPriceCents,
+  Value<String?> uid,
 });
 typedef $$SaleLinesTableUpdateCompanionBuilder = SaleLinesCompanion Function({
   Value<int> id,
@@ -9915,6 +10017,7 @@ typedef $$SaleLinesTableUpdateCompanionBuilder = SaleLinesCompanion Function({
   Value<String> articleName,
   Value<int> qty,
   Value<int> unitPriceCents,
+  Value<String?> uid,
 });
 
 final class $$SaleLinesTableReferences
@@ -9971,6 +10074,9 @@ class $$SaleLinesTableFilterComposer
   ColumnFilters<int> get unitPriceCents => $composableBuilder(
       column: $table.unitPriceCents,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
 
   $$SalesTableFilterComposer get saleId {
     final $$SalesTableFilterComposer composer = $composerBuilder(
@@ -10035,6 +10141,9 @@ class $$SaleLinesTableOrderingComposer
       column: $table.unitPriceCents,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
+
   $$SalesTableOrderingComposer get saleId {
     final $$SalesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -10096,6 +10205,9 @@ class $$SaleLinesTableAnnotationComposer
 
   GeneratedColumn<int> get unitPriceCents => $composableBuilder(
       column: $table.unitPriceCents, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   $$SalesTableAnnotationComposer get saleId {
     final $$SalesTableAnnotationComposer composer = $composerBuilder(
@@ -10167,6 +10279,7 @@ class $$SaleLinesTableTableManager extends RootTableManager<
             Value<String> articleName = const Value.absent(),
             Value<int> qty = const Value.absent(),
             Value<int> unitPriceCents = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               SaleLinesCompanion(
             id: id,
@@ -10175,6 +10288,7 @@ class $$SaleLinesTableTableManager extends RootTableManager<
             articleName: articleName,
             qty: qty,
             unitPriceCents: unitPriceCents,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -10183,6 +10297,7 @@ class $$SaleLinesTableTableManager extends RootTableManager<
             required String articleName,
             required int qty,
             required int unitPriceCents,
+            Value<String?> uid = const Value.absent(),
           }) =>
               SaleLinesCompanion.insert(
             id: id,
@@ -10191,6 +10306,7 @@ class $$SaleLinesTableTableManager extends RootTableManager<
             articleName: articleName,
             qty: qty,
             unitPriceCents: unitPriceCents,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (

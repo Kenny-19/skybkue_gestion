@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/identite.dart';
 import '../core/room_type.dart';
 import 'schema.dart';
 import 'seed.dart';
@@ -39,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -278,6 +279,18 @@ class AppDatabase extends _$AppDatabase {
             }
             await _convertirTarifsEnDollars();
           }
+          // v26 : identité des ventes sur tous les postes. Les colonnes
+          // sont ajoutées ici ; les identifiants des ventes existantes
+          // sont attribués à l'ouverture (beforeOpen), comme pour toute
+          // base qui en manquerait.
+          if (from < 26) {
+            if (await _tableExists('sales')) {
+              await _addColumnIfMissing(m, sales, sales.uid);
+            }
+            if (await _tableExists('sale_lines')) {
+              await _addColumnIfMissing(m, saleLines, saleLines.uid);
+            }
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -311,6 +324,11 @@ class AppDatabase extends _$AppDatabase {
           // On ne se fie plus au numéro de version pour savoir ce qui
           // existe : on regarde le fichier, et on ajoute ce qui manque.
           await _reparerSchema();
+          // Identité des ventes : toute vente ou ligne sans identifiant en
+          // reçoit un, PUIS l'unicité est imposée. Dans cet ordre : un
+          // index unique posé sur des valeurs encore vides passerait,
+          // mais ne protégerait rien.
+          await _attribuerIdentites();
           // Filet de rattrapage, à CHAQUE ouverture.
           //
           // La conversion en dollars est idempotente — elle ne touche que
@@ -526,6 +544,49 @@ class AppDatabase extends _$AppDatabase {
   Future<Set<String>> _existingColumns(String table) async {
     final rows = await customSelect('PRAGMA table_info($table)').get();
     return rows.map((r) => r.read<String>('name')).toSet();
+  }
+
+  /// Donne un identifiant aux ventes et lignes qui n'en ont pas, puis
+  /// impose leur unicité.
+  ///
+  /// Les ventes antérieures reçoivent un identifiant DÉDUIT de leur
+  /// numéro et de leur heure (cf. [uidVenteHerite]) : le serveur calcule
+  /// le même pour la copie qu'il détient déjà, et les deux se retrouvent
+  /// sans échange. Idempotent : ne touche que ce qui est encore vide.
+  Future<void> _attribuerIdentites() async {
+    if (!await _tableExists('sales') || !await _tableExists('sale_lines')) {
+      return;
+    }
+    final colonnesVentes = await _existingColumns('sales');
+    final colonnesLignes = await _existingColumns('sale_lines');
+    if (!colonnesVentes.contains('uid') || !colonnesLignes.contains('uid')) {
+      return; // la réparation du schéma n'a pas pu les ajouter
+    }
+    final ventes = await customSelect(
+      'SELECT id, sold_at FROM sales WHERE uid IS NULL',
+    ).get();
+    for (final v in ventes) {
+      final id = v.read<int>('id');
+      final soldAt = DateTime.fromMillisecondsSinceEpoch(
+          v.read<int>('sold_at') * 1000,
+          isUtc: true);
+      await customStatement('UPDATE sales SET uid = ? WHERE id = ?',
+          [uidVenteHerite(id, soldAt), id]);
+    }
+    final lignes = await customSelect(
+      'SELECT l.id AS id, s.uid AS vente FROM sale_lines l '
+      'JOIN sales s ON s.id = l.sale_id WHERE l.uid IS NULL',
+    ).get();
+    for (final l in lignes) {
+      await customStatement('UPDATE sale_lines SET uid = ? WHERE id = ?', [
+        uidLigneHerite(l.read<String>('vente'), l.read<int>('id')),
+        l.read<int>('id'),
+      ]);
+    }
+    await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_uid ON sales (uid)');
+    await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
+        'idx_sale_lines_uid ON sale_lines (uid)');
   }
 
   /// Aligne le fichier sur le schéma du code : crée les tables absentes,

@@ -30,13 +30,33 @@ class HistoryScreen extends ConsumerStatefulWidget {
   ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
 }
 
+/// Les deux historiques. Ils ne se mélangent plus jamais à l'écran.
+///
+/// L'hôtel, ce sont les séjours facturés. Le restaurant et la terrasse,
+/// ce sont les ventes du point de vente — y compris celles saisies au
+/// lieu « Hôtel » (consommations mises sur une chambre) : elles passent
+/// par la caisse, elles restent avec la caisse.
+enum _Vue { hotel, ventes }
+
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   SaleWithLines? _selected;
+
+  /// La vue choisie, pour qui a accès aux deux (gérant, super admin).
+  _Vue _choix = _Vue.ventes;
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(recentSalesProvider);
     final perms = ref.watch(permsProvider);
+    final voitHotel = perms.canHistoriqueHotel;
+    final voitVentes = perms.canHistoriqueVentes;
+    // Réception : l'hôtel seul. Serveurs : les ventes seules. Gérant et
+    // super admin : l'un OU l'autre, au choix, jamais les deux empilés.
+    final vue = !voitVentes
+        ? _Vue.hotel
+        : !voitHotel
+            ? _Vue.ventes
+            : _choix;
 
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -56,25 +76,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Pour la réception, l'historique EST celui de l'hôtel :
-                  // elle n'a pas accès à la caisse, les 57 transactions du
-                  // bar ne la concernent pas et noyaient ses séjours.
                   PageHeader(
                     eyebrow: 'Historique',
-                    title: !perms.canHistoriqueVentes
-                        ? 'Séjours facturés'
-                        : !perms.canHistoriqueHotel
-                            ? 'Ventes récentes'
-                            : 'Historique',
-                    subtitle: !perms.canHistoriqueVentes
+                    title: vue == _Vue.hotel
+                        ? 'Hôtel — séjours facturés'
+                        : 'Restaurant & terrasse',
+                    subtitle: vue == _Vue.hotel
                         ? "Départs et factures de l'hôtel"
                         : '${sales.length} transactions · 7 derniers jours',
                     actions: [
-                      // Le rapport ne contient que des VENTES. L'offrir à
-                      // la réception lui donnerait par la bande toutes les
-                      // transactions du bar — exactement ce que l'écran
-                      // vient de lui masquer.
-                      if (perms.canHistoriqueVentes)
+                      // Le rapport ne contient que des VENTES : il n'a sa
+                      // place que dans la vue restaurant & terrasse.
+                      if (vue == _Vue.ventes)
                         FilledButton.icon(
                           icon: const Icon(Icons.summarize_outlined, size: 16),
                           onPressed: () => _showReportDialog(),
@@ -82,16 +95,39 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         ),
                     ],
                   ),
-                  // L'hôtel n'apparaît que pour qui en a le droit : la
-                  // réception, les gérants, le super admin. Une serveuse
-                  // n'a rien à faire dans les factures de séjour.
-                  if (perms.canHistoriqueHotel) const StaysHistorySection(),
-                  // La liste des ventes du restaurant est masquée pour la
-                  // réception : ce n'est pas son métier, et elle repoussait
-                  // les séjours hors de l'écran.
-                  if (!perms.canHistoriqueVentes)
-                    const SizedBox(height: BsSpace.xxl)
-                  else if (sales.isEmpty)
+                  // Le choix n'existe que pour qui voit les deux. Les
+                  // autres n'ont même pas à savoir que l'autre historique
+                  // existe.
+                  if (voitHotel && voitVentes)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                          BsSpace.xl, 0, BsSpace.xl, BsSpace.md),
+                      child: SegmentedButton<_Vue>(
+                        segments: const [
+                          ButtonSegment(
+                            value: _Vue.ventes,
+                            icon: Icon(Icons.restaurant_outlined, size: 16),
+                            label: Text('Restaurant & terrasse'),
+                          ),
+                          ButtonSegment(
+                            value: _Vue.hotel,
+                            icon: Icon(Icons.hotel_outlined, size: 16),
+                            label: Text('Hôtel'),
+                          ),
+                        ],
+                        selected: {vue},
+                        onSelectionChanged: (s) => setState(() {
+                          _choix = s.first;
+                          // Le détail d'une vente n'a rien à faire ouvert
+                          // à côté des séjours.
+                          _selected = null;
+                        }),
+                      ),
+                    ),
+                  if (vue == _Vue.hotel) ...[
+                    const StaysHistorySection(),
+                    const SizedBox(height: BsSpace.xxl),
+                  ] else if (sales.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(BsSpace.xl),
                       child: Container(
@@ -130,8 +166,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            width: _selected == null ? 0 : 440,
-            child: _selected == null
+            width: _selected == null || vue != _Vue.ventes ? 0 : 440,
+            child: _selected == null || vue != _Vue.ventes
                 ? const SizedBox.shrink()
                 : SaleDetailSheet(
                     sale: _selected!,
@@ -236,8 +272,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     // Période sélectionnée : défaut = 1 mois.
     final now = Horloge.maintenant();
     DateTimeRange range = DateTimeRange(
-      start: debutDeJourneeLubumbashi(now)
-          .subtract(const Duration(days: 30)),
+      start: debutDeJourneeLubumbashi(now).subtract(const Duration(days: 30)),
       end: debutDeJourneeLubumbashi(now)
           .add(const Duration(days: 1))
           .subtract(const Duration(milliseconds: 1)),
@@ -313,11 +348,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           setSt(() {
             label = l;
             range = DateTimeRange(
-              start: debutDeJourneeLubumbashi(now)
-                  .subtract(Duration(days: days)),
+              start:
+                  debutDeJourneeLubumbashi(now).subtract(Duration(days: days)),
               end: debutDeJourneeLubumbashi(now)
-          .add(const Duration(days: 1))
-          .subtract(const Duration(milliseconds: 1)),
+                  .add(const Duration(days: 1))
+                  .subtract(const Duration(milliseconds: 1)),
             );
           });
         }
@@ -498,7 +533,10 @@ class _DaySection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(0, BsSpace.md, 0, BsSpace.sm),
             child: Row(children: [
-              Text(DateFormat("EEEE d MMMM", 'fr_FR').format(aLubumbashi(day)).toUpperCase(),
+              Text(
+                  DateFormat("EEEE d MMMM", 'fr_FR')
+                      .format(aLubumbashi(day))
+                      .toUpperCase(),
                   style: BsType.eyebrow()),
               const SizedBox(width: 12),
               Expanded(child: Container(height: 1, color: BsColors.line)),
@@ -581,7 +619,9 @@ class _SaleRowState extends State<_SaleRow> {
             ),
             SizedBox(
               width: 76,
-              child: Text(DateFormat('HH:mm:ss', 'fr_FR').format(aLubumbashi(s.sale.soldAt)),
+              child: Text(
+                  DateFormat('HH:mm:ss', 'fr_FR')
+                      .format(aLubumbashi(s.sale.soldAt)),
                   style: BsType.mono(13, w: FontWeight.w600)),
             ),
             const SizedBox(width: 8),

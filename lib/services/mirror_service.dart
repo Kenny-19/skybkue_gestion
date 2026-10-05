@@ -484,10 +484,21 @@ class MirrorService {
       (l['uid'] as String?) ??
       uidLigneHerite(uidVente ?? nouvelUid(), (l['id'] as num).toInt());
 
+  /// Date lue sur le serveur, ramenée à la forme sous laquelle la base
+  /// locale la rend : heure locale, à la seconde.
+  ///
+  /// Sans ça, le même instant venait du serveur en UTC à la microseconde
+  /// et revenait de la base en heure locale à la seconde : deux `DateTime`
+  /// différents pour Dart. La synchronisation croyait chaque client, chaque
+  /// chambre occupée « modifiés », et les réécrivait à chaque passage.
+  /// Le stockage, lui, ne change pas : la base ne gardait déjà que la
+  /// seconde.
   static DateTime? _parseDate(dynamic v) {
-    if (v == null) return null;
-    if (v is String) return DateTime.tryParse(v);
-    return null;
+    if (v is! String) return null;
+    final d = DateTime.tryParse(v);
+    if (d == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(
+        d.millisecondsSinceEpoch ~/ 1000 * 1000);
   }
 
   // ─── Push / delete d'une chambre (multi-postes) ────────────────────
@@ -586,17 +597,15 @@ class MirrorService {
     // à moitié en place, pas un hôtel sans chambres.
     if (rows.isEmpty) return 0;
     final remoteNumbers = rows.map((r) => r['number'] as String).toSet();
-    final enAttente = (await (db.select(db.rooms)
-              ..where((x) => x.pendingSince.isNotNull()))
-            .get())
-        .map((r) => r.number)
-        .toSet();
+    final locales = {
+      for (final r in await db.select(db.rooms).get()) r.number: r
+    };
     var appliquees = 0;
 
     await db.transaction(() async {
       for (final r in rows) {
-        if (enAttente.contains(r['number'])) continue;
-        appliquees++;
+        final locale = locales[r['number']];
+        if (locale?.pendingSince != null) continue;
         final companion = RoomsCompanion.insert(
           number: r['number'] as String,
           type: r['type'] as String,
@@ -627,12 +636,18 @@ class MirrorService {
           negotiatedPriceCents:
               Value((r['negotiated_price_cents'] as num?)?.toInt()),
         );
+        // Rien de changé : on n'écrit pas. Chaque écriture prévient tous
+        // les écrans qui affichent les chambres, et ils se redessinaient
+        // en entier toutes les quinze secondes pour des valeurs identiques.
+        if (locale != null && locale.copyWithCompanion(companion) == locale) {
+          continue;
+        }
         await db.into(db.rooms).insertOnConflictUpdate(companion);
+        appliquees++;
       }
       // Chambres locales absentes du serveur : supprimées — sauf si elles
       // sont en attente (créées ici, pas encore arrivées là-bas).
-      final localAll = await db.select(db.rooms).get();
-      for (final l in localAll) {
+      for (final l in locales.values) {
         if (!remoteNumbers.contains(l.number) && l.pendingSince == null) {
           await (db.delete(db.rooms)..where((x) => x.number.equals(l.number)))
               .go();
@@ -1129,82 +1144,95 @@ class MirrorService {
     try {
       final rows = await toutesLesPages(
           () => c.from('mirror_articles').select('*').order('id'));
-      int applied = 0;
-      await _db.transaction(() async {
-        for (final r in rows) {
-          final nom = (r['name'] as String?)?.trim();
-          if (nom == null || nom.isEmpty) continue;
-          final uid = (r['uid'] as String?) ?? uidArticle(nom);
-
-          // Par identité d'abord (v28), puis par nom pour une fiche
-          // locale encore sans uid. Jamais `getSingleOrNull` : deux fiches
-          // de même nom sur ce poste faisaient lever, et toute la
-          // synchronisation du catalogue s'arrêtait en silence.
-          final parUid = await (_db.select(_db.articles)
-                ..where((a) => a.uid.equals(uid))
-                ..limit(1))
-              .get();
-          final ex = parUid.isNotEmpty
-              ? parUid.first
-              : (await (_db.select(_db.articles)
-                        ..where((a) => a.name.lower().equals(nom.toLowerCase()))
-                        ..limit(1))
-                      .get())
-                  .firstOrNull;
-
-          final prix = ((r['price_cents'] as num?) ?? 0).toInt();
-          final cat = DbCategory
-              .values[((r['category'] as num?) ?? 0).toInt().clamp(0, 2)];
-
-          if (ex == null) {
-            await _db.into(_db.articles).insert(ArticlesCompanion.insert(
-                  uid: Value(uid),
-                  name: nom,
-                  priceCents: prix,
-                  category: cat,
-                  active: Value((r['active'] as bool?) ?? true),
-                  imagePath: Value(r['image_path'] as String?),
-                  trackStock: Value((r['track_stock'] as bool?) ?? false),
-                  unit: Value((r['unit'] as String?) ?? 'unité'),
-                  // Un article qui arrive d'ailleurs démarre à zéro ici :
-                  // personne n'a encore compté ces bouteilles sur CE poste.
-                  stockQty: const Value(0),
-                  threshold: Value(((r['threshold'] as num?) ?? 0).toInt()),
-                ));
-            applied++;
-          } else {
-            // Le serveur fait foi sur la quantité — SAUF si ce poste a
-            // des mouvements non encore confirmés pour cet article :
-            // adopter la valeur serveur effacerait les ventes faites
-            // pendant la coupure.
-            final enAttente = await (_db.select(_db.stockMoves)
-                  ..where((m) => m.articleId.equals(ex.id) & m.sentAt.isNull()))
-                .get();
-            final qteServeur = (r['stock_qty'] as num?)?.toInt();
-            // Fiche produit.
-            await (_db.update(_db.articles)..where((a) => a.id.equals(ex.id)))
-                .write(ArticlesCompanion(
-              uid: Value(uid),
-              priceCents: Value(prix),
-              category: Value(cat),
-              active: Value((r['active'] as bool?) ?? ex.active),
-              imagePath: Value(r['image_path'] as String? ?? ex.imagePath),
-              trackStock: Value((r['track_stock'] as bool?) ?? ex.trackStock),
-              unit: Value((r['unit'] as String?) ?? ex.unit),
-              threshold:
-                  Value(((r['threshold'] as num?) ?? ex.threshold).toInt()),
-              stockQty: (enAttente.isEmpty && qteServeur != null)
-                  ? Value(qteServeur)
-                  : const Value.absent(),
-            ));
-            applied++;
-          }
-        }
-      });
-      return applied;
+      return await appliquerArticlesDuServeur(_db, rows);
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Applique le catalogue du serveur à [db]. N'écrit QUE ce qui change :
+  /// chaque écriture redessine la caisse, le catalogue et le stock, et ils
+  /// se redessinaient en entier toutes les quinze secondes pour rien.
+  /// Renvoie le nombre de fiches réellement écrites.
+  static Future<int> appliquerArticlesDuServeur(
+      AppDatabase db, List<Map<String, dynamic>> rows) async {
+    final locaux = await db.select(db.articles).get();
+    final parUid = <String, Article>{};
+    final parNom = <String, Article>{};
+    for (final a in locaux) {
+      if (a.uid != null) parUid.putIfAbsent(a.uid!, () => a);
+      parNom.putIfAbsent(a.name.toLowerCase(), () => a);
+    }
+    // Articles qui ont des mouvements pas encore confirmés : leur
+    // quantité locale prime (cf. plus bas).
+    final avecMouvements = (await (db.selectOnly(db.stockMoves, distinct: true)
+              ..addColumns([db.stockMoves.articleId])
+              ..where(db.stockMoves.sentAt.isNull()))
+            .get())
+        .map((r) => r.read(db.stockMoves.articleId)!)
+        .toSet();
+
+    var ecrits = 0;
+    await db.transaction(() async {
+      for (final r in rows) {
+        final nom = (r['name'] as String?)?.trim();
+        if (nom == null || nom.isEmpty) continue;
+        final uid = (r['uid'] as String?) ?? uidArticle(nom);
+        // Par identité d'abord (v28), puis par nom pour une fiche locale
+        // encore sans uid. Deux fiches de même nom ne font plus échouer
+        // toute la synchronisation.
+        final ex = parUid[uid] ?? parNom[nom.toLowerCase()];
+        final prix = ((r['price_cents'] as num?) ?? 0).toInt();
+        final cat = DbCategory
+            .values[((r['category'] as num?) ?? 0).toInt().clamp(0, 2)];
+
+        if (ex == null) {
+          final id = await db.into(db.articles).insert(ArticlesCompanion.insert(
+                uid: Value(uid),
+                name: nom,
+                priceCents: prix,
+                category: cat,
+                active: Value((r['active'] as bool?) ?? true),
+                imagePath: Value(r['image_path'] as String?),
+                trackStock: Value((r['track_stock'] as bool?) ?? false),
+                unit: Value((r['unit'] as String?) ?? 'unité'),
+                // Un article qui arrive d'ailleurs démarre à zéro ici :
+                // personne n'a encore compté ces bouteilles sur CE poste.
+                stockQty: const Value(0),
+                threshold: Value(((r['threshold'] as num?) ?? 0).toInt()),
+              ));
+          final cree = await (db.select(db.articles)
+                ..where((a) => a.id.equals(id)))
+              .getSingle();
+          parUid[uid] = cree;
+          parNom[nom.toLowerCase()] = cree;
+          ecrits++;
+          continue;
+        }
+        // Le serveur fait foi sur la quantité — SAUF si ce poste a des
+        // mouvements non encore confirmés pour cet article : adopter la
+        // valeur serveur effacerait les ventes faites pendant la coupure.
+        final qteServeur = (r['stock_qty'] as num?)?.toInt();
+        final maj = ArticlesCompanion(
+          uid: Value(uid),
+          priceCents: Value(prix),
+          category: Value(cat),
+          active: Value((r['active'] as bool?) ?? ex.active),
+          imagePath: Value(r['image_path'] as String? ?? ex.imagePath),
+          trackStock: Value((r['track_stock'] as bool?) ?? ex.trackStock),
+          unit: Value((r['unit'] as String?) ?? ex.unit),
+          threshold: Value(((r['threshold'] as num?) ?? ex.threshold).toInt()),
+          stockQty: (!avecMouvements.contains(ex.id) && qteServeur != null)
+              ? Value(qteServeur)
+              : const Value.absent(),
+        );
+        if (ex.copyWithCompanion(maj) == ex) continue;
+        await (db.update(db.articles)..where((a) => a.id.equals(ex.id)))
+            .write(maj);
+        ecrits++;
+      }
+    });
+    return ecrits;
   }
 
   static Future<int> pullClientsIntoLocal() async {
@@ -1213,62 +1241,79 @@ class MirrorService {
     try {
       final rows = await toutesLesPages(
           () => c.from('mirror_clients').select().order('id'));
-      int applied = 0;
-      await _db.transaction(() async {
-        for (final r in rows) {
-          final phone = r['phone'] as String?;
-          final name = r['full_name'] as String;
-          Client? ex;
-          if (phone != null && phone.isNotEmpty) {
-            ex = await (_db.select(_db.clients)
-                  ..where((c) => c.phone.equals(phone)))
-                .getSingleOrNull();
-          }
-          ex ??= await (_db.select(_db.clients)
-                ..where((c) => c.fullName.lower().equals(name.toLowerCase())))
-              .getSingleOrNull();
-          final visitsR = ((r['visits_count'] as num?) ?? 0).toInt();
-          final spentR = ((r['total_spent_cents'] as num?) ?? 0).toInt();
-          if (ex != null) {
-            await (_db.update(_db.clients)..where((x) => x.id.equals(ex!.id)))
-                .write(ClientsCompanion(
-              fullName: Value(name),
-              phone: Value(phone),
-              email: Value(r['email'] as String?),
-              notes: Value(r['notes'] as String?),
-              visitsCount:
-                  Value(visitsR > ex.visitsCount ? visitsR : ex.visitsCount),
-              totalSpentCents: Value(
-                  spentR > ex.totalSpentCents ? spentR : ex.totalSpentCents),
-              lastSeenAt: Value(_parseDate(r['last_seen_at']) ?? ex.lastSeenAt),
-            ));
-          } else {
-            await _db.into(_db.clients).insert(ClientsCompanion.insert(
-                  fullName: name,
-                  phone: phone == null || phone.isEmpty
-                      ? const Value.absent()
-                      : Value(phone),
-                  email: r['email'] == null
-                      ? const Value.absent()
-                      : Value(r['email'] as String?),
-                  notes: r['notes'] == null
-                      ? const Value.absent()
-                      : Value(r['notes'] as String?),
-                  visitsCount: Value(visitsR),
-                  totalSpentCents: Value(spentR),
-                  firstSeenAt: Value(
-                      _parseDate(r['first_seen_at']) ?? Horloge.maintenant()),
-                  lastSeenAt: Value(
-                      _parseDate(r['last_seen_at']) ?? Horloge.maintenant()),
-                ));
-          }
-          applied++;
-        }
-      });
-      return applied;
+      return await appliquerClientsDuServeur(_db, rows);
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Applique les clients du serveur à [db] : rapprochement par téléphone,
+  /// puis par nom. N'écrit que ce qui change, et ne lève plus quand deux
+  /// fiches portent le même nom (la synchronisation s'arrêtait en
+  /// silence). Renvoie le nombre de fiches écrites.
+  static Future<int> appliquerClientsDuServeur(
+      AppDatabase db, List<Map<String, dynamic>> rows) async {
+    final locaux = await db.select(db.clients).get();
+    final parTel = <String, Client>{};
+    final parNom = <String, Client>{};
+    for (final x in locaux) {
+      if (x.phone != null && x.phone!.isNotEmpty) {
+        parTel.putIfAbsent(x.phone!, () => x);
+      }
+      parNom.putIfAbsent(x.fullName.toLowerCase(), () => x);
+    }
+    var ecrits = 0;
+    await db.transaction(() async {
+      for (final r in rows) {
+        final phone = r['phone'] as String?;
+        final name = r['full_name'] as String;
+        final ex =
+            ((phone != null && phone.isNotEmpty) ? parTel[phone] : null) ??
+                parNom[name.toLowerCase()];
+        final visitsR = ((r['visits_count'] as num?) ?? 0).toInt();
+        final spentR = ((r['total_spent_cents'] as num?) ?? 0).toInt();
+        if (ex != null) {
+          final maj = ClientsCompanion(
+            fullName: Value(name),
+            phone: Value(phone),
+            email: Value(r['email'] as String?),
+            notes: Value(r['notes'] as String?),
+            // Les compteurs ne reculent jamais : chaque poste en voit une
+            // partie, on garde le plus grand.
+            visitsCount:
+                Value(visitsR > ex.visitsCount ? visitsR : ex.visitsCount),
+            totalSpentCents: Value(
+                spentR > ex.totalSpentCents ? spentR : ex.totalSpentCents),
+            lastSeenAt: Value(_parseDate(r['last_seen_at']) ?? ex.lastSeenAt),
+          );
+          if (ex.copyWithCompanion(maj) == ex) continue;
+          await (db.update(db.clients)..where((x) => x.id.equals(ex.id)))
+              .write(maj);
+        } else {
+          final id = await db.into(db.clients).insert(ClientsCompanion.insert(
+                fullName: name,
+                phone: phone == null || phone.isEmpty
+                    ? const Value.absent()
+                    : Value(phone),
+                email: Value(r['email'] as String?),
+                notes: Value(r['notes'] as String?),
+                visitsCount: Value(visitsR),
+                totalSpentCents: Value(spentR),
+                firstSeenAt: Value(
+                    _parseDate(r['first_seen_at']) ?? Horloge.maintenant()),
+                lastSeenAt: Value(
+                    _parseDate(r['last_seen_at']) ?? Horloge.maintenant()),
+              ));
+          final cree = await (db.select(db.clients)
+                ..where((x) => x.id.equals(id)))
+              .getSingle();
+          if (phone != null && phone.isNotEmpty) parTel[phone] = cree;
+          parNom[name.toLowerCase()] = cree;
+        }
+        ecrits++;
+      }
+    });
+    return ecrits;
   }
 
   // ─── Payeurs (prise en charge) ────────────────────────────────────
@@ -1300,50 +1345,57 @@ class MirrorService {
     try {
       final rows = await toutesLesPages(
           () => c.from('mirror_payers').select().order('id'));
-      int applied = 0;
-      await _db.transaction(() async {
-        for (final r in rows) {
-          final name = r['name'] as String;
-          final type = DbPayerType.values[(r['type'] as num? ?? 1).toInt()];
-          final ex = await (_db.select(_db.payers)
-                ..where((p) => p.name.lower().equals(name.toLowerCase())))
-              .getSingleOrNull();
-          if (ex != null) {
-            await (_db.update(_db.payers)..where((p) => p.id.equals(ex.id)))
-                .write(PayersCompanion(
-              type: Value(type),
-              taxId: Value(r['tax_id'] as String?),
-              address: Value(r['address'] as String?),
-              contact: Value(r['contact'] as String?),
-              notes: Value(r['notes'] as String?),
-            ));
-          } else {
-            await _db.into(_db.payers).insert(PayersCompanion.insert(
-                  name: name,
-                  type: Value(type),
-                  taxId: r['tax_id'] == null
-                      ? const Value.absent()
-                      : Value(r['tax_id'] as String?),
-                  address: r['address'] == null
-                      ? const Value.absent()
-                      : Value(r['address'] as String?),
-                  contact: r['contact'] == null
-                      ? const Value.absent()
-                      : Value(r['contact'] as String?),
-                  notes: r['notes'] == null
-                      ? const Value.absent()
-                      : Value(r['notes'] as String?),
-                  createdAt: Value(
-                      _parseDate(r['created_at']) ?? Horloge.maintenant()),
-                ));
-          }
-          applied++;
-        }
-      });
-      return applied;
+      return await appliquerSocietesDuServeur(_db, rows);
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Applique les sociétés du serveur à [db], rapprochées par nom. N'écrit
+  /// que ce qui change ; deux fiches de même nom ne font plus échouer la
+  /// synchronisation. Renvoie le nombre de fiches écrites.
+  static Future<int> appliquerSocietesDuServeur(
+      AppDatabase db, List<Map<String, dynamic>> rows) async {
+    final parNom = <String, Payer>{};
+    for (final p in await db.select(db.payers).get()) {
+      parNom.putIfAbsent(p.name.toLowerCase(), () => p);
+    }
+    var ecrits = 0;
+    await db.transaction(() async {
+      for (final r in rows) {
+        final name = r['name'] as String;
+        final type = DbPayerType.values[(r['type'] as num? ?? 1).toInt()];
+        final ex = parNom[name.toLowerCase()];
+        if (ex != null) {
+          final maj = PayersCompanion(
+            type: Value(type),
+            taxId: Value(r['tax_id'] as String?),
+            address: Value(r['address'] as String?),
+            contact: Value(r['contact'] as String?),
+            notes: Value(r['notes'] as String?),
+          );
+          if (ex.copyWithCompanion(maj) == ex) continue;
+          await (db.update(db.payers)..where((p) => p.id.equals(ex.id)))
+              .write(maj);
+        } else {
+          final id = await db.into(db.payers).insert(PayersCompanion.insert(
+                name: name,
+                type: Value(type),
+                taxId: Value(r['tax_id'] as String?),
+                address: Value(r['address'] as String?),
+                contact: Value(r['contact'] as String?),
+                notes: Value(r['notes'] as String?),
+                createdAt:
+                    Value(_parseDate(r['created_at']) ?? Horloge.maintenant()),
+              ));
+          parNom[name.toLowerCase()] = await (db.select(db.payers)
+                ..where((p) => p.id.equals(id)))
+              .getSingle();
+        }
+        ecrits++;
+      }
+    });
+    return ecrits;
   }
 
   // ─── Suppression d'une vente (propagation Supabase) ────────────────

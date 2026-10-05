@@ -36,7 +36,11 @@ class RestoreOnBoot {
       }
       // On tente la restauration. En cas d'échec (hors ligne, pas de backup),
       // on retombe silencieusement sur le seed local par défaut.
-      final res = await CloudService.restoreLatestBackup();
+      // PC neuf : à défaut de sauvegarde à son nom, la dernière tous
+      // postes confondus vaut mieux qu'une base vide.
+      final res = await CloudService.restoreLatestBackup(touteSauvegarde: true);
+      // La base n'est pas encore ouverte : on installe tout de suite.
+      if (res.ok) await AppDatabase.appliquerRestaurationEnAttente();
       if (res.ok) {
         didRestore = true;
         debugPrint('[RestoreOnBoot] Base restaurée depuis Supabase.');

@@ -145,7 +145,16 @@ class SettingsScreen extends ConsumerWidget {
                       onPressed: () async {
                         final ok = await _confirmImport(context);
                         if (!ok) return;
-                        final path = await BackupService.importDatabase();
+                        String? path;
+                        try {
+                          path = await BackupService.importDatabase();
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text(describeError(e).message)));
+                          }
+                          return;
+                        }
                         if (context.mounted && path != null) {
                           _showRestartDialog(context);
                         }
@@ -244,7 +253,8 @@ class SettingsScreen extends ConsumerWidget {
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Restaurer une sauvegarde ?'),
         content: const Text(
-            'La base actuelle sera remplacée par le fichier choisi. L\'app doit être redémarrée après. Continuer ?'),
+            'La base actuelle sera remplacée par le fichier choisi au '
+            'prochain démarrage de l\'application. Continuer ?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(false),
@@ -263,9 +273,11 @@ class SettingsScreen extends ConsumerWidget {
       context: ctx,
       barrierDismissible: false,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Restauration effectuée'),
+        title: const Text('Restauration prête'),
         content: const Text(
-            'La base a été restaurée. Ferme et relance l\'application pour que les changements prennent effet.'),
+            'La sauvegarde sera installée au prochain démarrage. Ferme et '
+            'relance l\'application. L\'ancienne base est conservée à côté '
+            '(blue_sky.db.avant-restauration).'),
         actions: [
           FilledButton(
               onPressed: () => Navigator.of(dialogCtx).pop(),

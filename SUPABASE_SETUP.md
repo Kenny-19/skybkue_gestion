@@ -106,6 +106,12 @@ L'app enregistre déjà les erreurs dans `error_logs`. Pour **recevoir un email*
 Le plus simple : **Resend** (gratuit jusqu'à 100 emails/jour).
 
 1. Crée un compte sur https://resend.com → récupère une **API Key**.
+> **Version à jour : `web_dashboard/supabase/functions/notify-error/index.ts`.**
+> Elle met le nom du poste dans le sujet et n'envoie qu'une alerte par
+> erreur et par poste et par heure (le modèle ci-dessous a produit 87
+> e-mails en 30 min le 5 octobre 2026). Déploiement et secrets : voir
+> l'en-tête du fichier. Le modèle ci-dessous est gardé pour mémoire.
+
 2. Supabase → **Edge Functions** → New function `notify-error` → colle :
 
 ```ts

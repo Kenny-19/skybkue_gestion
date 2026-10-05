@@ -14,10 +14,11 @@ import '../core/horloge.dart';
 class BackupService {
   BackupService._();
 
-  /// Copie le fichier .db vers un chemin choisi par l'utilisateur.
+  /// Exporte une copie COHÉRENTE de la base vers un chemin choisi.
+  ///
+  /// Plus de copie brute du fichier : en mode WAL, il lui manque ce qui
+  /// dort encore dans le journal (cf. [AppDatabase.instantane]).
   static Future<String?> exportDatabase() async {
-    final src = await AppDatabase.dbFile();
-    if (!src.existsSync()) return null;
     final ts =
         DateFormat("yyyyMMddHHmm").format(aLubumbashi(Horloge.maintenant()));
     final path = await getSaveLocation(
@@ -27,12 +28,20 @@ class BackupService {
       ],
     );
     if (path == null) return null;
-    await src.copy(path.path);
+    final copie = await AppDatabase.instance.instantane();
+    try {
+      await copie.copy(path.path);
+    } finally {
+      copie.parent.deleteSync(recursive: true);
+    }
     return path.path;
   }
 
-  /// Restaure la BDD depuis un fichier .db choisi.
-  /// ⚠️ Écrase la BDD actuelle — l'app doit être redémarrée après.
+  /// Prépare la restauration d'un fichier .db choisi. Elle est installée
+  /// au prochain démarrage, jamais sous la base ouverte.
+  ///
+  /// Renvoie null si l'utilisateur annule, et lève si le fichier n'est pas
+  /// une base SQLite.
   static Future<String?> importDatabase() async {
     final picked = await openFile(
       acceptedTypeGroups: [
@@ -40,9 +49,13 @@ class BackupService {
       ],
     );
     if (picked == null) return null;
-    final dst = await AppDatabase.dbFile();
-    await File(picked.path).copy(dst.path);
-    return dst.path;
+    final ok =
+        await AppDatabase.preparerRestauration(await picked.readAsBytes());
+    if (!ok) {
+      throw const FormatException(
+          'Ce fichier n\'est pas une sauvegarde Skyblue valide.');
+    }
+    return picked.path;
   }
 
   /// Génère un rapport Excel "du soir" : une colonne par jour (2 colonnes),

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/cloud_config.dart';
+import 'data/database.dart';
 import 'services/auto_backup.dart';
 import 'services/error_reporter.dart';
 import 'services/horloge_service.dart';
@@ -35,6 +36,11 @@ Future<void> main() async {
       ErrorReporter.report(details.exception, details.stack,
           context: 'FlutterError');
     };
+
+    // Une restauration demandée à la session précédente s'installe ICI,
+    // avant que quoi que ce soit n'ouvre la base. Jamais pendant que
+    // l'application tourne dessus.
+    await AppDatabase.appliquerRestaurationEnAttente();
 
     // Initialise Supabase uniquement si les clés sont renseignées
     // (injectées au build par --dart-define, cf. CloudConfig). Sinon

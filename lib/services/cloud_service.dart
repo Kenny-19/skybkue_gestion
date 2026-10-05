@@ -52,54 +52,102 @@ class CloudService {
 
   // ─── Backup de la base ───────────────────────────────────────────────
 
-  /// Envoie une copie du fichier .db vers le bucket "backups".
+  /// Nom du poste, utilisable dans un chemin de stockage.
+  ///
+  /// Chaque poste a sa propre base : une sauvegarde unique partagée
+  /// (`latest/blue_sky.db`) était écrasée par le dernier poste à
+  /// sauvegarder, et « Restaurer depuis le cloud » pouvait installer sur
+  /// la caisse la base de la réception.
+  static String get _dossierPoste {
+    String nom;
+    try {
+      nom = Platform.localHostname;
+    } catch (_) {
+      nom = 'inconnu';
+    }
+    final propre = nom.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    return propre.isEmpty ? 'inconnu' : propre;
+  }
+
+  /// Envoie une copie COHÉRENTE de la base vers le bucket "backups".
+  ///
+  /// Trois emplacements :
+  ///   * `postes/<poste>/latest.db` — la dernière de CE poste, celle que
+  ///     « Restaurer depuis le cloud » reprend ;
+  ///   * `auto/<poste>/blue_sky_<date>.db` — l'historique ;
+  ///   * `latest/blue_sky.db` — la dernière, tous postes confondus. Elle
+  ///     ne sert qu'à un PC neuf, qui n'a pas encore de sauvegarde à son
+  ///     nom (cf. RestoreOnBoot).
   static Future<CloudResult> uploadBackup() async {
     final c = _client;
     if (c == null) return const CloudResult(false, 'Cloud non configuré');
     if (!await isOnline) {
       return const CloudResult(false, 'Aucune connexion internet');
     }
+    File? copie;
     try {
-      final file = await AppDatabase.dbFile();
-      if (!file.existsSync()) {
-        return const CloudResult(false, 'Fichier de base introuvable');
-      }
+      // Plus de lecture brute du fichier : en mode WAL, il lui manque ce
+      // qui dort encore dans le journal (dernières ventes, et parfois des
+      // changements de structure).
+      copie = await AppDatabase.instance.instantane();
+      final octets = await copie.readAsBytes();
       final ts =
           DateFormat('yyyyMMddHHmm').format(aLubumbashi(Horloge.maintenant()));
-      final path = 'auto/blue_sky_$ts.db';
-      await c.storage.from(CloudConfig.bucketBackups).uploadBinary(
-            path,
-            await file.readAsBytes(),
-            fileOptions: const FileOptions(upsert: true),
-          );
-      // Copie "latest" toujours écrasée pour retrouver facilement la dernière.
-      await c.storage.from(CloudConfig.bucketBackups).uploadBinary(
-            'latest/blue_sky.db',
-            await file.readAsBytes(),
-            fileOptions: const FileOptions(upsert: true),
-          );
+      final poste = _dossierPoste;
+      final bucket = c.storage.from(CloudConfig.bucketBackups);
+      const opts = FileOptions(upsert: true);
+      await bucket.uploadBinary('auto/$poste/blue_sky_$ts.db', octets,
+          fileOptions: opts);
+      await bucket.uploadBinary('postes/$poste/latest.db', octets,
+          fileOptions: opts);
+      await bucket.uploadBinary('latest/blue_sky.db', octets,
+          fileOptions: opts);
       return CloudResult(true, 'Sauvegarde envoyée ($ts)');
     } catch (e) {
       return CloudResult(false, 'Échec : $e');
+    } finally {
+      try {
+        copie?.parent.deleteSync(recursive: true);
+      } catch (_) {}
     }
   }
 
-  /// Télécharge la dernière sauvegarde cloud et écrase la base locale.
-  /// ⚠️ L'app doit être redémarrée après.
-  static Future<CloudResult> restoreLatestBackup() async {
+  /// Télécharge la dernière sauvegarde de CE poste et la prépare pour le
+  /// prochain démarrage.
+  ///
+  /// La base ouverte n'est plus écrasée en direct : la copie attend à
+  /// côté, et c'est le démarrage suivant qui l'installe, avant toute
+  /// ouverture, en écartant l'ancien journal WAL (cf.
+  /// [AppDatabase.appliquerRestaurationEnAttente]).
+  ///
+  /// [touteSauvegarde] : à défaut de sauvegarde à son nom, accepter la
+  /// dernière tous postes confondus. Réservé au PC neuf — sur un poste
+  /// existant, mieux vaut ne rien restaurer que la base d'un autre.
+  static Future<CloudResult> restoreLatestBackup(
+      {bool touteSauvegarde = false}) async {
     final c = _client;
     if (c == null) return const CloudResult(false, 'Cloud non configuré');
     if (!await isOnline) {
       return const CloudResult(false, 'Aucune connexion internet');
     }
     try {
-      final bytes = await c.storage
-          .from(CloudConfig.bucketBackups)
-          .download('latest/blue_sky.db');
-      final file = await AppDatabase.dbFile();
-      await file.writeAsBytes(bytes);
-      return const CloudResult(
-          true, 'Base restaurée — redémarre l\'application');
+      final bucket = c.storage.from(CloudConfig.bucketBackups);
+      List<int> octets;
+      try {
+        octets = await bucket.download('postes/$_dossierPoste/latest.db');
+      } catch (e) {
+        if (!touteSauvegarde) {
+          return CloudResult(
+              false, 'Aucune sauvegarde cloud pour ce poste ($_dossierPoste).');
+        }
+        octets = await bucket.download('latest/blue_sky.db');
+      }
+      if (!await AppDatabase.preparerRestauration(octets)) {
+        return const CloudResult(
+            false, 'La sauvegarde téléchargée n\'est pas une base valide.');
+      }
+      return const CloudResult(true,
+          'Sauvegarde prête — redémarre l\'application pour l\'installer.');
     } catch (e) {
       return CloudResult(false, 'Échec : $e');
     }

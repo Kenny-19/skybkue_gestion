@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -297,6 +298,19 @@ class AppDatabase extends _$AppDatabase {
           // d'abandonner : dix secondes valent mieux qu'une vente qui
           // ne part pas.
           await customStatement('PRAGMA busy_timeout = 10000');
+          // Réparation du schéma, à CHAQUE ouverture, AVANT tout le reste.
+          //
+          // Le 5 octobre 2026, la base du poste « Robin » se disait en
+          // version 25 sans porter la colonne que la v25 ajoute. Les
+          // migrations, qui se fient à `user_version`, n'avaient donc rien
+          // à faire ; la conversion en dollars ci-dessous plantait, la
+          // base ne s'ouvrait plus, et le poste a remonté 87 erreurs en
+          // trente minutes. Cause probable : un fichier de base remplacé
+          // par une restauration, avec l'ancien journal WAL laissé à côté.
+          //
+          // On ne se fie plus au numéro de version pour savoir ce qui
+          // existe : on regarde le fichier, et on ajoute ce qui manque.
+          await _reparerSchema();
           // Filet de rattrapage, à CHAQUE ouverture.
           //
           // La conversion en dollars est idempotente — elle ne touche que
@@ -514,6 +528,39 @@ class AppDatabase extends _$AppDatabase {
     return rows.map((r) => r.read<String>('name')).toSet();
   }
 
+  /// Aligne le fichier sur le schéma du code : crée les tables absentes,
+  /// ajoute les colonnes absentes. Ne supprime et ne modifie jamais rien.
+  ///
+  /// Chaque ajout est isolé : une colonne qu'on ne peut pas ajouter
+  /// (NOT NULL sans valeur par défaut, par exemple) ne doit pas empêcher
+  /// les autres de l'être, ni l'application de s'ouvrir.
+  Future<void> _reparerSchema() async {
+    final m = createMigrator();
+    for (final table in allTables) {
+      final nom = table.actualTableName;
+      try {
+        if (!await _tableExists(nom)) {
+          await m.createTable(table);
+          debugPrint('[schéma] table recréée : $nom');
+          continue;
+        }
+        final presentes = await _existingColumns(nom);
+        for (final colonne in table.$columns) {
+          if (presentes.contains(colonne.name)) continue;
+          try {
+            await m.addColumn(table, colonne);
+            debugPrint('[schéma] colonne ajoutée : $nom.${colonne.name}');
+          } catch (e) {
+            debugPrint('[schéma] colonne impossible à ajouter : '
+                '$nom.${colonne.name} — $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('[schéma] table $nom non vérifiée — $e');
+      }
+    }
+  }
+
   /// `ALTER TABLE … ADD COLUMN` rejouable : ne fait rien si la colonne
   /// est déjà là.
   Future<void> _addColumnIfMissing(
@@ -567,6 +614,97 @@ class AppDatabase extends _$AppDatabase {
     // de ventes.
     final ok = await _copierBase(ancienne, cible);
     return ok ? cible : ancienne;
+  }
+
+  // ─── Sauvegarde et restauration sûres ──────────────────────────────
+  //
+  // En mode WAL, la base n'est pas UN fichier mais trois : `blue_sky.db`,
+  // et à côté `-wal` (les dernières écritures, pas encore recopiées dans
+  // le fichier principal) et `-shm` (son index). Deux erreurs en
+  // découlaient :
+  //   * la sauvegarde copiait le seul fichier principal, donc une base
+  //     à laquelle pouvaient manquer les dernières ventes — et même des
+  //     changements de structure ;
+  //   * la restauration écrasait le fichier principal pendant que
+  //     l'application l'avait ouvert, en laissant l'ANCIEN `-wal` à côté.
+  //     Au démarrage suivant, SQLite rejouait ce journal sur un fichier
+  //     qui n'était plus le sien. C'est la cause probable de la base du
+  //     poste « Robin », le 5 octobre 2026 : version 25, colonne v25
+  //     absente, application bloquée.
+
+  /// Copie COHÉRENTE de la base ouverte, journal compris, dans un fichier
+  /// temporaire. `VACUUM INTO` écrit une base complète et compacte, telle
+  /// que SQLite la voit — y compris ce qui dort encore dans le `-wal`.
+  /// À l'appelant de supprimer le fichier rendu.
+  Future<File> instantane() async {
+    final dossier = await Directory.systemTemp.createTemp('bs_instantane');
+    final f = File(p.join(dossier.path, 'blue_sky.db'));
+    await customStatement('VACUUM INTO ?', [f.path]);
+    return f;
+  }
+
+  /// Fichier où une restauration attend le prochain démarrage.
+  static Future<File> _restaurationEnAttente() async =>
+      File('${(await dbFile()).path}.restaurer');
+
+  /// Prépare une restauration SANS toucher à la base ouverte : la copie
+  /// est déposée à côté, et appliquée au prochain démarrage par
+  /// [appliquerRestaurationEnAttente], avant toute ouverture.
+  ///
+  /// Refuse ce qui n'est pas une base SQLite : un fichier tronqué ou une
+  /// page d'erreur téléchargée ne remplace jamais une caisse.
+  static Future<bool> preparerRestauration(List<int> octets) async {
+    if (octets.length < 100 ||
+        String.fromCharCodes(octets.take(15)) != 'SQLite format 3') {
+      return false;
+    }
+    final cible = await _restaurationEnAttente();
+    final temporaire = File('${cible.path}.partiel');
+    await temporaire.writeAsBytes(octets, flush: true);
+    await temporaire.rename(cible.path);
+    return true;
+  }
+
+  /// Applique la restauration en attente, s'il y en a une. À appeler au
+  /// démarrage, AVANT la première ouverture de la base.
+  ///
+  /// L'ancienne base n'est pas effacée : elle est mise de côté sous
+  /// `blue_sky.db.avant-restauration`, au cas où la sauvegarde serait la
+  /// mauvaise. Et surtout, ses `-wal` / `-shm` sont retirés : ils
+  /// appartiennent à l'ancienne base, jamais à la nouvelle.
+  static Future<bool> appliquerRestaurationEnAttente() async {
+    try {
+      final enAttente = await _restaurationEnAttente();
+      if (!enAttente.existsSync()) return false;
+      final cible = await dbFile();
+      final cote = File('${cible.path}.avant-restauration');
+      final avaitUneBase = cible.existsSync();
+      if (avaitUneBase) {
+        if (cote.existsSync()) cote.deleteSync();
+        await cible.rename(cote.path);
+      }
+      try {
+        await enAttente.rename(cible.path);
+      } catch (_) {
+        // Ne jamais laisser le poste SANS base : RestoreOnBoot croirait à
+        // un PC neuf et repartirait d'une sauvegarde cloud.
+        if (avaitUneBase) await cote.rename(cible.path);
+        rethrow;
+      }
+      // Seulement maintenant : le journal de l'ancienne base ne doit pas
+      // être rejoué sur la nouvelle.
+      for (final suffixe in const ['-wal', '-shm']) {
+        final j = File('${cible.path}$suffixe');
+        if (j.existsSync()) j.deleteSync();
+      }
+      debugPrint('[restauration] base remplacée au démarrage.');
+      return true;
+    } catch (e) {
+      // On laisse la restauration en attente : elle sera retentée au
+      // prochain démarrage, et la base actuelle reste utilisable.
+      debugPrint('[restauration] échec, retentée au prochain démarrage — $e');
+      return false;
+    }
   }
 
   /// L'ancienne base, dans Documents — donc souvent dans OneDrive.

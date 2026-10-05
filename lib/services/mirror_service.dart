@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
@@ -8,6 +10,7 @@ import '../data/database.dart';
 import '../data/schema.dart';
 import '../core/horloge.dart';
 import '../core/identite.dart';
+import 'error_reporter.dart';
 import 'heartbeat_service.dart';
 import 'supabase_pages.dart';
 import 'ventes_outbox.dart';
@@ -492,16 +495,38 @@ class MirrorService {
   /// Pousse une chambre vers `mirror_rooms` — à appeler après chaque
   /// mutation locale (create / update / checkIn / checkOut / setStatus)
   /// pour que les autres postes voient l'état à jour au prochain pull.
+  ///
+  /// La chambre est d'abord marquée « en attente » : jusqu'à la
+  /// confirmation du serveur, la relecture ne l'écrase pas. En cas
+  /// d'échec, la marque reste, et `syncAll` la renverra.
   static Future<void> pushRoomByNumber(String number) async {
     final c = _c;
     if (c == null) return;
+    final marque = Horloge.maintenant();
     try {
+      await (_db.update(_db.rooms)..where((x) => x.number.equals(number)))
+          .write(RoomsCompanion(pendingSince: Value(marque)));
       final r = await (_db.select(_db.rooms)
             ..where((x) => x.number.equals(number)))
           .getSingleOrNull();
       if (r == null) return;
       await c.from('mirror_rooms').upsert(_roomJson(r), onConflict: 'number');
-    } catch (_) {}
+      await _confirmerChambres([number], marque);
+    } catch (e, st) {
+      unawaited(ErrorReporter.report(e, st, context: 'pushRoom'));
+    }
+  }
+
+  /// Retire la marque « en attente » des chambres [numeros], SAUF si elles
+  /// ont été modifiées de nouveau après [envoyeA] : ce changement-là
+  /// n'est pas encore parti.
+  static Future<void> _confirmerChambres(
+      List<String> numeros, DateTime envoyeA) async {
+    await (_db.update(_db.rooms)
+          ..where((x) =>
+              x.number.isIn(numeros) &
+              x.pendingSince.isSmallerOrEqualValue(envoyeA)))
+        .write(const RoomsCompanion(pendingSince: Value(null)));
   }
 
   /// Propage la suppression d'une chambre côté miroir.
@@ -543,59 +568,78 @@ class MirrorService {
       // réponse. Une réponse tronquée y deviendrait une suppression.
       final rows = await toutesLesPages(
           () => c.from('mirror_rooms').select().order('number'));
-      // Même logique pour une réponse vide : c'est un serveur filtré ou
-      // à moitié en place, pas un hôtel sans chambres.
-      if (rows.isEmpty) return 0;
-      final remoteNumbers = rows.map((r) => r['number'] as String).toSet();
-
-      await _db.transaction(() async {
-        for (final r in rows) {
-          final companion = RoomsCompanion.insert(
-            number: r['number'] as String,
-            type: r['type'] as String,
-            pricePerNightCents: (r['price_per_night_cents'] as num).toInt(),
-            // Un ZÉRO serveur n'écrase JAMAIS un tarif local.
-            //
-            // Ce n'est pas une précaution théorique : le 22 septembre, la
-            // migration a converti 19 chambres en dollars, et le pull a
-            // remis 0 partout dans les quinze secondes — la colonne
-            // venait d'être créée côté serveur avec `default 0`, et le
-            // poste l'a adoptée comme si elle faisait foi.
-            //
-            // Même mécanisme que l'incident du stock en septembre : une
-            // valeur calculée localement, effacée par une valeur serveur
-            // qui n'était pas encore renseignée. Tant que le serveur n'a
-            // rien à dire, il ne dit rien.
-            priceUsdCents: _entier(r['price_usd_cents']) > 0
-                ? Value(_entier(r['price_usd_cents']))
-                : const Value.absent(),
-            status: DbRoomStatus.values[(r['status'] as num).toInt()],
-            currentGuest: Value(r['current_guest'] as String?),
-            checkoutDate: Value(_parseDate(r['checkout_date'])),
-            checkinNote: Value(r['checkin_note'] as String?),
-            checkinAt: Value(_parseDate(r['checkin_at'])),
-            stayGroup: Value(r['stay_group'] as String?),
-            payerId: Value((r['payer_id'] as num?)?.toInt()),
-            imagePath: Value(r['image_path'] as String?),
-            negotiatedPriceCents:
-                Value((r['negotiated_price_cents'] as num?)?.toInt()),
-          );
-          await _db.into(_db.rooms).insertOnConflictUpdate(companion);
-        }
-        // Delete des chambres locales qui n'existent plus côté miroir.
-        final localAll = await _db.select(_db.rooms).get();
-        for (final l in localAll) {
-          if (!remoteNumbers.contains(l.number)) {
-            await (_db.delete(_db.rooms)
-                  ..where((x) => x.number.equals(l.number)))
-                .go();
-          }
-        }
-      });
-      return rows.length;
+      return await appliquerChambresDuServeur(_db, rows);
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Applique les chambres lues sur le serveur à la base [db].
+  ///
+  /// Une chambre « en attente » (modifiée ici, pas encore confirmée) n'est
+  /// ni écrasée ni supprimée : le serveur n'a pas encore vu ce
+  /// changement, il ne peut pas le contredire. Séparé de la lecture
+  /// réseau pour pouvoir être testé.
+  static Future<int> appliquerChambresDuServeur(
+      AppDatabase db, List<Map<String, dynamic>> rows) async {
+    // Même logique pour une réponse vide : c'est un serveur filtré ou
+    // à moitié en place, pas un hôtel sans chambres.
+    if (rows.isEmpty) return 0;
+    final remoteNumbers = rows.map((r) => r['number'] as String).toSet();
+    final enAttente = (await (db.select(db.rooms)
+              ..where((x) => x.pendingSince.isNotNull()))
+            .get())
+        .map((r) => r.number)
+        .toSet();
+    var appliquees = 0;
+
+    await db.transaction(() async {
+      for (final r in rows) {
+        if (enAttente.contains(r['number'])) continue;
+        appliquees++;
+        final companion = RoomsCompanion.insert(
+          number: r['number'] as String,
+          type: r['type'] as String,
+          pricePerNightCents: (r['price_per_night_cents'] as num).toInt(),
+          // Un ZÉRO serveur n'écrase JAMAIS un tarif local.
+          //
+          // Ce n'est pas une précaution théorique : le 22 septembre, la
+          // migration a converti 19 chambres en dollars, et le pull a
+          // remis 0 partout dans les quinze secondes — la colonne
+          // venait d'être créée côté serveur avec `default 0`, et le
+          // poste l'a adoptée comme si elle faisait foi.
+          //
+          // Même mécanisme que l'incident du stock en septembre : une
+          // valeur calculée localement, effacée par une valeur serveur
+          // qui n'était pas encore renseignée. Tant que le serveur n'a
+          // rien à dire, il ne dit rien.
+          priceUsdCents: _entier(r['price_usd_cents']) > 0
+              ? Value(_entier(r['price_usd_cents']))
+              : const Value.absent(),
+          status: DbRoomStatus.values[(r['status'] as num).toInt()],
+          currentGuest: Value(r['current_guest'] as String?),
+          checkoutDate: Value(_parseDate(r['checkout_date'])),
+          checkinNote: Value(r['checkin_note'] as String?),
+          checkinAt: Value(_parseDate(r['checkin_at'])),
+          stayGroup: Value(r['stay_group'] as String?),
+          payerId: Value((r['payer_id'] as num?)?.toInt()),
+          imagePath: Value(r['image_path'] as String?),
+          negotiatedPriceCents:
+              Value((r['negotiated_price_cents'] as num?)?.toInt()),
+        );
+        await db.into(db.rooms).insertOnConflictUpdate(companion);
+      }
+      // Chambres locales absentes du serveur : supprimées — sauf si elles
+      // sont en attente (créées ici, pas encore arrivées là-bas).
+      final localAll = await db.select(db.rooms).get();
+      for (final l in localAll) {
+        if (!remoteNumbers.contains(l.number) && l.pendingSince == null) {
+          await (db.delete(db.rooms)..where((x) => x.number.equals(l.number)))
+              .go();
+        }
+      }
+    });
+    return appliquees;
   }
 
   /// Rapatrie l'historique de l'hôtel depuis le serveur.
@@ -1337,67 +1381,119 @@ class MirrorService {
 
   // ─── Synchronisation complète (bouton manuel / démarrage) ────────────
 
+  /// Bilan de la dernière synchronisation complète. Lu par
+  /// MirrorPullService pour savoir s'il faut retenter au tour suivant.
+  static SyncResult? dernierBilan;
+
+  /// Synchronisation complète : chaque étape est INDÉPENDANTE.
+  ///
+  /// Avant, la première étape en échec arrêtait tout : si les articles
+  /// étaient refusés, ni les chambres, ni les ventes, ni les séjours ne
+  /// partaient. Et l'échec était rendu comme un simple texte, sans lever :
+  /// le service de synchronisation croyait que tout était passé et ne
+  /// retentait pas avant dix minutes.
   static Future<String> syncAll() async {
     final c = _c;
-    if (c == null) return 'Cloud non configuré';
-    try {
-      final articles = await _db.select(_db.articles).get();
-      final rooms = await _db.select(_db.rooms).get();
-      final users = await _db.select(_db.users).get();
-
-      if (articles.isNotEmpty) {
-        // Une fiche par identité : deux fiches de même nom sur ce poste
-        // sont le même produit pour le serveur, et un même envoi ne peut
-        // pas toucher deux fois la même ligne. La fiche active l'emporte.
-        final parUid = <String, Article>{};
-        for (final a in articles) {
-          final uid = a.uid ?? uidArticle(a.name);
-          final deja = parUid[uid];
-          if (deja == null || (!deja.active && a.active)) parUid[uid] = a;
-        }
-        await c.from('mirror_articles').upsert(
-            parUid.values.map(_articleJson).toList(),
-            onConflict: 'uid');
-      }
-      if (rooms.isNotEmpty) {
-        await c
-            .from('mirror_rooms')
-            .upsert(rooms.map(_roomJson).toList(), onConflict: 'number');
-      }
-      // Filet : les super admins restent locaux (cf. pushUserById).
-      final syncableUsers =
-          users.where((u) => u.role != DbUserRole.superAdmin).toList();
-      if (syncableUsers.isNotEmpty) {
-        await c
-            .from('mirror_users')
-            .upsert(syncableUsers.map(_userJson).toList(), onConflict: 'login');
-      }
-      // Les ventes ne sont plus repoussées en bloc ici.
-      //
-      // Ce renvoi complet coûtait 21 Mo par jour pour 207 ventes, et
-      // grandissait avec l'historique. Il aurait fini par dépasser le
-      // délai d'attente et par échouer — en silence, comme tout le reste
-      // — et c'est précisément là que les vraies pertes auraient
-      // commencé, sans que rien ne permette de faire le lien.
-      //
-      // Désormais chaque vente porte son accusé de réception, et seule
-      // la file rattrape ce qui manque.
-      final venteEnvoyees = await VentesOutbox.instance.vider();
-
-      // Séjours facturés : renvoyés en bloc pour rattraper ceux qu'un
-      // départ hors ligne n'a pas pu envoyer. Par uid, comme les ventes.
-      await _pousserSejours(await (_db.select(_db.stays)
-            ..where((s) => s.statut.equals(DbStayStatus.facture.index)))
-          .get());
-      final reste = await VentesOutbox.instance.enAttente();
-      return reste == 0
-          ? 'Synchronisation réussie ($venteEnvoyees vente(s) envoyée(s), '
-              '${articles.length} produits)'
-          : 'Synchronisation partielle : $venteEnvoyees envoyée(s), '
-              '$reste vente(s) encore en attente';
-    } catch (e) {
-      return 'Échec synchro : $e';
+    if (c == null) {
+      dernierBilan = SyncResult(
+          at: Horloge.maintenant(),
+          pushed: const {},
+          errors: const [],
+          cloudConfigured: false);
+      return 'Cloud non configuré';
     }
+    final debut = Horloge.maintenant();
+    final pousses = <String, int>{};
+    final erreurs = <String>[];
+
+    Future<void> etape(String nom, Future<int> Function() travail) async {
+      try {
+        pousses[nom] = await travail();
+      } catch (e, st) {
+        erreurs.add('$nom : ${describeErrorCourt(e)}');
+        unawaited(ErrorReporter.report(e, st, context: 'syncAll/$nom'));
+      }
+    }
+
+    await etape('articles', () => _envoyerArticles(c));
+    await etape('chambres', () => _envoyerChambres(c, debut));
+    await etape('comptes', () => _envoyerComptesMiroir(c));
+    // Les ventes ne sont plus repoussées en bloc ici.
+    //
+    // Ce renvoi complet coûtait 21 Mo par jour pour 207 ventes, et
+    // grandissait avec l'historique. Désormais chaque vente porte son
+    // accusé de réception, et seule la file rattrape ce qui manque.
+    await etape('ventes', () => VentesOutbox.instance.vider());
+    // Séjours facturés : renvoyés en bloc pour rattraper ceux qu'un départ
+    // hors ligne n'a pas pu envoyer. Par uid, comme les ventes.
+    await etape('séjours', () async {
+      final factures = await (_db.select(_db.stays)
+            ..where((s) => s.statut.equals(DbStayStatus.facture.index)))
+          .get();
+      await _pousserSejours(factures);
+      return factures.length;
+    });
+
+    final reste = await VentesOutbox.instance.enAttente();
+    if (reste > 0) erreurs.add('$reste vente(s) encore en attente');
+    final bilan = SyncResult(
+        at: Horloge.maintenant(),
+        pushed: pousses,
+        errors: erreurs,
+        cloudConfigured: true);
+    dernierBilan = bilan;
+    return bilan.ok
+        ? 'Synchronisation réussie (${bilan.summary})'
+        : 'Synchronisation partielle : ${erreurs.join(' · ')}';
+  }
+
+  /// Message d'erreur sur une ligne, pour un bilan lisible.
+  static String describeErrorCourt(Object e) {
+    final t = e.toString().split('\n').first;
+    return t.length > 140 ? '${t.substring(0, 140)}…' : t;
+  }
+
+  static Future<int> _envoyerArticles(SupabaseClient c) async {
+    final articles = await _db.select(_db.articles).get();
+    if (articles.isEmpty) return 0;
+    // Une fiche par identité : deux fiches de même nom sur ce poste sont
+    // le même produit pour le serveur, et un même envoi ne peut pas
+    // toucher deux fois la même ligne. La fiche active l'emporte.
+    final parUid = <String, Article>{};
+    for (final a in articles) {
+      final uid = a.uid ?? uidArticle(a.name);
+      final deja = parUid[uid];
+      if (deja == null || (!deja.active && a.active)) parUid[uid] = a;
+    }
+    await c
+        .from('mirror_articles')
+        .upsert(parUid.values.map(_articleJson).toList(), onConflict: 'uid');
+    return parUid.length;
+  }
+
+  /// Toutes les chambres, puis levée de la marque « en attente » de celles
+  /// qui n'ont pas changé depuis [debut].
+  static Future<int> _envoyerChambres(SupabaseClient c, DateTime debut) async {
+    final rooms = await _db.select(_db.rooms).get();
+    if (rooms.isEmpty) return 0;
+    await c
+        .from('mirror_rooms')
+        .upsert(rooms.map(_roomJson).toList(), onConflict: 'number');
+    await _confirmerChambres(rooms.map((r) => r.number).toList(), debut);
+    return rooms.length;
+  }
+
+  /// `mirror_users` ne sert plus qu'à retrouver le serveur d'une vente
+  /// reçue d'un autre poste. Les super admins restent locaux.
+  static Future<int> _envoyerComptesMiroir(SupabaseClient c) async {
+    final users = (await _db.select(_db.users).get())
+        .where((u) => u.role != DbUserRole.superAdmin)
+        .toList();
+    if (users.isEmpty) return 0;
+    await c
+        .from('mirror_users')
+        .upsert(users.map(_userJson).toList(), onConflict: 'login');
+    return users.length;
   }
 
   // ─── Mappage vers JSON (colonnes Supabase) ───────────────────────────

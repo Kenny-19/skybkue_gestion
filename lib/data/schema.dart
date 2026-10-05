@@ -155,6 +155,16 @@ class Rooms extends Table {
       .references(Stays, #id, onDelete: KeyAction.setNull)
       .nullable()();
 
+  /// Changement local pas encore confirmé par le serveur (v29). Null =
+  /// rien en attente.
+  ///
+  /// Tant qu'il est posé, la relecture du serveur ne touche pas à cette
+  /// chambre : sans ce drapeau, un serveur en retard de quelques secondes
+  /// — ou un envoi échoué — remettait « libre » une chambre qu'on venait
+  /// d'occuper, et supprimait une chambre créée ici qui n'était pas
+  /// encore arrivée là-bas.
+  DateTimeColumn get pendingSince => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {number};
 }

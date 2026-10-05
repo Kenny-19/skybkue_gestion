@@ -103,6 +103,14 @@ class MirrorPullService {
       if (aRattraper) {
         await MirrorService.syncAll();
         _dernierePoussee = DateTime.now();
+        // Une étape en échec : on retentera au prochain tour, pas dans
+        // dix minutes. `syncAll` ne lève plus — c'est son bilan qui dit
+        // si tout est passé.
+        final bilan = MirrorService.dernierBilan;
+        if (bilan != null && bilan.cloudConfigured && !bilan.ok) {
+          _etaitHorsLigne = true;
+          _lastError = bilan.errors.join(' · ');
+        }
       }
     } catch (e, st) {
       // Best-effort, mais plus silencieux : on garde la dernière erreur

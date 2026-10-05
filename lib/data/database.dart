@@ -41,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -315,6 +315,10 @@ class AppDatabase extends _$AppDatabase {
           // l'ouverture (beforeOpen).
           if (from < 28 && await _tableExists('articles')) {
             await _addColumnIfMissing(m, articles, articles.uid);
+          }
+          // v29 : chambre modifiée ici, pas encore confirmée par le serveur.
+          if (from < 29 && await _tableExists('rooms')) {
+            await _addColumnIfMissing(m, rooms, rooms.pendingSince);
           }
         },
         beforeOpen: (details) async {

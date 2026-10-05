@@ -3276,6 +3276,12 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
       requiredDuringInsert: false,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'REFERENCES stays (id) ON DELETE SET NULL'));
+  static const VerificationMeta _pendingSinceMeta =
+      const VerificationMeta('pendingSince');
+  @override
+  late final GeneratedColumn<DateTime> pendingSince = GeneratedColumn<DateTime>(
+      'pending_since', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         number,
@@ -3291,7 +3297,8 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
         payerId,
         imagePath,
         negotiatedPriceCents,
-        currentStayId
+        currentStayId,
+        pendingSince
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3375,6 +3382,12 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
           currentStayId.isAcceptableOrUnknown(
               data['current_stay_id']!, _currentStayIdMeta));
     }
+    if (data.containsKey('pending_since')) {
+      context.handle(
+          _pendingSinceMeta,
+          pendingSince.isAcceptableOrUnknown(
+              data['pending_since']!, _pendingSinceMeta));
+    }
     return context;
   }
 
@@ -3412,6 +3425,8 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
           DriftSqlType.int, data['${effectivePrefix}negotiated_price_cents']),
       currentStayId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}current_stay_id']),
+      pendingSince: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}pending_since']),
     );
   }
 
@@ -3480,6 +3495,16 @@ class Room extends DataClass implements Insertable<Room> {
   /// pour l'affichage et pour les postes pas encore à jour ; ils seront
   /// retirés dans une itération suivante.
   final int? currentStayId;
+
+  /// Changement local pas encore confirmé par le serveur (v29). Null =
+  /// rien en attente.
+  ///
+  /// Tant qu'il est posé, la relecture du serveur ne touche pas à cette
+  /// chambre : sans ce drapeau, un serveur en retard de quelques secondes
+  /// — ou un envoi échoué — remettait « libre » une chambre qu'on venait
+  /// d'occuper, et supprimait une chambre créée ici qui n'était pas
+  /// encore arrivée là-bas.
+  final DateTime? pendingSince;
   const Room(
       {required this.number,
       required this.type,
@@ -3494,7 +3519,8 @@ class Room extends DataClass implements Insertable<Room> {
       this.payerId,
       this.imagePath,
       this.negotiatedPriceCents,
-      this.currentStayId});
+      this.currentStayId,
+      this.pendingSince});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3531,6 +3557,9 @@ class Room extends DataClass implements Insertable<Room> {
     }
     if (!nullToAbsent || currentStayId != null) {
       map['current_stay_id'] = Variable<int>(currentStayId);
+    }
+    if (!nullToAbsent || pendingSince != null) {
+      map['pending_since'] = Variable<DateTime>(pendingSince);
     }
     return map;
   }
@@ -3569,6 +3598,9 @@ class Room extends DataClass implements Insertable<Room> {
       currentStayId: currentStayId == null && nullToAbsent
           ? const Value.absent()
           : Value(currentStayId),
+      pendingSince: pendingSince == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pendingSince),
     );
   }
 
@@ -3592,6 +3624,7 @@ class Room extends DataClass implements Insertable<Room> {
       negotiatedPriceCents:
           serializer.fromJson<int?>(json['negotiatedPriceCents']),
       currentStayId: serializer.fromJson<int?>(json['currentStayId']),
+      pendingSince: serializer.fromJson<DateTime?>(json['pendingSince']),
     );
   }
   @override
@@ -3613,6 +3646,7 @@ class Room extends DataClass implements Insertable<Room> {
       'imagePath': serializer.toJson<String?>(imagePath),
       'negotiatedPriceCents': serializer.toJson<int?>(negotiatedPriceCents),
       'currentStayId': serializer.toJson<int?>(currentStayId),
+      'pendingSince': serializer.toJson<DateTime?>(pendingSince),
     };
   }
 
@@ -3630,7 +3664,8 @@ class Room extends DataClass implements Insertable<Room> {
           Value<int?> payerId = const Value.absent(),
           Value<String?> imagePath = const Value.absent(),
           Value<int?> negotiatedPriceCents = const Value.absent(),
-          Value<int?> currentStayId = const Value.absent()}) =>
+          Value<int?> currentStayId = const Value.absent(),
+          Value<DateTime?> pendingSince = const Value.absent()}) =>
       Room(
         number: number ?? this.number,
         type: type ?? this.type,
@@ -3651,6 +3686,8 @@ class Room extends DataClass implements Insertable<Room> {
             : this.negotiatedPriceCents,
         currentStayId:
             currentStayId.present ? currentStayId.value : this.currentStayId,
+        pendingSince:
+            pendingSince.present ? pendingSince.value : this.pendingSince,
       );
   Room copyWithCompanion(RoomsCompanion data) {
     return Room(
@@ -3681,6 +3718,9 @@ class Room extends DataClass implements Insertable<Room> {
       currentStayId: data.currentStayId.present
           ? data.currentStayId.value
           : this.currentStayId,
+      pendingSince: data.pendingSince.present
+          ? data.pendingSince.value
+          : this.pendingSince,
     );
   }
 
@@ -3700,7 +3740,8 @@ class Room extends DataClass implements Insertable<Room> {
           ..write('payerId: $payerId, ')
           ..write('imagePath: $imagePath, ')
           ..write('negotiatedPriceCents: $negotiatedPriceCents, ')
-          ..write('currentStayId: $currentStayId')
+          ..write('currentStayId: $currentStayId, ')
+          ..write('pendingSince: $pendingSince')
           ..write(')'))
         .toString();
   }
@@ -3720,7 +3761,8 @@ class Room extends DataClass implements Insertable<Room> {
       payerId,
       imagePath,
       negotiatedPriceCents,
-      currentStayId);
+      currentStayId,
+      pendingSince);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3738,7 +3780,8 @@ class Room extends DataClass implements Insertable<Room> {
           other.payerId == this.payerId &&
           other.imagePath == this.imagePath &&
           other.negotiatedPriceCents == this.negotiatedPriceCents &&
-          other.currentStayId == this.currentStayId);
+          other.currentStayId == this.currentStayId &&
+          other.pendingSince == this.pendingSince);
 }
 
 class RoomsCompanion extends UpdateCompanion<Room> {
@@ -3756,6 +3799,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
   final Value<String?> imagePath;
   final Value<int?> negotiatedPriceCents;
   final Value<int?> currentStayId;
+  final Value<DateTime?> pendingSince;
   final Value<int> rowid;
   const RoomsCompanion({
     this.number = const Value.absent(),
@@ -3772,6 +3816,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     this.imagePath = const Value.absent(),
     this.negotiatedPriceCents = const Value.absent(),
     this.currentStayId = const Value.absent(),
+    this.pendingSince = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RoomsCompanion.insert({
@@ -3789,6 +3834,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     this.imagePath = const Value.absent(),
     this.negotiatedPriceCents = const Value.absent(),
     this.currentStayId = const Value.absent(),
+    this.pendingSince = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : number = Value(number),
         type = Value(type),
@@ -3809,6 +3855,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     Expression<String>? imagePath,
     Expression<int>? negotiatedPriceCents,
     Expression<int>? currentStayId,
+    Expression<DateTime>? pendingSince,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3828,6 +3875,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
       if (negotiatedPriceCents != null)
         'negotiated_price_cents': negotiatedPriceCents,
       if (currentStayId != null) 'current_stay_id': currentStayId,
+      if (pendingSince != null) 'pending_since': pendingSince,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3847,6 +3895,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
       Value<String?>? imagePath,
       Value<int?>? negotiatedPriceCents,
       Value<int?>? currentStayId,
+      Value<DateTime?>? pendingSince,
       Value<int>? rowid}) {
     return RoomsCompanion(
       number: number ?? this.number,
@@ -3863,6 +3912,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
       imagePath: imagePath ?? this.imagePath,
       negotiatedPriceCents: negotiatedPriceCents ?? this.negotiatedPriceCents,
       currentStayId: currentStayId ?? this.currentStayId,
+      pendingSince: pendingSince ?? this.pendingSince,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3913,6 +3963,9 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     if (currentStayId.present) {
       map['current_stay_id'] = Variable<int>(currentStayId.value);
     }
+    if (pendingSince.present) {
+      map['pending_since'] = Variable<DateTime>(pendingSince.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3936,6 +3989,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
           ..write('imagePath: $imagePath, ')
           ..write('negotiatedPriceCents: $negotiatedPriceCents, ')
           ..write('currentStayId: $currentStayId, ')
+          ..write('pendingSince: $pendingSince, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10237,6 +10291,7 @@ typedef $$RoomsTableCreateCompanionBuilder = RoomsCompanion Function({
   Value<String?> imagePath,
   Value<int?> negotiatedPriceCents,
   Value<int?> currentStayId,
+  Value<DateTime?> pendingSince,
   Value<int> rowid,
 });
 typedef $$RoomsTableUpdateCompanionBuilder = RoomsCompanion Function({
@@ -10254,6 +10309,7 @@ typedef $$RoomsTableUpdateCompanionBuilder = RoomsCompanion Function({
   Value<String?> imagePath,
   Value<int?> negotiatedPriceCents,
   Value<int?> currentStayId,
+  Value<DateTime?> pendingSince,
   Value<int> rowid,
 });
 
@@ -10337,6 +10393,9 @@ class $$RoomsTableFilterComposer extends Composer<_$AppDatabase, $RoomsTable> {
   ColumnFilters<int> get negotiatedPriceCents => $composableBuilder(
       column: $table.negotiatedPriceCents,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get pendingSince => $composableBuilder(
+      column: $table.pendingSince, builder: (column) => ColumnFilters(column));
 
   $$PayersTableFilterComposer get payerId {
     final $$PayersTableFilterComposer composer = $composerBuilder(
@@ -10429,6 +10488,10 @@ class $$RoomsTableOrderingComposer
       column: $table.negotiatedPriceCents,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<DateTime> get pendingSince => $composableBuilder(
+      column: $table.pendingSince,
+      builder: (column) => ColumnOrderings(column));
+
   $$PayersTableOrderingComposer get payerId {
     final $$PayersTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -10515,6 +10578,9 @@ class $$RoomsTableAnnotationComposer
   GeneratedColumn<int> get negotiatedPriceCents => $composableBuilder(
       column: $table.negotiatedPriceCents, builder: (column) => column);
 
+  GeneratedColumn<DateTime> get pendingSince => $composableBuilder(
+      column: $table.pendingSince, builder: (column) => column);
+
   $$PayersTableAnnotationComposer get payerId {
     final $$PayersTableAnnotationComposer composer = $composerBuilder(
         composer: this,
@@ -10593,6 +10659,7 @@ class $$RoomsTableTableManager extends RootTableManager<
             Value<String?> imagePath = const Value.absent(),
             Value<int?> negotiatedPriceCents = const Value.absent(),
             Value<int?> currentStayId = const Value.absent(),
+            Value<DateTime?> pendingSince = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               RoomsCompanion(
@@ -10610,6 +10677,7 @@ class $$RoomsTableTableManager extends RootTableManager<
             imagePath: imagePath,
             negotiatedPriceCents: negotiatedPriceCents,
             currentStayId: currentStayId,
+            pendingSince: pendingSince,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -10627,6 +10695,7 @@ class $$RoomsTableTableManager extends RootTableManager<
             Value<String?> imagePath = const Value.absent(),
             Value<int?> negotiatedPriceCents = const Value.absent(),
             Value<int?> currentStayId = const Value.absent(),
+            Value<DateTime?> pendingSince = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               RoomsCompanion.insert(
@@ -10644,6 +10713,7 @@ class $$RoomsTableTableManager extends RootTableManager<
             imagePath: imagePath,
             negotiatedPriceCents: negotiatedPriceCents,
             currentStayId: currentStayId,
+            pendingSince: pendingSince,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

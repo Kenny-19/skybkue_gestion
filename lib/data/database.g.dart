@@ -848,6 +848,11 @@ class $ArticlesTable extends Articles with TableInfo<$ArticlesTable, Article> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -859,7 +864,8 @@ class $ArticlesTable extends Articles with TableInfo<$ArticlesTable, Article> {
         trackStock,
         unit,
         stockQty,
-        threshold
+        threshold,
+        uid
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -914,6 +920,10 @@ class $ArticlesTable extends Articles with TableInfo<$ArticlesTable, Article> {
       context.handle(_thresholdMeta,
           threshold.isAcceptableOrUnknown(data['threshold']!, _thresholdMeta));
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -944,6 +954,8 @@ class $ArticlesTable extends Articles with TableInfo<$ArticlesTable, Article> {
           .read(DriftSqlType.int, data['${effectivePrefix}stock_qty'])!,
       threshold: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}threshold'])!,
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -967,6 +979,12 @@ class Article extends DataClass implements Insertable<Article> {
   final String unit;
   final int stockQty;
   final int threshold;
+
+  /// Identité de l'article sur tous les postes (v28), déduite du nom à la
+  /// création (cf. core/identite.dart, uidArticle). Le serveur et les
+  /// mouvements de stock le reconnaissent par là, plus par son numéro
+  /// local — qui désignait parfois un autre produit sur le serveur.
+  final String? uid;
   const Article(
       {required this.id,
       required this.name,
@@ -977,7 +995,8 @@ class Article extends DataClass implements Insertable<Article> {
       required this.trackStock,
       required this.unit,
       required this.stockQty,
-      required this.threshold});
+      required this.threshold,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -996,6 +1015,9 @@ class Article extends DataClass implements Insertable<Article> {
     map['unit'] = Variable<String>(unit);
     map['stock_qty'] = Variable<int>(stockQty);
     map['threshold'] = Variable<int>(threshold);
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -1013,6 +1035,7 @@ class Article extends DataClass implements Insertable<Article> {
       unit: Value(unit),
       stockQty: Value(stockQty),
       threshold: Value(threshold),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -1031,6 +1054,7 @@ class Article extends DataClass implements Insertable<Article> {
       unit: serializer.fromJson<String>(json['unit']),
       stockQty: serializer.fromJson<int>(json['stockQty']),
       threshold: serializer.fromJson<int>(json['threshold']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -1048,6 +1072,7 @@ class Article extends DataClass implements Insertable<Article> {
       'unit': serializer.toJson<String>(unit),
       'stockQty': serializer.toJson<int>(stockQty),
       'threshold': serializer.toJson<int>(threshold),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -1061,7 +1086,8 @@ class Article extends DataClass implements Insertable<Article> {
           bool? trackStock,
           String? unit,
           int? stockQty,
-          int? threshold}) =>
+          int? threshold,
+          Value<String?> uid = const Value.absent()}) =>
       Article(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -1073,6 +1099,7 @@ class Article extends DataClass implements Insertable<Article> {
         unit: unit ?? this.unit,
         stockQty: stockQty ?? this.stockQty,
         threshold: threshold ?? this.threshold,
+        uid: uid.present ? uid.value : this.uid,
       );
   Article copyWithCompanion(ArticlesCompanion data) {
     return Article(
@@ -1088,6 +1115,7 @@ class Article extends DataClass implements Insertable<Article> {
       unit: data.unit.present ? data.unit.value : this.unit,
       stockQty: data.stockQty.present ? data.stockQty.value : this.stockQty,
       threshold: data.threshold.present ? data.threshold.value : this.threshold,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -1103,14 +1131,15 @@ class Article extends DataClass implements Insertable<Article> {
           ..write('trackStock: $trackStock, ')
           ..write('unit: $unit, ')
           ..write('stockQty: $stockQty, ')
-          ..write('threshold: $threshold')
+          ..write('threshold: $threshold, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, name, priceCents, category, active,
-      imagePath, trackStock, unit, stockQty, threshold);
+      imagePath, trackStock, unit, stockQty, threshold, uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1124,7 +1153,8 @@ class Article extends DataClass implements Insertable<Article> {
           other.trackStock == this.trackStock &&
           other.unit == this.unit &&
           other.stockQty == this.stockQty &&
-          other.threshold == this.threshold);
+          other.threshold == this.threshold &&
+          other.uid == this.uid);
 }
 
 class ArticlesCompanion extends UpdateCompanion<Article> {
@@ -1138,6 +1168,7 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
   final Value<String> unit;
   final Value<int> stockQty;
   final Value<int> threshold;
+  final Value<String?> uid;
   const ArticlesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1149,6 +1180,7 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
     this.unit = const Value.absent(),
     this.stockQty = const Value.absent(),
     this.threshold = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   ArticlesCompanion.insert({
     this.id = const Value.absent(),
@@ -1161,6 +1193,7 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
     this.unit = const Value.absent(),
     this.stockQty = const Value.absent(),
     this.threshold = const Value.absent(),
+    this.uid = const Value.absent(),
   })  : name = Value(name),
         priceCents = Value(priceCents),
         category = Value(category);
@@ -1175,6 +1208,7 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
     Expression<String>? unit,
     Expression<int>? stockQty,
     Expression<int>? threshold,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1187,6 +1221,7 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
       if (unit != null) 'unit': unit,
       if (stockQty != null) 'stock_qty': stockQty,
       if (threshold != null) 'threshold': threshold,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -1200,7 +1235,8 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
       Value<bool>? trackStock,
       Value<String>? unit,
       Value<int>? stockQty,
-      Value<int>? threshold}) {
+      Value<int>? threshold,
+      Value<String?>? uid}) {
     return ArticlesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -1212,6 +1248,7 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
       unit: unit ?? this.unit,
       stockQty: stockQty ?? this.stockQty,
       threshold: threshold ?? this.threshold,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -1249,6 +1286,9 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
     if (threshold.present) {
       map['threshold'] = Variable<int>(threshold.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -1264,7 +1304,8 @@ class ArticlesCompanion extends UpdateCompanion<Article> {
           ..write('trackStock: $trackStock, ')
           ..write('unit: $unit, ')
           ..write('stockQty: $stockQty, ')
-          ..write('threshold: $threshold')
+          ..write('threshold: $threshold, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -8626,6 +8667,7 @@ typedef $$ArticlesTableCreateCompanionBuilder = ArticlesCompanion Function({
   Value<String> unit,
   Value<int> stockQty,
   Value<int> threshold,
+  Value<String?> uid,
 });
 typedef $$ArticlesTableUpdateCompanionBuilder = ArticlesCompanion Function({
   Value<int> id,
@@ -8638,6 +8680,7 @@ typedef $$ArticlesTableUpdateCompanionBuilder = ArticlesCompanion Function({
   Value<String> unit,
   Value<int> stockQty,
   Value<int> threshold,
+  Value<String?> uid,
 });
 
 final class $$ArticlesTableReferences
@@ -8700,6 +8743,9 @@ class $$ArticlesTableFilterComposer
   ColumnFilters<int> get threshold => $composableBuilder(
       column: $table.threshold, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
+
   Expression<bool> saleLinesRefs(
       Expression<bool> Function($$SaleLinesTableFilterComposer f) f) {
     final $$SaleLinesTableFilterComposer composer = $composerBuilder(
@@ -8760,6 +8806,9 @@ class $$ArticlesTableOrderingComposer
 
   ColumnOrderings<int> get threshold => $composableBuilder(
       column: $table.threshold, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ArticlesTableAnnotationComposer
@@ -8800,6 +8849,9 @@ class $$ArticlesTableAnnotationComposer
 
   GeneratedColumn<int> get threshold =>
       $composableBuilder(column: $table.threshold, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   Expression<T> saleLinesRefs<T extends Object>(
       Expression<T> Function($$SaleLinesTableAnnotationComposer a) f) {
@@ -8856,6 +8908,7 @@ class $$ArticlesTableTableManager extends RootTableManager<
             Value<String> unit = const Value.absent(),
             Value<int> stockQty = const Value.absent(),
             Value<int> threshold = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               ArticlesCompanion(
             id: id,
@@ -8868,6 +8921,7 @@ class $$ArticlesTableTableManager extends RootTableManager<
             unit: unit,
             stockQty: stockQty,
             threshold: threshold,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -8880,6 +8934,7 @@ class $$ArticlesTableTableManager extends RootTableManager<
             Value<String> unit = const Value.absent(),
             Value<int> stockQty = const Value.absent(),
             Value<int> threshold = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               ArticlesCompanion.insert(
             id: id,
@@ -8892,6 +8947,7 @@ class $$ArticlesTableTableManager extends RootTableManager<
             unit: unit,
             stockQty: stockQty,
             threshold: threshold,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>

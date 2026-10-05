@@ -41,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -311,6 +311,11 @@ class AppDatabase extends _$AppDatabase {
               await _addColumnIfMissing(m, sales, sales.stayId);
             }
           }
+          // v28 : identité des articles, déduite du nom. Attribuée à
+          // l'ouverture (beforeOpen).
+          if (from < 28 && await _tableExists('articles')) {
+            await _addColumnIfMissing(m, articles, articles.uid);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -578,6 +583,22 @@ class AppDatabase extends _$AppDatabase {
   /// le même pour la copie qu'il détient déjà, et les deux se retrouvent
   /// sans échange. Idempotent : ne touche que ce qui est encore vide.
   Future<void> _attribuerIdentites() async {
+    // Articles (v28) : l'identité vient du nom. Index NON unique : deux
+    // fiches de même nom peuvent exister sur un poste ; elles désignent
+    // alors le même produit pour le serveur.
+    if (await _tableExists('articles') &&
+        (await _existingColumns('articles')).contains('uid')) {
+      final sansUid = await customSelect(
+        'SELECT id, name FROM articles WHERE uid IS NULL',
+      ).get();
+      for (final a in sansUid) {
+        await customStatement('UPDATE articles SET uid = ? WHERE id = ?',
+            [uidArticle(a.read<String>('name')), a.read<int>('id')]);
+      }
+      await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_articles_uid ON articles (uid)');
+    }
+
     if (!await _tableExists('sales') || !await _tableExists('sale_lines')) {
       return;
     }

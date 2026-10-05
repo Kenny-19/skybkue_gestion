@@ -357,6 +357,8 @@ class MirrorService {
           await _db.into(_db.articles).insert(
                 ArticlesCompanion.insert(
                   id: Value((a['id'] as num).toInt()),
+                  uid: Value(
+                      (a['uid'] as String?) ?? uidArticle(a['name'] as String)),
                   name: a['name'] as String,
                   priceCents: (a['price_cents'] as num).toInt(),
                   category: DbCategory.values[(a['category'] as num).toInt()],
@@ -1081,20 +1083,30 @@ class MirrorService {
     final c = _c;
     if (c == null) return 0;
     try {
-      final rows = await toutesLesPages(() => c
-          .from('mirror_articles')
-          .select('id, name, price_cents, category, active, image_path, '
-              'track_stock, unit, stock_qty, threshold')
-          .order('id'));
+      final rows = await toutesLesPages(
+          () => c.from('mirror_articles').select('*').order('id'));
       int applied = 0;
       await _db.transaction(() async {
         for (final r in rows) {
           final nom = (r['name'] as String?)?.trim();
           if (nom == null || nom.isEmpty) continue;
+          final uid = (r['uid'] as String?) ?? uidArticle(nom);
 
-          final ex = await (_db.select(_db.articles)
-                ..where((a) => a.name.lower().equals(nom.toLowerCase())))
-              .getSingleOrNull();
+          // Par identité d'abord (v28), puis par nom pour une fiche
+          // locale encore sans uid. Jamais `getSingleOrNull` : deux fiches
+          // de même nom sur ce poste faisaient lever, et toute la
+          // synchronisation du catalogue s'arrêtait en silence.
+          final parUid = await (_db.select(_db.articles)
+                ..where((a) => a.uid.equals(uid))
+                ..limit(1))
+              .get();
+          final ex = parUid.isNotEmpty
+              ? parUid.first
+              : (await (_db.select(_db.articles)
+                        ..where((a) => a.name.lower().equals(nom.toLowerCase()))
+                        ..limit(1))
+                      .get())
+                  .firstOrNull;
 
           final prix = ((r['price_cents'] as num?) ?? 0).toInt();
           final cat = DbCategory
@@ -1102,6 +1114,7 @@ class MirrorService {
 
           if (ex == null) {
             await _db.into(_db.articles).insert(ArticlesCompanion.insert(
+                  uid: Value(uid),
                   name: nom,
                   priceCents: prix,
                   category: cat,
@@ -1127,6 +1140,7 @@ class MirrorService {
             // Fiche produit.
             await (_db.update(_db.articles)..where((a) => a.id.equals(ex.id)))
                 .write(ArticlesCompanion(
+              uid: Value(uid),
               priceCents: Value(prix),
               category: Value(cat),
               active: Value((r['active'] as bool?) ?? ex.active),
@@ -1315,7 +1329,7 @@ class MirrorService {
       if (art == null) return;
       await c
           .from('mirror_articles')
-          .upsert(_articleJson(art), onConflict: 'id');
+          .upsert(_articleJson(art), onConflict: 'uid');
     } catch (_) {
       // best-effort
     }
@@ -1332,9 +1346,18 @@ class MirrorService {
       final users = await _db.select(_db.users).get();
 
       if (articles.isNotEmpty) {
-        await c
-            .from('mirror_articles')
-            .upsert(articles.map(_articleJson).toList(), onConflict: 'id');
+        // Une fiche par identité : deux fiches de même nom sur ce poste
+        // sont le même produit pour le serveur, et un même envoi ne peut
+        // pas toucher deux fois la même ligne. La fiche active l'emporte.
+        final parUid = <String, Article>{};
+        for (final a in articles) {
+          final uid = a.uid ?? uidArticle(a.name);
+          final deja = parUid[uid];
+          if (deja == null || (!deja.active && a.active)) parUid[uid] = a;
+        }
+        await c.from('mirror_articles').upsert(
+            parUid.values.map(_articleJson).toList(),
+            onConflict: 'uid');
       }
       if (rooms.isNotEmpty) {
         await c
@@ -1459,6 +1482,7 @@ class MirrorService {
 
   static const _articleTemoin = Article(
     id: 0,
+    uid: null,
     name: '',
     priceCents: 0,
     category: DbCategory.boissons,
@@ -1470,8 +1494,10 @@ class MirrorService {
     threshold: 0,
   );
 
+  /// Pas d'`id` : c'est le serveur qui numérote. `uid` est la clé — le
+  /// numéro local désignait parfois un autre produit sur le serveur.
   static Map<String, dynamic> _articleJson(Article a) => {
-        'id': a.id,
+        'uid': a.uid ?? uidArticle(a.name),
         'name': a.name,
         'price_cents': a.priceCents,
         'category': a.category.index,

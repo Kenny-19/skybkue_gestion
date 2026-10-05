@@ -31,6 +31,17 @@ void main() {
           '14bd3675-b7f0-0901-6b9b-ee099ed05bc8');
     });
 
+    test('article : même uid que le serveur, quel que soit le poste', () {
+      // Valeur calculée par PostgreSQL avec
+      // sql/2026_10_identite_articles.sql.
+      expect(
+          uidArticle('Eau minérale'), 'c71cc3ad-cc26-82be-8260-abe07460453b');
+      // Espaces autour du nom ignorés, comme btrim côté serveur.
+      expect(uidArticle('  Eau minérale '), uidArticle('Eau minérale'));
+      // La casse compte : le serveur ne la normalise pas non plus.
+      expect(uidArticle('eau minérale'), isNot(uidArticle('Eau minérale')));
+    });
+
     test('même numéro, autre poste, autre seconde : autre identité', () {
       final caisse = uidVenteHerite(
           345, DateTime.fromMillisecondsSinceEpoch(1790572508 * 1000));

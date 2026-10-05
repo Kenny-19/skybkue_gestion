@@ -86,6 +86,12 @@ class Articles extends Table {
   TextColumn get unit => text().withDefault(const Constant('unité'))();
   IntColumn get stockQty => integer().withDefault(const Constant(0))();
   IntColumn get threshold => integer().withDefault(const Constant(0))();
+
+  /// Identité de l'article sur tous les postes (v28), déduite du nom à la
+  /// création (cf. core/identite.dart, uidArticle). Le serveur et les
+  /// mouvements de stock le reconnaissent par là, plus par son numéro
+  /// local — qui désignait parfois un autre produit sur le serveur.
+  TextColumn get uid => text().nullable()();
 }
 
 class Rooms extends Table {

@@ -54,6 +54,19 @@ String uidLigneHerite(String uidVente, int idLigne) =>
 String uidSejourHerite(int id, DateTime checkoutAt) =>
     _md5Uuid('S|$id|${checkoutAt.millisecondsSinceEpoch ~/ 1000}');
 
+/// Identifiant d'un ARTICLE : déduit de son nom, sur tous les postes.
+///
+/// Les postes reconnaissaient déjà un produit à son nom ; deux postes qui
+/// créent « Fanta » parlent du même produit. Calculé une fois, à la
+/// création (ou à l'arrivée de la v28), puis gardé : renommer un article
+/// ne change pas son identité.
+///
+/// Même formule côté serveur (sql/2026_10_identite_articles.sql) :
+///   md5('A|' || btrim(name))::uuid
+/// `btrim` ne retire que les espaces : on fait de même ici.
+String uidArticle(String nom) =>
+    _md5Uuid('A|${nom.replaceAll(RegExp(r'^ +| +$'), '')}');
+
 String _md5Uuid(String texte) =>
     _formater(md5.convert(utf8.encode(texte)).bytes);
 

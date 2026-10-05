@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 import '../core/cloud_config.dart';
+import '../core/identite.dart';
 import '../data/database.dart';
 import 'error_reporter.dart';
 import '../core/horloge.dart';
@@ -130,9 +131,17 @@ class StockService {
         // inutile de marteler un serveur qui refuse.
         if (m.attempts >= 5 && m.attempts % 5 != 0) continue;
         try {
-          await c.rpc('bs_adjust_stock', params: {
+          // Par IDENTITÉ de l'article (v28), plus par son numéro local :
+          // sur le serveur, ce numéro pouvait désigner un autre produit.
+          final article = await (_db.select(_db.articles)
+                ..where((a) => a.id.equals(m.articleId)))
+              .getSingleOrNull();
+          if (article == null) {
+            throw StateError('Article ${m.articleId} introuvable sur ce poste');
+          }
+          await c.rpc('bs_adjust_stock_uid', params: {
             'p_op_id': m.opId,
-            'p_article_id': m.articleId,
+            'p_article_uid': article.uid ?? uidArticle(article.name),
             'p_delta': m.delta,
             'p_reason': m.reason,
           }).timeout(const Duration(seconds: 8));

@@ -4,6 +4,7 @@ import 'package:bcrypt/bcrypt.dart';
 import 'package:drift/drift.dart';
 
 import '../core/auth.dart';
+import '../core/identite.dart';
 import '../core/room_type.dart';
 import '../core/discount.dart';
 import '../core/format.dart';
@@ -380,6 +381,9 @@ class ArticlesRepo {
     int threshold = 0,
   }) {
     return _db.into(_db.articles).insert(ArticlesCompanion.insert(
+          // Identité sur tous les postes, fixée maintenant : un renommage
+          // ultérieur ne la change pas.
+          uid: Value(uidArticle(name)),
           name: name,
           priceCents: priceCents,
           category: category,

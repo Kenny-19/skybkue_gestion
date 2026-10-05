@@ -433,13 +433,30 @@ class MirrorService {
         }
 
         // Lignes de vente — sale_id et article_id ont leurs ids miroir
-        // préservés ci-dessus, les FK restent valides.
+        // préservés ci-dessus.
+        //
+        // Mais une ligne peut pointer vers un article qui n'existe plus :
+        // un doublon fusionné (6 octobre 2026), un article supprimé, ou un
+        // ancien numéro local d'un autre poste. La base refuse alors la
+        // ligne, et TOUTE la restauration échouait (« FOREIGN KEY
+        // constraint failed » sur une ligne « Sprite »). La ligne garde son
+        // nom d'article : elle n'a pas besoin du lien. On le retire, comme
+        // la base le fait déjà quand on supprime un article.
+        final articlesRestaures = {
+          for (final a in articles) (a['id'] as num).toInt()
+        };
         for (final l in lines) {
           final venteServeur = (l['sale_id'] as num).toInt();
+          // Ligne d'une vente absente : ignorée plutôt que de tout bloquer.
+          if (!uidParVente.containsKey(venteServeur)) continue;
+          final article = (l['article_id'] as num?)?.toInt();
           await _db.into(_db.saleLines).insert(
                 SaleLinesCompanion.insert(
                   saleId: venteServeur,
-                  articleId: Value((l['article_id'] as num?)?.toInt()),
+                  articleId: Value(
+                      article != null && articlesRestaures.contains(article)
+                          ? article
+                          : null),
                   articleName: l['article_name'] as String,
                   qty: (l['qty'] as num).toInt(),
                   unitPriceCents: (l['unit_price_cents'] as num).toInt(),

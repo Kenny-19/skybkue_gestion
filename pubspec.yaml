@@ -81,3 +81,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    # Polices EMBARQUÉES (Inter, JetBrains Mono — licence SIL OFL 1.1).
+    # google_fonts les trouve ici par leur nom de fichier et ne les
+    # télécharge plus : l'app s'affiche dans sa vraie police hors ligne,
+    # et les factures PDF se génèrent sans réseau.
+    - assets/fonts/

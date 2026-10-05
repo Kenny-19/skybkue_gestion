@@ -16,57 +16,79 @@ class BsType {
   /// Sans aucun effet sur les lettres.
   static const _chiffresAlignes = [FontFeature.tabularFigures()];
 
+  /// Styles déjà construits, par combinaison de paramètres.
+  ///
+  /// Ces fonctions sont appelées ~500 fois dans l'interface, à CHAQUE
+  /// reconstruction d'écran : chaque appel refaisait un style complet et
+  /// repassait par la vérification de chargement de la police. Le même
+  /// style est maintenant rendu à l'identique, une fois construit. Le
+  /// nombre de combinaisons réellement utilisées est petit et fini.
+  static final Map<String, TextStyle> _deja = {};
+
+  static TextStyle _une(String cle, TextStyle Function() construire) =>
+      _deja[cle] ??= construire();
+
   /// Titre / display : Inter tight — donne du poids sans rompre le
   /// registre "propre classique" de tout le reste de l'UI.
   static TextStyle display(double size,
           {FontWeight w = FontWeight.w700, Color? color}) =>
-      GoogleFonts.inter(
-        fontSize: size,
-        fontWeight: w,
-        letterSpacing: -0.4,
-        color: color ?? BsColors.ink,
-        fontFeatures: _chiffresAlignes,
-        height: 1.1,
-      );
+      _une(
+          'd|$size|${w.value}|${(color ?? BsColors.ink).toARGB32()}',
+          () => GoogleFonts.inter(
+                fontSize: size,
+                fontWeight: w,
+                letterSpacing: -0.4,
+                color: color ?? BsColors.ink,
+                fontFeatures: _chiffresAlignes,
+                height: 1.1,
+              ));
 
   static TextStyle heading(double size,
           {FontWeight w = FontWeight.w600, Color? color}) =>
-      GoogleFonts.inter(
-        fontSize: size,
-        fontWeight: w,
-        letterSpacing: -0.2,
-        color: color ?? BsColors.ink,
-        fontFeatures: _chiffresAlignes,
-        height: 1.2,
-      );
+      _une(
+          'h|$size|${w.value}|${(color ?? BsColors.ink).toARGB32()}',
+          () => GoogleFonts.inter(
+                fontSize: size,
+                fontWeight: w,
+                letterSpacing: -0.2,
+                color: color ?? BsColors.ink,
+                fontFeatures: _chiffresAlignes,
+                height: 1.2,
+              ));
 
   /// [d] : décoration optionnelle — sert notamment à barrer un tarif
   /// catalogue remplacé par un tarif négocié.
   static TextStyle body(double size,
           {FontWeight w = FontWeight.w400, Color? color, TextDecoration? d}) =>
-      GoogleFonts.inter(
-        fontSize: size,
-        fontWeight: w,
-        color: color ?? BsColors.ink,
-        fontFeatures: _chiffresAlignes,
-        height: 1.4,
-        decoration: d,
-      );
+      _une(
+          'b|$size|${w.value}|${(color ?? BsColors.ink).toARGB32()}|$d',
+          () => GoogleFonts.inter(
+                fontSize: size,
+                fontWeight: w,
+                color: color ?? BsColors.ink,
+                fontFeatures: _chiffresAlignes,
+                height: 1.4,
+                decoration: d,
+              ));
 
-  static TextStyle eyebrow({Color? color}) => GoogleFonts.inter(
-        fontFeatures: _chiffresAlignes,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.4,
-        color: color ?? BsColors.slate,
-      );
+  static TextStyle eyebrow({Color? color}) => _une(
+      'e|${(color ?? BsColors.slate).toARGB32()}',
+      () => GoogleFonts.inter(
+            fontFeatures: _chiffresAlignes,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.4,
+            color: color ?? BsColors.slate,
+          ));
 
   static TextStyle mono(double size,
           {FontWeight w = FontWeight.w500, Color? color}) =>
-      GoogleFonts.jetBrainsMono(
-        fontSize: size,
-        fontWeight: w,
-        color: color ?? BsColors.ink,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      );
+      _une(
+          'm|$size|${w.value}|${(color ?? BsColors.ink).toARGB32()}',
+          () => GoogleFonts.jetBrainsMono(
+                fontSize: size,
+                fontWeight: w,
+                color: color ?? BsColors.ink,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ));
 }

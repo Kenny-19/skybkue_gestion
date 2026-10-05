@@ -291,13 +291,20 @@ class PdfService {
 
   // Thème PDF — Inter (même famille que l'UI) pour un rendu cohérent
   // entre l'écran et le papier. Chargé une seule fois.
+  //
+  // Depuis les polices EMBARQUÉES (assets/fonts), plus depuis Internet :
+  // `PdfGoogleFonts` téléchargeait les fichiers à la première facture de
+  // la session. Hors ligne — fréquent à l'hôtel —, la facture attendait
+  // ou échouait au moment où le client était devant le comptoir.
   static pw.ThemeData? _cachedTheme;
+  static Future<pw.Font> _police(String fichier) async =>
+      pw.Font.ttf(await rootBundle.load('assets/fonts/$fichier'));
   static Future<pw.ThemeData> _theme() async {
     if (_cachedTheme != null) return _cachedTheme!;
-    final base = await PdfGoogleFonts.interRegular();
-    final bold = await PdfGoogleFonts.interSemiBold();
-    final italic = await PdfGoogleFonts.interRegular(); // Inter n'a pas
-    final boldItalic = await PdfGoogleFonts.interBold(); // d'italique
+    final base = await _police('Inter-Regular.ttf');
+    final bold = await _police('Inter-SemiBold.ttf');
+    final italic = base; // Inter n'a pas d'italique
+    final boldItalic = await _police('Inter-Bold.ttf');
     _cachedTheme = pw.ThemeData.withFont(
       base: base,
       bold: bold,

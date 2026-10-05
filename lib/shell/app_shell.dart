@@ -484,7 +484,8 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateFormat("EEEE d MMMM y", 'fr_FR').format(aLubumbashi(Horloge.maintenant()));
+    final today = DateFormat("EEEE d MMMM y", 'fr_FR')
+        .format(aLubumbashi(Horloge.maintenant()));
     // Titre à 24 px et marges resserrées : l'en-tête passe d'environ
     // 170 px à ~100 px sur CHACUN des onze écrans. Sur un logiciel de
     // bureau, la barre latérale dit déjà où l'on est — le titre confirme,

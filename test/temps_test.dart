@@ -27,14 +27,16 @@ void main() {
     /// Minuit à Lubumbashi, c'est 22h UTC la veille.
     void attendMinuitLubumbashi(DateTime borne, int an, int mois, int jour) {
       final u = borne.toUtc();
-      expect(u.add(decalageLubumbashi),
-          DateTime.utc(an, mois, jour), reason: 'borne = $u');
+      expect(u.add(decalageLubumbashi), DateTime.utc(an, mois, jour),
+          reason: 'borne = $u');
     }
 
     test('une vente de 6h45 appartient au jour même', () {
       attendMinuitLubumbashi(
           debutDeJourneeLubumbashi(DateTime.utc(2026, 9, 21, 4, 45)),
-          2026, 9, 21);
+          2026,
+          9,
+          21);
     });
 
     test('une vente de 23h30 appartient ENCORE au jour même', () {
@@ -42,14 +44,18 @@ void main() {
       // basculait sur le lendemain et faussait les montants.
       attendMinuitLubumbashi(
           debutDeJourneeLubumbashi(DateTime.utc(2026, 9, 21, 21, 30)),
-          2026, 9, 21);
+          2026,
+          9,
+          21);
     });
 
     test('une vente de 00h30 appartient au jour suivant', () {
       // 00h30 le 22 à Lubumbashi = 22h30 UTC le 21.
       attendMinuitLubumbashi(
           debutDeJourneeLubumbashi(DateTime.utc(2026, 9, 21, 22, 30)),
-          2026, 9, 22);
+          2026,
+          9,
+          22);
     });
 
     test('la journée dure exactement 24 heures', () {

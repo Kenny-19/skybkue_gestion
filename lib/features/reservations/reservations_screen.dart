@@ -170,7 +170,7 @@ Future<void> previewReservationPdf(
           number: rr.roomNumber,
           type: byNumber[rr.roomNumber]?.type ?? 'Standard',
           pricePerNightCents: rr.pricePerNightCents,
-        priceUsdCents: fcVersUsd(rr.pricePerNightCents),
+          priceUsdCents: fcVersUsd(rr.pricePerNightCents),
         ),
     ],
   );
@@ -394,9 +394,11 @@ class _ReservationCard extends ConsumerWidget {
     for (var i = 0; i < rooms.length; i++) {
       await clientsRepo.recordVisit(client.id);
     }
-    // Check-in de chaque chambre — groupé si >1.
+    // Check-in de chaque chambre — groupé si >1. Le séjour est créé ICI,
+    // à l'arrivée : la réservation peut enfin pointer dessus.
+    final int sejour;
     if (rooms.length > 1) {
-      await roomsRepo.groupCheckIn(
+      sejour = await roomsRepo.groupCheckIn(
         numbers: rooms.map((x) => x.roomNumber).toList(),
         guest: r.guestFullName,
         checkout: r.checkoutDate,
@@ -404,7 +406,7 @@ class _ReservationCard extends ConsumerWidget {
         payerId: r.payerId,
       );
     } else {
-      await roomsRepo.checkIn(
+      sejour = await roomsRepo.checkIn(
         rooms.first.roomNumber,
         r.guestFullName,
         r.checkoutDate,
@@ -412,7 +414,9 @@ class _ReservationCard extends ConsumerWidget {
         payerId: r.payerId,
       );
     }
-    await ref.read(reservationsRepoProvider).markCheckedIn(r.id);
+    await ref
+        .read(reservationsRepoProvider)
+        .markCheckedIn(r.id, stayId: sejour);
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
         backgroundColor: BsColors.success,
@@ -555,7 +559,8 @@ class _ReservationDialogState extends ConsumerState<_ReservationDialog> {
                             }
                           },
                           label: Text(
-                              DateFormat("d MMM y", 'fr_FR').format(aLubumbashi(_checkin)),
+                              DateFormat("d MMM y", 'fr_FR')
+                                  .format(aLubumbashi(_checkin)),
                               style: BsType.body(12)),
                         ),
                       ],
@@ -581,7 +586,8 @@ class _ReservationDialogState extends ConsumerState<_ReservationDialog> {
                             if (p != null) setState(() => _checkout = p);
                           },
                           label: Text(
-                              DateFormat("d MMM y", 'fr_FR').format(aLubumbashi(_checkout)),
+                              DateFormat("d MMM y", 'fr_FR')
+                                  .format(aLubumbashi(_checkout)),
                               style: BsType.body(12)),
                         ),
                       ],

@@ -44,8 +44,7 @@ void main() {
           value: 1000,
           base: DiscountBase.accommodation);
       expect(
-          d.amountCents(
-              accommodationCents: hebergement, extrasCents: extras),
+          d.amountCents(accommodationCents: hebergement, extrasCents: extras),
           23000,
           reason: '10 % de 230 000, pas de 250 000');
     });
@@ -55,8 +54,7 @@ void main() {
     test('10 dollars valent 23 000 FC au taux du jour', () {
       const d = Discount(kind: DiscountKind.amount, value: 1000); // 10,00 $
       expect(
-          d.amountCents(
-              accommodationCents: hebergement, extrasCents: extras),
+          d.amountCents(accommodationCents: hebergement, extrasCents: extras),
           23000);
     });
 
@@ -65,9 +63,7 @@ void main() {
       Currency.rate = 2600;
       expect(
           d.amountCents(
-              accommodationCents: hebergement,
-              extrasCents: extras,
-              taux: 2300),
+              accommodationCents: hebergement, extrasCents: extras, taux: 2300),
           23000,
           reason: 'la facture doit rejouer ce que le client a payé');
     });
@@ -88,8 +84,7 @@ void main() {
       // 500 $ de remise sur une facture de 250 000 FC.
       const d = Discount(kind: DiscountKind.amount, value: 50000);
       expect(
-          d.amountCents(
-              accommodationCents: hebergement, extrasCents: extras),
+          d.amountCents(accommodationCents: hebergement, extrasCents: extras),
           250000,
           reason: 'on ne facture jamais un total négatif');
     });

@@ -304,7 +304,8 @@ class _ClientRow extends StatelessWidget {
           Expanded(
             flex: 3,
             child: Text(
-                DateFormat("d MMM y", 'fr_FR').format(aLubumbashi(client.lastSeenAt)),
+                DateFormat("d MMM y", 'fr_FR')
+                    .format(aLubumbashi(client.lastSeenAt)),
                 style: BsType.body(12, color: BsColors.slate)),
           ),
           SizedBox(
@@ -387,8 +388,10 @@ class _ClientEditDialogState extends ConsumerState<_ClientEditDialog> {
                   const SizedBox(width: 12),
                   _kpi('DÉPENSÉ', moneyCents(c.totalSpentCents)),
                   const SizedBox(width: 12),
-                  _kpi('DEPUIS',
-                      DateFormat("d MMM y", 'fr_FR').format(aLubumbashi(c.firstSeenAt))),
+                  _kpi(
+                      'DEPUIS',
+                      DateFormat("d MMM y", 'fr_FR')
+                          .format(aLubumbashi(c.firstSeenAt))),
                 ]),
                 const SizedBox(height: 16),
                 Text('NOM COMPLET', style: BsType.eyebrow()),

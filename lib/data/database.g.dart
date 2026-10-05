@@ -1682,6 +1682,1459 @@ class PayersCompanion extends UpdateCompanion<Payer> {
   }
 }
 
+class $StaysTable extends Stays with TableInfo<$StaysTable, Stay> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StaysTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _receiptNumberMeta =
+      const VerificationMeta('receiptNumber');
+  @override
+  late final GeneratedColumn<String> receiptNumber = GeneratedColumn<String>(
+      'receipt_number', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 40),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _reservationNumberMeta =
+      const VerificationMeta('reservationNumber');
+  @override
+  late final GeneratedColumn<String> reservationNumber =
+      GeneratedColumn<String>('reservation_number', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _generatedAtMeta =
+      const VerificationMeta('generatedAt');
+  @override
+  late final GeneratedColumn<DateTime> generatedAt = GeneratedColumn<DateTime>(
+      'generated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _checkinAtMeta =
+      const VerificationMeta('checkinAt');
+  @override
+  late final GeneratedColumn<DateTime> checkinAt = GeneratedColumn<DateTime>(
+      'checkin_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _checkoutAtMeta =
+      const VerificationMeta('checkoutAt');
+  @override
+  late final GeneratedColumn<DateTime> checkoutAt = GeneratedColumn<DateTime>(
+      'checkout_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _guestFullNameMeta =
+      const VerificationMeta('guestFullName');
+  @override
+  late final GeneratedColumn<String> guestFullName = GeneratedColumn<String>(
+      'guest_full_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _guestNationalityMeta =
+      const VerificationMeta('guestNationality');
+  @override
+  late final GeneratedColumn<String> guestNationality = GeneratedColumn<String>(
+      'guest_nationality', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _guestPhoneMeta =
+      const VerificationMeta('guestPhone');
+  @override
+  late final GeneratedColumn<String> guestPhone = GeneratedColumn<String>(
+      'guest_phone', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _guestEmailMeta =
+      const VerificationMeta('guestEmail');
+  @override
+  late final GeneratedColumn<String> guestEmail = GeneratedColumn<String>(
+      'guest_email', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _payerNameMeta =
+      const VerificationMeta('payerName');
+  @override
+  late final GeneratedColumn<String> payerName = GeneratedColumn<String>(
+      'payer_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _payerTaxIdMeta =
+      const VerificationMeta('payerTaxId');
+  @override
+  late final GeneratedColumn<String> payerTaxId = GeneratedColumn<String>(
+      'payer_tax_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _payerAddressMeta =
+      const VerificationMeta('payerAddress');
+  @override
+  late final GeneratedColumn<String> payerAddress = GeneratedColumn<String>(
+      'payer_address', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _payerContactMeta =
+      const VerificationMeta('payerContact');
+  @override
+  late final GeneratedColumn<String> payerContact = GeneratedColumn<String>(
+      'payer_contact', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _subtotalCentsMeta =
+      const VerificationMeta('subtotalCents');
+  @override
+  late final GeneratedColumn<int> subtotalCents = GeneratedColumn<int>(
+      'subtotal_cents', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _remiseCentsMeta =
+      const VerificationMeta('remiseCents');
+  @override
+  late final GeneratedColumn<int> remiseCents = GeneratedColumn<int>(
+      'remise_cents', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _remiseKindMeta =
+      const VerificationMeta('remiseKind');
+  @override
+  late final GeneratedColumn<int> remiseKind = GeneratedColumn<int>(
+      'remise_kind', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _remiseValueMeta =
+      const VerificationMeta('remiseValue');
+  @override
+  late final GeneratedColumn<int> remiseValue = GeneratedColumn<int>(
+      'remise_value', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _remiseBaseMeta =
+      const VerificationMeta('remiseBase');
+  @override
+  late final GeneratedColumn<int> remiseBase = GeneratedColumn<int>(
+      'remise_base', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _remiseReasonMeta =
+      const VerificationMeta('remiseReason');
+  @override
+  late final GeneratedColumn<String> remiseReason = GeneratedColumn<String>(
+      'remise_reason', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _acompteFcCentsMeta =
+      const VerificationMeta('acompteFcCents');
+  @override
+  late final GeneratedColumn<int> acompteFcCents = GeneratedColumn<int>(
+      'acompte_fc_cents', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _acompteUsdCentsMeta =
+      const VerificationMeta('acompteUsdCents');
+  @override
+  late final GeneratedColumn<int> acompteUsdCents = GeneratedColumn<int>(
+      'acompte_usd_cents', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _fcPerUsdCentsMeta =
+      const VerificationMeta('fcPerUsdCents');
+  @override
+  late final GeneratedColumn<int> fcPerUsdCents = GeneratedColumn<int>(
+      'fc_per_usd_cents', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _paymentModeMeta =
+      const VerificationMeta('paymentMode');
+  @override
+  late final GeneratedColumn<int> paymentMode = GeneratedColumn<int>(
+      'payment_mode', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _stayGroupMeta =
+      const VerificationMeta('stayGroup');
+  @override
+  late final GeneratedColumn<String> stayGroup = GeneratedColumn<String>(
+      'stay_group', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _serverLoginMeta =
+      const VerificationMeta('serverLogin');
+  @override
+  late final GeneratedColumn<String> serverLogin = GeneratedColumn<String>(
+      'server_login', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+      'note', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _extrasJsonMeta =
+      const VerificationMeta('extrasJson');
+  @override
+  late final GeneratedColumn<String> extrasJson = GeneratedColumn<String>(
+      'extras_json', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _clientVisitsAtCheckoutMeta =
+      const VerificationMeta('clientVisitsAtCheckout');
+  @override
+  late final GeneratedColumn<int> clientVisitsAtCheckout = GeneratedColumn<int>(
+      'client_visits_at_checkout', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      clientDefault: nouvelUid);
+  @override
+  late final GeneratedColumnWithTypeConverter<DbStayStatus, int> statut =
+      GeneratedColumn<int>('statut', aliasedName, false,
+              type: DriftSqlType.int,
+              requiredDuringInsert: false,
+              defaultValue: Constant(DbStayStatus.facture.index))
+          .withConverter<DbStayStatus>($StaysTable.$converterstatut);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        receiptNumber,
+        reservationNumber,
+        generatedAt,
+        checkinAt,
+        checkoutAt,
+        guestFullName,
+        guestNationality,
+        guestPhone,
+        guestEmail,
+        payerName,
+        payerTaxId,
+        payerAddress,
+        payerContact,
+        subtotalCents,
+        remiseCents,
+        remiseKind,
+        remiseValue,
+        remiseBase,
+        remiseReason,
+        acompteFcCents,
+        acompteUsdCents,
+        fcPerUsdCents,
+        paymentMode,
+        stayGroup,
+        serverLogin,
+        note,
+        extrasJson,
+        clientVisitsAtCheckout,
+        uid,
+        statut
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stays';
+  @override
+  VerificationContext validateIntegrity(Insertable<Stay> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('receipt_number')) {
+      context.handle(
+          _receiptNumberMeta,
+          receiptNumber.isAcceptableOrUnknown(
+              data['receipt_number']!, _receiptNumberMeta));
+    } else if (isInserting) {
+      context.missing(_receiptNumberMeta);
+    }
+    if (data.containsKey('reservation_number')) {
+      context.handle(
+          _reservationNumberMeta,
+          reservationNumber.isAcceptableOrUnknown(
+              data['reservation_number']!, _reservationNumberMeta));
+    }
+    if (data.containsKey('generated_at')) {
+      context.handle(
+          _generatedAtMeta,
+          generatedAt.isAcceptableOrUnknown(
+              data['generated_at']!, _generatedAtMeta));
+    }
+    if (data.containsKey('checkin_at')) {
+      context.handle(_checkinAtMeta,
+          checkinAt.isAcceptableOrUnknown(data['checkin_at']!, _checkinAtMeta));
+    } else if (isInserting) {
+      context.missing(_checkinAtMeta);
+    }
+    if (data.containsKey('checkout_at')) {
+      context.handle(
+          _checkoutAtMeta,
+          checkoutAt.isAcceptableOrUnknown(
+              data['checkout_at']!, _checkoutAtMeta));
+    } else if (isInserting) {
+      context.missing(_checkoutAtMeta);
+    }
+    if (data.containsKey('guest_full_name')) {
+      context.handle(
+          _guestFullNameMeta,
+          guestFullName.isAcceptableOrUnknown(
+              data['guest_full_name']!, _guestFullNameMeta));
+    } else if (isInserting) {
+      context.missing(_guestFullNameMeta);
+    }
+    if (data.containsKey('guest_nationality')) {
+      context.handle(
+          _guestNationalityMeta,
+          guestNationality.isAcceptableOrUnknown(
+              data['guest_nationality']!, _guestNationalityMeta));
+    }
+    if (data.containsKey('guest_phone')) {
+      context.handle(
+          _guestPhoneMeta,
+          guestPhone.isAcceptableOrUnknown(
+              data['guest_phone']!, _guestPhoneMeta));
+    }
+    if (data.containsKey('guest_email')) {
+      context.handle(
+          _guestEmailMeta,
+          guestEmail.isAcceptableOrUnknown(
+              data['guest_email']!, _guestEmailMeta));
+    }
+    if (data.containsKey('payer_name')) {
+      context.handle(_payerNameMeta,
+          payerName.isAcceptableOrUnknown(data['payer_name']!, _payerNameMeta));
+    }
+    if (data.containsKey('payer_tax_id')) {
+      context.handle(
+          _payerTaxIdMeta,
+          payerTaxId.isAcceptableOrUnknown(
+              data['payer_tax_id']!, _payerTaxIdMeta));
+    }
+    if (data.containsKey('payer_address')) {
+      context.handle(
+          _payerAddressMeta,
+          payerAddress.isAcceptableOrUnknown(
+              data['payer_address']!, _payerAddressMeta));
+    }
+    if (data.containsKey('payer_contact')) {
+      context.handle(
+          _payerContactMeta,
+          payerContact.isAcceptableOrUnknown(
+              data['payer_contact']!, _payerContactMeta));
+    }
+    if (data.containsKey('subtotal_cents')) {
+      context.handle(
+          _subtotalCentsMeta,
+          subtotalCents.isAcceptableOrUnknown(
+              data['subtotal_cents']!, _subtotalCentsMeta));
+    } else if (isInserting) {
+      context.missing(_subtotalCentsMeta);
+    }
+    if (data.containsKey('remise_cents')) {
+      context.handle(
+          _remiseCentsMeta,
+          remiseCents.isAcceptableOrUnknown(
+              data['remise_cents']!, _remiseCentsMeta));
+    }
+    if (data.containsKey('remise_kind')) {
+      context.handle(
+          _remiseKindMeta,
+          remiseKind.isAcceptableOrUnknown(
+              data['remise_kind']!, _remiseKindMeta));
+    }
+    if (data.containsKey('remise_value')) {
+      context.handle(
+          _remiseValueMeta,
+          remiseValue.isAcceptableOrUnknown(
+              data['remise_value']!, _remiseValueMeta));
+    }
+    if (data.containsKey('remise_base')) {
+      context.handle(
+          _remiseBaseMeta,
+          remiseBase.isAcceptableOrUnknown(
+              data['remise_base']!, _remiseBaseMeta));
+    }
+    if (data.containsKey('remise_reason')) {
+      context.handle(
+          _remiseReasonMeta,
+          remiseReason.isAcceptableOrUnknown(
+              data['remise_reason']!, _remiseReasonMeta));
+    }
+    if (data.containsKey('acompte_fc_cents')) {
+      context.handle(
+          _acompteFcCentsMeta,
+          acompteFcCents.isAcceptableOrUnknown(
+              data['acompte_fc_cents']!, _acompteFcCentsMeta));
+    }
+    if (data.containsKey('acompte_usd_cents')) {
+      context.handle(
+          _acompteUsdCentsMeta,
+          acompteUsdCents.isAcceptableOrUnknown(
+              data['acompte_usd_cents']!, _acompteUsdCentsMeta));
+    }
+    if (data.containsKey('fc_per_usd_cents')) {
+      context.handle(
+          _fcPerUsdCentsMeta,
+          fcPerUsdCents.isAcceptableOrUnknown(
+              data['fc_per_usd_cents']!, _fcPerUsdCentsMeta));
+    }
+    if (data.containsKey('payment_mode')) {
+      context.handle(
+          _paymentModeMeta,
+          paymentMode.isAcceptableOrUnknown(
+              data['payment_mode']!, _paymentModeMeta));
+    }
+    if (data.containsKey('stay_group')) {
+      context.handle(_stayGroupMeta,
+          stayGroup.isAcceptableOrUnknown(data['stay_group']!, _stayGroupMeta));
+    }
+    if (data.containsKey('server_login')) {
+      context.handle(
+          _serverLoginMeta,
+          serverLogin.isAcceptableOrUnknown(
+              data['server_login']!, _serverLoginMeta));
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+          _noteMeta, note.isAcceptableOrUnknown(data['note']!, _noteMeta));
+    }
+    if (data.containsKey('extras_json')) {
+      context.handle(
+          _extrasJsonMeta,
+          extrasJson.isAcceptableOrUnknown(
+              data['extras_json']!, _extrasJsonMeta));
+    }
+    if (data.containsKey('client_visits_at_checkout')) {
+      context.handle(
+          _clientVisitsAtCheckoutMeta,
+          clientVisitsAtCheckout.isAcceptableOrUnknown(
+              data['client_visits_at_checkout']!, _clientVisitsAtCheckoutMeta));
+    }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Stay map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Stay(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      receiptNumber: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}receipt_number'])!,
+      reservationNumber: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}reservation_number']),
+      generatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}generated_at'])!,
+      checkinAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}checkin_at'])!,
+      checkoutAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}checkout_at'])!,
+      guestFullName: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}guest_full_name'])!,
+      guestNationality: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}guest_nationality']),
+      guestPhone: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}guest_phone']),
+      guestEmail: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}guest_email']),
+      payerName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payer_name']),
+      payerTaxId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payer_tax_id']),
+      payerAddress: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payer_address']),
+      payerContact: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payer_contact']),
+      subtotalCents: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}subtotal_cents'])!,
+      remiseCents: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}remise_cents'])!,
+      remiseKind: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}remise_kind'])!,
+      remiseValue: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}remise_value'])!,
+      remiseBase: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}remise_base'])!,
+      remiseReason: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}remise_reason']),
+      acompteFcCents: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}acompte_fc_cents'])!,
+      acompteUsdCents: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}acompte_usd_cents'])!,
+      fcPerUsdCents: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}fc_per_usd_cents'])!,
+      paymentMode: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}payment_mode'])!,
+      stayGroup: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stay_group']),
+      serverLogin: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}server_login']),
+      note: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}note']),
+      extrasJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}extras_json'])!,
+      clientVisitsAtCheckout: attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}client_visits_at_checkout'])!,
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
+      statut: $StaysTable.$converterstatut.fromSql(attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}statut'])!),
+    );
+  }
+
+  @override
+  $StaysTable createAlias(String alias) {
+    return $StaysTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<DbStayStatus, int, int> $converterstatut =
+      const EnumIndexConverter<DbStayStatus>(DbStayStatus.values);
+}
+
+class Stay extends DataClass implements Insertable<Stay> {
+  final int id;
+  final String receiptNumber;
+  final String? reservationNumber;
+  final DateTime generatedAt;
+  final DateTime checkinAt;
+  final DateTime checkoutAt;
+  final String guestFullName;
+  final String? guestNationality;
+  final String? guestPhone;
+  final String? guestEmail;
+  final String? payerName;
+  final String? payerTaxId;
+  final String? payerAddress;
+  final String? payerContact;
+  final int subtotalCents;
+
+  /// Montant de la remise effectivement déduite (cents FC). Reste la
+  /// source de vérité comptable — les 4 colonnes qui suivent ne servent
+  /// qu'à expliquer *comment* ce montant a été obtenu.
+  final int remiseCents;
+
+  /// index de DiscountKind : 0 = montant fixe, 1 = pourcentage.
+  final int remiseKind;
+
+  /// Cents FC si remiseKind=0, centièmes de % si remiseKind=1 (1000 = 10 %).
+  final int remiseValue;
+
+  /// index de DiscountBase : 0 = hébergement seul, 1 = total avec extras.
+  final int remiseBase;
+
+  /// Motif du geste commercial ("Client fidèle", "Accord société"…).
+  final String? remiseReason;
+  final int acompteFcCents;
+  final int acompteUsdCents;
+
+  /// Taux FC pour 1 USD au moment du check-out, × 100.
+  ///
+  /// Figé, et c'est tout l'enjeu. `Currency.rate` est une valeur unique
+  /// et COURANTE : une facture émise à 2300 et réimprimée à 2600
+  /// annoncerait un total en dollars différent de celui que le client a
+  /// payé. Un entier plutôt qu'un flottant : un taux est une donnée
+  /// comptable, il ne s'arrondit pas au hasard des divisions.
+  ///
+  /// 0 = séjour antérieur à la bascule en dollars ; on retombe alors sur
+  /// le taux courant, faute de mieux, et l'écran le dit.
+  final int fcPerUsdCents;
+  final int paymentMode;
+  final String? stayGroup;
+  final String? serverLogin;
+  final String? note;
+  final String extrasJson;
+  final int clientVisitsAtCheckout;
+
+  /// Identité du séjour sur tous les postes (même raison que les ventes :
+  /// le serveur rangeait les séjours par numéro local).
+  final String? uid;
+
+  /// Où en est le séjour. Les séjours d'avant la v27 n'existaient qu'une
+  /// fois facturés : « facture » par défaut.
+  final DbStayStatus statut;
+  const Stay(
+      {required this.id,
+      required this.receiptNumber,
+      this.reservationNumber,
+      required this.generatedAt,
+      required this.checkinAt,
+      required this.checkoutAt,
+      required this.guestFullName,
+      this.guestNationality,
+      this.guestPhone,
+      this.guestEmail,
+      this.payerName,
+      this.payerTaxId,
+      this.payerAddress,
+      this.payerContact,
+      required this.subtotalCents,
+      required this.remiseCents,
+      required this.remiseKind,
+      required this.remiseValue,
+      required this.remiseBase,
+      this.remiseReason,
+      required this.acompteFcCents,
+      required this.acompteUsdCents,
+      required this.fcPerUsdCents,
+      required this.paymentMode,
+      this.stayGroup,
+      this.serverLogin,
+      this.note,
+      required this.extrasJson,
+      required this.clientVisitsAtCheckout,
+      this.uid,
+      required this.statut});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['receipt_number'] = Variable<String>(receiptNumber);
+    if (!nullToAbsent || reservationNumber != null) {
+      map['reservation_number'] = Variable<String>(reservationNumber);
+    }
+    map['generated_at'] = Variable<DateTime>(generatedAt);
+    map['checkin_at'] = Variable<DateTime>(checkinAt);
+    map['checkout_at'] = Variable<DateTime>(checkoutAt);
+    map['guest_full_name'] = Variable<String>(guestFullName);
+    if (!nullToAbsent || guestNationality != null) {
+      map['guest_nationality'] = Variable<String>(guestNationality);
+    }
+    if (!nullToAbsent || guestPhone != null) {
+      map['guest_phone'] = Variable<String>(guestPhone);
+    }
+    if (!nullToAbsent || guestEmail != null) {
+      map['guest_email'] = Variable<String>(guestEmail);
+    }
+    if (!nullToAbsent || payerName != null) {
+      map['payer_name'] = Variable<String>(payerName);
+    }
+    if (!nullToAbsent || payerTaxId != null) {
+      map['payer_tax_id'] = Variable<String>(payerTaxId);
+    }
+    if (!nullToAbsent || payerAddress != null) {
+      map['payer_address'] = Variable<String>(payerAddress);
+    }
+    if (!nullToAbsent || payerContact != null) {
+      map['payer_contact'] = Variable<String>(payerContact);
+    }
+    map['subtotal_cents'] = Variable<int>(subtotalCents);
+    map['remise_cents'] = Variable<int>(remiseCents);
+    map['remise_kind'] = Variable<int>(remiseKind);
+    map['remise_value'] = Variable<int>(remiseValue);
+    map['remise_base'] = Variable<int>(remiseBase);
+    if (!nullToAbsent || remiseReason != null) {
+      map['remise_reason'] = Variable<String>(remiseReason);
+    }
+    map['acompte_fc_cents'] = Variable<int>(acompteFcCents);
+    map['acompte_usd_cents'] = Variable<int>(acompteUsdCents);
+    map['fc_per_usd_cents'] = Variable<int>(fcPerUsdCents);
+    map['payment_mode'] = Variable<int>(paymentMode);
+    if (!nullToAbsent || stayGroup != null) {
+      map['stay_group'] = Variable<String>(stayGroup);
+    }
+    if (!nullToAbsent || serverLogin != null) {
+      map['server_login'] = Variable<String>(serverLogin);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    map['extras_json'] = Variable<String>(extrasJson);
+    map['client_visits_at_checkout'] = Variable<int>(clientVisitsAtCheckout);
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
+    {
+      map['statut'] = Variable<int>($StaysTable.$converterstatut.toSql(statut));
+    }
+    return map;
+  }
+
+  StaysCompanion toCompanion(bool nullToAbsent) {
+    return StaysCompanion(
+      id: Value(id),
+      receiptNumber: Value(receiptNumber),
+      reservationNumber: reservationNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reservationNumber),
+      generatedAt: Value(generatedAt),
+      checkinAt: Value(checkinAt),
+      checkoutAt: Value(checkoutAt),
+      guestFullName: Value(guestFullName),
+      guestNationality: guestNationality == null && nullToAbsent
+          ? const Value.absent()
+          : Value(guestNationality),
+      guestPhone: guestPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(guestPhone),
+      guestEmail: guestEmail == null && nullToAbsent
+          ? const Value.absent()
+          : Value(guestEmail),
+      payerName: payerName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payerName),
+      payerTaxId: payerTaxId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payerTaxId),
+      payerAddress: payerAddress == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payerAddress),
+      payerContact: payerContact == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payerContact),
+      subtotalCents: Value(subtotalCents),
+      remiseCents: Value(remiseCents),
+      remiseKind: Value(remiseKind),
+      remiseValue: Value(remiseValue),
+      remiseBase: Value(remiseBase),
+      remiseReason: remiseReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remiseReason),
+      acompteFcCents: Value(acompteFcCents),
+      acompteUsdCents: Value(acompteUsdCents),
+      fcPerUsdCents: Value(fcPerUsdCents),
+      paymentMode: Value(paymentMode),
+      stayGroup: stayGroup == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stayGroup),
+      serverLogin: serverLogin == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serverLogin),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      extrasJson: Value(extrasJson),
+      clientVisitsAtCheckout: Value(clientVisitsAtCheckout),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
+      statut: Value(statut),
+    );
+  }
+
+  factory Stay.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Stay(
+      id: serializer.fromJson<int>(json['id']),
+      receiptNumber: serializer.fromJson<String>(json['receiptNumber']),
+      reservationNumber:
+          serializer.fromJson<String?>(json['reservationNumber']),
+      generatedAt: serializer.fromJson<DateTime>(json['generatedAt']),
+      checkinAt: serializer.fromJson<DateTime>(json['checkinAt']),
+      checkoutAt: serializer.fromJson<DateTime>(json['checkoutAt']),
+      guestFullName: serializer.fromJson<String>(json['guestFullName']),
+      guestNationality: serializer.fromJson<String?>(json['guestNationality']),
+      guestPhone: serializer.fromJson<String?>(json['guestPhone']),
+      guestEmail: serializer.fromJson<String?>(json['guestEmail']),
+      payerName: serializer.fromJson<String?>(json['payerName']),
+      payerTaxId: serializer.fromJson<String?>(json['payerTaxId']),
+      payerAddress: serializer.fromJson<String?>(json['payerAddress']),
+      payerContact: serializer.fromJson<String?>(json['payerContact']),
+      subtotalCents: serializer.fromJson<int>(json['subtotalCents']),
+      remiseCents: serializer.fromJson<int>(json['remiseCents']),
+      remiseKind: serializer.fromJson<int>(json['remiseKind']),
+      remiseValue: serializer.fromJson<int>(json['remiseValue']),
+      remiseBase: serializer.fromJson<int>(json['remiseBase']),
+      remiseReason: serializer.fromJson<String?>(json['remiseReason']),
+      acompteFcCents: serializer.fromJson<int>(json['acompteFcCents']),
+      acompteUsdCents: serializer.fromJson<int>(json['acompteUsdCents']),
+      fcPerUsdCents: serializer.fromJson<int>(json['fcPerUsdCents']),
+      paymentMode: serializer.fromJson<int>(json['paymentMode']),
+      stayGroup: serializer.fromJson<String?>(json['stayGroup']),
+      serverLogin: serializer.fromJson<String?>(json['serverLogin']),
+      note: serializer.fromJson<String?>(json['note']),
+      extrasJson: serializer.fromJson<String>(json['extrasJson']),
+      clientVisitsAtCheckout:
+          serializer.fromJson<int>(json['clientVisitsAtCheckout']),
+      uid: serializer.fromJson<String?>(json['uid']),
+      statut: $StaysTable.$converterstatut
+          .fromJson(serializer.fromJson<int>(json['statut'])),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'receiptNumber': serializer.toJson<String>(receiptNumber),
+      'reservationNumber': serializer.toJson<String?>(reservationNumber),
+      'generatedAt': serializer.toJson<DateTime>(generatedAt),
+      'checkinAt': serializer.toJson<DateTime>(checkinAt),
+      'checkoutAt': serializer.toJson<DateTime>(checkoutAt),
+      'guestFullName': serializer.toJson<String>(guestFullName),
+      'guestNationality': serializer.toJson<String?>(guestNationality),
+      'guestPhone': serializer.toJson<String?>(guestPhone),
+      'guestEmail': serializer.toJson<String?>(guestEmail),
+      'payerName': serializer.toJson<String?>(payerName),
+      'payerTaxId': serializer.toJson<String?>(payerTaxId),
+      'payerAddress': serializer.toJson<String?>(payerAddress),
+      'payerContact': serializer.toJson<String?>(payerContact),
+      'subtotalCents': serializer.toJson<int>(subtotalCents),
+      'remiseCents': serializer.toJson<int>(remiseCents),
+      'remiseKind': serializer.toJson<int>(remiseKind),
+      'remiseValue': serializer.toJson<int>(remiseValue),
+      'remiseBase': serializer.toJson<int>(remiseBase),
+      'remiseReason': serializer.toJson<String?>(remiseReason),
+      'acompteFcCents': serializer.toJson<int>(acompteFcCents),
+      'acompteUsdCents': serializer.toJson<int>(acompteUsdCents),
+      'fcPerUsdCents': serializer.toJson<int>(fcPerUsdCents),
+      'paymentMode': serializer.toJson<int>(paymentMode),
+      'stayGroup': serializer.toJson<String?>(stayGroup),
+      'serverLogin': serializer.toJson<String?>(serverLogin),
+      'note': serializer.toJson<String?>(note),
+      'extrasJson': serializer.toJson<String>(extrasJson),
+      'clientVisitsAtCheckout': serializer.toJson<int>(clientVisitsAtCheckout),
+      'uid': serializer.toJson<String?>(uid),
+      'statut':
+          serializer.toJson<int>($StaysTable.$converterstatut.toJson(statut)),
+    };
+  }
+
+  Stay copyWith(
+          {int? id,
+          String? receiptNumber,
+          Value<String?> reservationNumber = const Value.absent(),
+          DateTime? generatedAt,
+          DateTime? checkinAt,
+          DateTime? checkoutAt,
+          String? guestFullName,
+          Value<String?> guestNationality = const Value.absent(),
+          Value<String?> guestPhone = const Value.absent(),
+          Value<String?> guestEmail = const Value.absent(),
+          Value<String?> payerName = const Value.absent(),
+          Value<String?> payerTaxId = const Value.absent(),
+          Value<String?> payerAddress = const Value.absent(),
+          Value<String?> payerContact = const Value.absent(),
+          int? subtotalCents,
+          int? remiseCents,
+          int? remiseKind,
+          int? remiseValue,
+          int? remiseBase,
+          Value<String?> remiseReason = const Value.absent(),
+          int? acompteFcCents,
+          int? acompteUsdCents,
+          int? fcPerUsdCents,
+          int? paymentMode,
+          Value<String?> stayGroup = const Value.absent(),
+          Value<String?> serverLogin = const Value.absent(),
+          Value<String?> note = const Value.absent(),
+          String? extrasJson,
+          int? clientVisitsAtCheckout,
+          Value<String?> uid = const Value.absent(),
+          DbStayStatus? statut}) =>
+      Stay(
+        id: id ?? this.id,
+        receiptNumber: receiptNumber ?? this.receiptNumber,
+        reservationNumber: reservationNumber.present
+            ? reservationNumber.value
+            : this.reservationNumber,
+        generatedAt: generatedAt ?? this.generatedAt,
+        checkinAt: checkinAt ?? this.checkinAt,
+        checkoutAt: checkoutAt ?? this.checkoutAt,
+        guestFullName: guestFullName ?? this.guestFullName,
+        guestNationality: guestNationality.present
+            ? guestNationality.value
+            : this.guestNationality,
+        guestPhone: guestPhone.present ? guestPhone.value : this.guestPhone,
+        guestEmail: guestEmail.present ? guestEmail.value : this.guestEmail,
+        payerName: payerName.present ? payerName.value : this.payerName,
+        payerTaxId: payerTaxId.present ? payerTaxId.value : this.payerTaxId,
+        payerAddress:
+            payerAddress.present ? payerAddress.value : this.payerAddress,
+        payerContact:
+            payerContact.present ? payerContact.value : this.payerContact,
+        subtotalCents: subtotalCents ?? this.subtotalCents,
+        remiseCents: remiseCents ?? this.remiseCents,
+        remiseKind: remiseKind ?? this.remiseKind,
+        remiseValue: remiseValue ?? this.remiseValue,
+        remiseBase: remiseBase ?? this.remiseBase,
+        remiseReason:
+            remiseReason.present ? remiseReason.value : this.remiseReason,
+        acompteFcCents: acompteFcCents ?? this.acompteFcCents,
+        acompteUsdCents: acompteUsdCents ?? this.acompteUsdCents,
+        fcPerUsdCents: fcPerUsdCents ?? this.fcPerUsdCents,
+        paymentMode: paymentMode ?? this.paymentMode,
+        stayGroup: stayGroup.present ? stayGroup.value : this.stayGroup,
+        serverLogin: serverLogin.present ? serverLogin.value : this.serverLogin,
+        note: note.present ? note.value : this.note,
+        extrasJson: extrasJson ?? this.extrasJson,
+        clientVisitsAtCheckout:
+            clientVisitsAtCheckout ?? this.clientVisitsAtCheckout,
+        uid: uid.present ? uid.value : this.uid,
+        statut: statut ?? this.statut,
+      );
+  Stay copyWithCompanion(StaysCompanion data) {
+    return Stay(
+      id: data.id.present ? data.id.value : this.id,
+      receiptNumber: data.receiptNumber.present
+          ? data.receiptNumber.value
+          : this.receiptNumber,
+      reservationNumber: data.reservationNumber.present
+          ? data.reservationNumber.value
+          : this.reservationNumber,
+      generatedAt:
+          data.generatedAt.present ? data.generatedAt.value : this.generatedAt,
+      checkinAt: data.checkinAt.present ? data.checkinAt.value : this.checkinAt,
+      checkoutAt:
+          data.checkoutAt.present ? data.checkoutAt.value : this.checkoutAt,
+      guestFullName: data.guestFullName.present
+          ? data.guestFullName.value
+          : this.guestFullName,
+      guestNationality: data.guestNationality.present
+          ? data.guestNationality.value
+          : this.guestNationality,
+      guestPhone:
+          data.guestPhone.present ? data.guestPhone.value : this.guestPhone,
+      guestEmail:
+          data.guestEmail.present ? data.guestEmail.value : this.guestEmail,
+      payerName: data.payerName.present ? data.payerName.value : this.payerName,
+      payerTaxId:
+          data.payerTaxId.present ? data.payerTaxId.value : this.payerTaxId,
+      payerAddress: data.payerAddress.present
+          ? data.payerAddress.value
+          : this.payerAddress,
+      payerContact: data.payerContact.present
+          ? data.payerContact.value
+          : this.payerContact,
+      subtotalCents: data.subtotalCents.present
+          ? data.subtotalCents.value
+          : this.subtotalCents,
+      remiseCents:
+          data.remiseCents.present ? data.remiseCents.value : this.remiseCents,
+      remiseKind:
+          data.remiseKind.present ? data.remiseKind.value : this.remiseKind,
+      remiseValue:
+          data.remiseValue.present ? data.remiseValue.value : this.remiseValue,
+      remiseBase:
+          data.remiseBase.present ? data.remiseBase.value : this.remiseBase,
+      remiseReason: data.remiseReason.present
+          ? data.remiseReason.value
+          : this.remiseReason,
+      acompteFcCents: data.acompteFcCents.present
+          ? data.acompteFcCents.value
+          : this.acompteFcCents,
+      acompteUsdCents: data.acompteUsdCents.present
+          ? data.acompteUsdCents.value
+          : this.acompteUsdCents,
+      fcPerUsdCents: data.fcPerUsdCents.present
+          ? data.fcPerUsdCents.value
+          : this.fcPerUsdCents,
+      paymentMode:
+          data.paymentMode.present ? data.paymentMode.value : this.paymentMode,
+      stayGroup: data.stayGroup.present ? data.stayGroup.value : this.stayGroup,
+      serverLogin:
+          data.serverLogin.present ? data.serverLogin.value : this.serverLogin,
+      note: data.note.present ? data.note.value : this.note,
+      extrasJson:
+          data.extrasJson.present ? data.extrasJson.value : this.extrasJson,
+      clientVisitsAtCheckout: data.clientVisitsAtCheckout.present
+          ? data.clientVisitsAtCheckout.value
+          : this.clientVisitsAtCheckout,
+      uid: data.uid.present ? data.uid.value : this.uid,
+      statut: data.statut.present ? data.statut.value : this.statut,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Stay(')
+          ..write('id: $id, ')
+          ..write('receiptNumber: $receiptNumber, ')
+          ..write('reservationNumber: $reservationNumber, ')
+          ..write('generatedAt: $generatedAt, ')
+          ..write('checkinAt: $checkinAt, ')
+          ..write('checkoutAt: $checkoutAt, ')
+          ..write('guestFullName: $guestFullName, ')
+          ..write('guestNationality: $guestNationality, ')
+          ..write('guestPhone: $guestPhone, ')
+          ..write('guestEmail: $guestEmail, ')
+          ..write('payerName: $payerName, ')
+          ..write('payerTaxId: $payerTaxId, ')
+          ..write('payerAddress: $payerAddress, ')
+          ..write('payerContact: $payerContact, ')
+          ..write('subtotalCents: $subtotalCents, ')
+          ..write('remiseCents: $remiseCents, ')
+          ..write('remiseKind: $remiseKind, ')
+          ..write('remiseValue: $remiseValue, ')
+          ..write('remiseBase: $remiseBase, ')
+          ..write('remiseReason: $remiseReason, ')
+          ..write('acompteFcCents: $acompteFcCents, ')
+          ..write('acompteUsdCents: $acompteUsdCents, ')
+          ..write('fcPerUsdCents: $fcPerUsdCents, ')
+          ..write('paymentMode: $paymentMode, ')
+          ..write('stayGroup: $stayGroup, ')
+          ..write('serverLogin: $serverLogin, ')
+          ..write('note: $note, ')
+          ..write('extrasJson: $extrasJson, ')
+          ..write('clientVisitsAtCheckout: $clientVisitsAtCheckout, ')
+          ..write('uid: $uid, ')
+          ..write('statut: $statut')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+        id,
+        receiptNumber,
+        reservationNumber,
+        generatedAt,
+        checkinAt,
+        checkoutAt,
+        guestFullName,
+        guestNationality,
+        guestPhone,
+        guestEmail,
+        payerName,
+        payerTaxId,
+        payerAddress,
+        payerContact,
+        subtotalCents,
+        remiseCents,
+        remiseKind,
+        remiseValue,
+        remiseBase,
+        remiseReason,
+        acompteFcCents,
+        acompteUsdCents,
+        fcPerUsdCents,
+        paymentMode,
+        stayGroup,
+        serverLogin,
+        note,
+        extrasJson,
+        clientVisitsAtCheckout,
+        uid,
+        statut
+      ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Stay &&
+          other.id == this.id &&
+          other.receiptNumber == this.receiptNumber &&
+          other.reservationNumber == this.reservationNumber &&
+          other.generatedAt == this.generatedAt &&
+          other.checkinAt == this.checkinAt &&
+          other.checkoutAt == this.checkoutAt &&
+          other.guestFullName == this.guestFullName &&
+          other.guestNationality == this.guestNationality &&
+          other.guestPhone == this.guestPhone &&
+          other.guestEmail == this.guestEmail &&
+          other.payerName == this.payerName &&
+          other.payerTaxId == this.payerTaxId &&
+          other.payerAddress == this.payerAddress &&
+          other.payerContact == this.payerContact &&
+          other.subtotalCents == this.subtotalCents &&
+          other.remiseCents == this.remiseCents &&
+          other.remiseKind == this.remiseKind &&
+          other.remiseValue == this.remiseValue &&
+          other.remiseBase == this.remiseBase &&
+          other.remiseReason == this.remiseReason &&
+          other.acompteFcCents == this.acompteFcCents &&
+          other.acompteUsdCents == this.acompteUsdCents &&
+          other.fcPerUsdCents == this.fcPerUsdCents &&
+          other.paymentMode == this.paymentMode &&
+          other.stayGroup == this.stayGroup &&
+          other.serverLogin == this.serverLogin &&
+          other.note == this.note &&
+          other.extrasJson == this.extrasJson &&
+          other.clientVisitsAtCheckout == this.clientVisitsAtCheckout &&
+          other.uid == this.uid &&
+          other.statut == this.statut);
+}
+
+class StaysCompanion extends UpdateCompanion<Stay> {
+  final Value<int> id;
+  final Value<String> receiptNumber;
+  final Value<String?> reservationNumber;
+  final Value<DateTime> generatedAt;
+  final Value<DateTime> checkinAt;
+  final Value<DateTime> checkoutAt;
+  final Value<String> guestFullName;
+  final Value<String?> guestNationality;
+  final Value<String?> guestPhone;
+  final Value<String?> guestEmail;
+  final Value<String?> payerName;
+  final Value<String?> payerTaxId;
+  final Value<String?> payerAddress;
+  final Value<String?> payerContact;
+  final Value<int> subtotalCents;
+  final Value<int> remiseCents;
+  final Value<int> remiseKind;
+  final Value<int> remiseValue;
+  final Value<int> remiseBase;
+  final Value<String?> remiseReason;
+  final Value<int> acompteFcCents;
+  final Value<int> acompteUsdCents;
+  final Value<int> fcPerUsdCents;
+  final Value<int> paymentMode;
+  final Value<String?> stayGroup;
+  final Value<String?> serverLogin;
+  final Value<String?> note;
+  final Value<String> extrasJson;
+  final Value<int> clientVisitsAtCheckout;
+  final Value<String?> uid;
+  final Value<DbStayStatus> statut;
+  const StaysCompanion({
+    this.id = const Value.absent(),
+    this.receiptNumber = const Value.absent(),
+    this.reservationNumber = const Value.absent(),
+    this.generatedAt = const Value.absent(),
+    this.checkinAt = const Value.absent(),
+    this.checkoutAt = const Value.absent(),
+    this.guestFullName = const Value.absent(),
+    this.guestNationality = const Value.absent(),
+    this.guestPhone = const Value.absent(),
+    this.guestEmail = const Value.absent(),
+    this.payerName = const Value.absent(),
+    this.payerTaxId = const Value.absent(),
+    this.payerAddress = const Value.absent(),
+    this.payerContact = const Value.absent(),
+    this.subtotalCents = const Value.absent(),
+    this.remiseCents = const Value.absent(),
+    this.remiseKind = const Value.absent(),
+    this.remiseValue = const Value.absent(),
+    this.remiseBase = const Value.absent(),
+    this.remiseReason = const Value.absent(),
+    this.acompteFcCents = const Value.absent(),
+    this.acompteUsdCents = const Value.absent(),
+    this.fcPerUsdCents = const Value.absent(),
+    this.paymentMode = const Value.absent(),
+    this.stayGroup = const Value.absent(),
+    this.serverLogin = const Value.absent(),
+    this.note = const Value.absent(),
+    this.extrasJson = const Value.absent(),
+    this.clientVisitsAtCheckout = const Value.absent(),
+    this.uid = const Value.absent(),
+    this.statut = const Value.absent(),
+  });
+  StaysCompanion.insert({
+    this.id = const Value.absent(),
+    required String receiptNumber,
+    this.reservationNumber = const Value.absent(),
+    this.generatedAt = const Value.absent(),
+    required DateTime checkinAt,
+    required DateTime checkoutAt,
+    required String guestFullName,
+    this.guestNationality = const Value.absent(),
+    this.guestPhone = const Value.absent(),
+    this.guestEmail = const Value.absent(),
+    this.payerName = const Value.absent(),
+    this.payerTaxId = const Value.absent(),
+    this.payerAddress = const Value.absent(),
+    this.payerContact = const Value.absent(),
+    required int subtotalCents,
+    this.remiseCents = const Value.absent(),
+    this.remiseKind = const Value.absent(),
+    this.remiseValue = const Value.absent(),
+    this.remiseBase = const Value.absent(),
+    this.remiseReason = const Value.absent(),
+    this.acompteFcCents = const Value.absent(),
+    this.acompteUsdCents = const Value.absent(),
+    this.fcPerUsdCents = const Value.absent(),
+    this.paymentMode = const Value.absent(),
+    this.stayGroup = const Value.absent(),
+    this.serverLogin = const Value.absent(),
+    this.note = const Value.absent(),
+    this.extrasJson = const Value.absent(),
+    this.clientVisitsAtCheckout = const Value.absent(),
+    this.uid = const Value.absent(),
+    this.statut = const Value.absent(),
+  })  : receiptNumber = Value(receiptNumber),
+        checkinAt = Value(checkinAt),
+        checkoutAt = Value(checkoutAt),
+        guestFullName = Value(guestFullName),
+        subtotalCents = Value(subtotalCents);
+  static Insertable<Stay> custom({
+    Expression<int>? id,
+    Expression<String>? receiptNumber,
+    Expression<String>? reservationNumber,
+    Expression<DateTime>? generatedAt,
+    Expression<DateTime>? checkinAt,
+    Expression<DateTime>? checkoutAt,
+    Expression<String>? guestFullName,
+    Expression<String>? guestNationality,
+    Expression<String>? guestPhone,
+    Expression<String>? guestEmail,
+    Expression<String>? payerName,
+    Expression<String>? payerTaxId,
+    Expression<String>? payerAddress,
+    Expression<String>? payerContact,
+    Expression<int>? subtotalCents,
+    Expression<int>? remiseCents,
+    Expression<int>? remiseKind,
+    Expression<int>? remiseValue,
+    Expression<int>? remiseBase,
+    Expression<String>? remiseReason,
+    Expression<int>? acompteFcCents,
+    Expression<int>? acompteUsdCents,
+    Expression<int>? fcPerUsdCents,
+    Expression<int>? paymentMode,
+    Expression<String>? stayGroup,
+    Expression<String>? serverLogin,
+    Expression<String>? note,
+    Expression<String>? extrasJson,
+    Expression<int>? clientVisitsAtCheckout,
+    Expression<String>? uid,
+    Expression<int>? statut,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (receiptNumber != null) 'receipt_number': receiptNumber,
+      if (reservationNumber != null) 'reservation_number': reservationNumber,
+      if (generatedAt != null) 'generated_at': generatedAt,
+      if (checkinAt != null) 'checkin_at': checkinAt,
+      if (checkoutAt != null) 'checkout_at': checkoutAt,
+      if (guestFullName != null) 'guest_full_name': guestFullName,
+      if (guestNationality != null) 'guest_nationality': guestNationality,
+      if (guestPhone != null) 'guest_phone': guestPhone,
+      if (guestEmail != null) 'guest_email': guestEmail,
+      if (payerName != null) 'payer_name': payerName,
+      if (payerTaxId != null) 'payer_tax_id': payerTaxId,
+      if (payerAddress != null) 'payer_address': payerAddress,
+      if (payerContact != null) 'payer_contact': payerContact,
+      if (subtotalCents != null) 'subtotal_cents': subtotalCents,
+      if (remiseCents != null) 'remise_cents': remiseCents,
+      if (remiseKind != null) 'remise_kind': remiseKind,
+      if (remiseValue != null) 'remise_value': remiseValue,
+      if (remiseBase != null) 'remise_base': remiseBase,
+      if (remiseReason != null) 'remise_reason': remiseReason,
+      if (acompteFcCents != null) 'acompte_fc_cents': acompteFcCents,
+      if (acompteUsdCents != null) 'acompte_usd_cents': acompteUsdCents,
+      if (fcPerUsdCents != null) 'fc_per_usd_cents': fcPerUsdCents,
+      if (paymentMode != null) 'payment_mode': paymentMode,
+      if (stayGroup != null) 'stay_group': stayGroup,
+      if (serverLogin != null) 'server_login': serverLogin,
+      if (note != null) 'note': note,
+      if (extrasJson != null) 'extras_json': extrasJson,
+      if (clientVisitsAtCheckout != null)
+        'client_visits_at_checkout': clientVisitsAtCheckout,
+      if (uid != null) 'uid': uid,
+      if (statut != null) 'statut': statut,
+    });
+  }
+
+  StaysCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? receiptNumber,
+      Value<String?>? reservationNumber,
+      Value<DateTime>? generatedAt,
+      Value<DateTime>? checkinAt,
+      Value<DateTime>? checkoutAt,
+      Value<String>? guestFullName,
+      Value<String?>? guestNationality,
+      Value<String?>? guestPhone,
+      Value<String?>? guestEmail,
+      Value<String?>? payerName,
+      Value<String?>? payerTaxId,
+      Value<String?>? payerAddress,
+      Value<String?>? payerContact,
+      Value<int>? subtotalCents,
+      Value<int>? remiseCents,
+      Value<int>? remiseKind,
+      Value<int>? remiseValue,
+      Value<int>? remiseBase,
+      Value<String?>? remiseReason,
+      Value<int>? acompteFcCents,
+      Value<int>? acompteUsdCents,
+      Value<int>? fcPerUsdCents,
+      Value<int>? paymentMode,
+      Value<String?>? stayGroup,
+      Value<String?>? serverLogin,
+      Value<String?>? note,
+      Value<String>? extrasJson,
+      Value<int>? clientVisitsAtCheckout,
+      Value<String?>? uid,
+      Value<DbStayStatus>? statut}) {
+    return StaysCompanion(
+      id: id ?? this.id,
+      receiptNumber: receiptNumber ?? this.receiptNumber,
+      reservationNumber: reservationNumber ?? this.reservationNumber,
+      generatedAt: generatedAt ?? this.generatedAt,
+      checkinAt: checkinAt ?? this.checkinAt,
+      checkoutAt: checkoutAt ?? this.checkoutAt,
+      guestFullName: guestFullName ?? this.guestFullName,
+      guestNationality: guestNationality ?? this.guestNationality,
+      guestPhone: guestPhone ?? this.guestPhone,
+      guestEmail: guestEmail ?? this.guestEmail,
+      payerName: payerName ?? this.payerName,
+      payerTaxId: payerTaxId ?? this.payerTaxId,
+      payerAddress: payerAddress ?? this.payerAddress,
+      payerContact: payerContact ?? this.payerContact,
+      subtotalCents: subtotalCents ?? this.subtotalCents,
+      remiseCents: remiseCents ?? this.remiseCents,
+      remiseKind: remiseKind ?? this.remiseKind,
+      remiseValue: remiseValue ?? this.remiseValue,
+      remiseBase: remiseBase ?? this.remiseBase,
+      remiseReason: remiseReason ?? this.remiseReason,
+      acompteFcCents: acompteFcCents ?? this.acompteFcCents,
+      acompteUsdCents: acompteUsdCents ?? this.acompteUsdCents,
+      fcPerUsdCents: fcPerUsdCents ?? this.fcPerUsdCents,
+      paymentMode: paymentMode ?? this.paymentMode,
+      stayGroup: stayGroup ?? this.stayGroup,
+      serverLogin: serverLogin ?? this.serverLogin,
+      note: note ?? this.note,
+      extrasJson: extrasJson ?? this.extrasJson,
+      clientVisitsAtCheckout:
+          clientVisitsAtCheckout ?? this.clientVisitsAtCheckout,
+      uid: uid ?? this.uid,
+      statut: statut ?? this.statut,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (receiptNumber.present) {
+      map['receipt_number'] = Variable<String>(receiptNumber.value);
+    }
+    if (reservationNumber.present) {
+      map['reservation_number'] = Variable<String>(reservationNumber.value);
+    }
+    if (generatedAt.present) {
+      map['generated_at'] = Variable<DateTime>(generatedAt.value);
+    }
+    if (checkinAt.present) {
+      map['checkin_at'] = Variable<DateTime>(checkinAt.value);
+    }
+    if (checkoutAt.present) {
+      map['checkout_at'] = Variable<DateTime>(checkoutAt.value);
+    }
+    if (guestFullName.present) {
+      map['guest_full_name'] = Variable<String>(guestFullName.value);
+    }
+    if (guestNationality.present) {
+      map['guest_nationality'] = Variable<String>(guestNationality.value);
+    }
+    if (guestPhone.present) {
+      map['guest_phone'] = Variable<String>(guestPhone.value);
+    }
+    if (guestEmail.present) {
+      map['guest_email'] = Variable<String>(guestEmail.value);
+    }
+    if (payerName.present) {
+      map['payer_name'] = Variable<String>(payerName.value);
+    }
+    if (payerTaxId.present) {
+      map['payer_tax_id'] = Variable<String>(payerTaxId.value);
+    }
+    if (payerAddress.present) {
+      map['payer_address'] = Variable<String>(payerAddress.value);
+    }
+    if (payerContact.present) {
+      map['payer_contact'] = Variable<String>(payerContact.value);
+    }
+    if (subtotalCents.present) {
+      map['subtotal_cents'] = Variable<int>(subtotalCents.value);
+    }
+    if (remiseCents.present) {
+      map['remise_cents'] = Variable<int>(remiseCents.value);
+    }
+    if (remiseKind.present) {
+      map['remise_kind'] = Variable<int>(remiseKind.value);
+    }
+    if (remiseValue.present) {
+      map['remise_value'] = Variable<int>(remiseValue.value);
+    }
+    if (remiseBase.present) {
+      map['remise_base'] = Variable<int>(remiseBase.value);
+    }
+    if (remiseReason.present) {
+      map['remise_reason'] = Variable<String>(remiseReason.value);
+    }
+    if (acompteFcCents.present) {
+      map['acompte_fc_cents'] = Variable<int>(acompteFcCents.value);
+    }
+    if (acompteUsdCents.present) {
+      map['acompte_usd_cents'] = Variable<int>(acompteUsdCents.value);
+    }
+    if (fcPerUsdCents.present) {
+      map['fc_per_usd_cents'] = Variable<int>(fcPerUsdCents.value);
+    }
+    if (paymentMode.present) {
+      map['payment_mode'] = Variable<int>(paymentMode.value);
+    }
+    if (stayGroup.present) {
+      map['stay_group'] = Variable<String>(stayGroup.value);
+    }
+    if (serverLogin.present) {
+      map['server_login'] = Variable<String>(serverLogin.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (extrasJson.present) {
+      map['extras_json'] = Variable<String>(extrasJson.value);
+    }
+    if (clientVisitsAtCheckout.present) {
+      map['client_visits_at_checkout'] =
+          Variable<int>(clientVisitsAtCheckout.value);
+    }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
+    if (statut.present) {
+      map['statut'] =
+          Variable<int>($StaysTable.$converterstatut.toSql(statut.value));
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StaysCompanion(')
+          ..write('id: $id, ')
+          ..write('receiptNumber: $receiptNumber, ')
+          ..write('reservationNumber: $reservationNumber, ')
+          ..write('generatedAt: $generatedAt, ')
+          ..write('checkinAt: $checkinAt, ')
+          ..write('checkoutAt: $checkoutAt, ')
+          ..write('guestFullName: $guestFullName, ')
+          ..write('guestNationality: $guestNationality, ')
+          ..write('guestPhone: $guestPhone, ')
+          ..write('guestEmail: $guestEmail, ')
+          ..write('payerName: $payerName, ')
+          ..write('payerTaxId: $payerTaxId, ')
+          ..write('payerAddress: $payerAddress, ')
+          ..write('payerContact: $payerContact, ')
+          ..write('subtotalCents: $subtotalCents, ')
+          ..write('remiseCents: $remiseCents, ')
+          ..write('remiseKind: $remiseKind, ')
+          ..write('remiseValue: $remiseValue, ')
+          ..write('remiseBase: $remiseBase, ')
+          ..write('remiseReason: $remiseReason, ')
+          ..write('acompteFcCents: $acompteFcCents, ')
+          ..write('acompteUsdCents: $acompteUsdCents, ')
+          ..write('fcPerUsdCents: $fcPerUsdCents, ')
+          ..write('paymentMode: $paymentMode, ')
+          ..write('stayGroup: $stayGroup, ')
+          ..write('serverLogin: $serverLogin, ')
+          ..write('note: $note, ')
+          ..write('extrasJson: $extrasJson, ')
+          ..write('clientVisitsAtCheckout: $clientVisitsAtCheckout, ')
+          ..write('uid: $uid, ')
+          ..write('statut: $statut')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -1773,6 +3226,15 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
   late final GeneratedColumn<int> negotiatedPriceCents = GeneratedColumn<int>(
       'negotiated_price_cents', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _currentStayIdMeta =
+      const VerificationMeta('currentStayId');
+  @override
+  late final GeneratedColumn<int> currentStayId = GeneratedColumn<int>(
+      'current_stay_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES stays (id) ON DELETE SET NULL'));
   @override
   List<GeneratedColumn> get $columns => [
         number,
@@ -1787,7 +3249,8 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
         stayGroup,
         payerId,
         imagePath,
-        negotiatedPriceCents
+        negotiatedPriceCents,
+        currentStayId
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1865,6 +3328,12 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
           negotiatedPriceCents.isAcceptableOrUnknown(
               data['negotiated_price_cents']!, _negotiatedPriceCentsMeta));
     }
+    if (data.containsKey('current_stay_id')) {
+      context.handle(
+          _currentStayIdMeta,
+          currentStayId.isAcceptableOrUnknown(
+              data['current_stay_id']!, _currentStayIdMeta));
+    }
     return context;
   }
 
@@ -1900,6 +3369,8 @@ class $RoomsTable extends Rooms with TableInfo<$RoomsTable, Room> {
           .read(DriftSqlType.string, data['${effectivePrefix}image_path']),
       negotiatedPriceCents: attachedDatabase.typeMapping.read(
           DriftSqlType.int, data['${effectivePrefix}negotiated_price_cents']),
+      currentStayId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}current_stay_id']),
     );
   }
 
@@ -1961,6 +3432,13 @@ class Room extends DataClass implements Insertable<Room> {
   /// deux est reporté comme remise ligne à ligne sur la facture. Saisi
   /// au check-in, vidé au checkOut.
   final int? negotiatedPriceCents;
+
+  /// Le séjour en cours dans cette chambre (v27). Une vraie clé
+  /// étrangère : c'est le séjour qui fait foi sur l'occupant, les dates et
+  /// le tarif. Les champs « séjour en cours » ci-dessus restent remplis
+  /// pour l'affichage et pour les postes pas encore à jour ; ils seront
+  /// retirés dans une itération suivante.
+  final int? currentStayId;
   const Room(
       {required this.number,
       required this.type,
@@ -1974,7 +3452,8 @@ class Room extends DataClass implements Insertable<Room> {
       this.stayGroup,
       this.payerId,
       this.imagePath,
-      this.negotiatedPriceCents});
+      this.negotiatedPriceCents,
+      this.currentStayId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -2008,6 +3487,9 @@ class Room extends DataClass implements Insertable<Room> {
     }
     if (!nullToAbsent || negotiatedPriceCents != null) {
       map['negotiated_price_cents'] = Variable<int>(negotiatedPriceCents);
+    }
+    if (!nullToAbsent || currentStayId != null) {
+      map['current_stay_id'] = Variable<int>(currentStayId);
     }
     return map;
   }
@@ -2043,6 +3525,9 @@ class Room extends DataClass implements Insertable<Room> {
       negotiatedPriceCents: negotiatedPriceCents == null && nullToAbsent
           ? const Value.absent()
           : Value(negotiatedPriceCents),
+      currentStayId: currentStayId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(currentStayId),
     );
   }
 
@@ -2065,6 +3550,7 @@ class Room extends DataClass implements Insertable<Room> {
       imagePath: serializer.fromJson<String?>(json['imagePath']),
       negotiatedPriceCents:
           serializer.fromJson<int?>(json['negotiatedPriceCents']),
+      currentStayId: serializer.fromJson<int?>(json['currentStayId']),
     );
   }
   @override
@@ -2085,6 +3571,7 @@ class Room extends DataClass implements Insertable<Room> {
       'payerId': serializer.toJson<int?>(payerId),
       'imagePath': serializer.toJson<String?>(imagePath),
       'negotiatedPriceCents': serializer.toJson<int?>(negotiatedPriceCents),
+      'currentStayId': serializer.toJson<int?>(currentStayId),
     };
   }
 
@@ -2101,7 +3588,8 @@ class Room extends DataClass implements Insertable<Room> {
           Value<String?> stayGroup = const Value.absent(),
           Value<int?> payerId = const Value.absent(),
           Value<String?> imagePath = const Value.absent(),
-          Value<int?> negotiatedPriceCents = const Value.absent()}) =>
+          Value<int?> negotiatedPriceCents = const Value.absent(),
+          Value<int?> currentStayId = const Value.absent()}) =>
       Room(
         number: number ?? this.number,
         type: type ?? this.type,
@@ -2120,6 +3608,8 @@ class Room extends DataClass implements Insertable<Room> {
         negotiatedPriceCents: negotiatedPriceCents.present
             ? negotiatedPriceCents.value
             : this.negotiatedPriceCents,
+        currentStayId:
+            currentStayId.present ? currentStayId.value : this.currentStayId,
       );
   Room copyWithCompanion(RoomsCompanion data) {
     return Room(
@@ -2147,6 +3637,9 @@ class Room extends DataClass implements Insertable<Room> {
       negotiatedPriceCents: data.negotiatedPriceCents.present
           ? data.negotiatedPriceCents.value
           : this.negotiatedPriceCents,
+      currentStayId: data.currentStayId.present
+          ? data.currentStayId.value
+          : this.currentStayId,
     );
   }
 
@@ -2165,7 +3658,8 @@ class Room extends DataClass implements Insertable<Room> {
           ..write('stayGroup: $stayGroup, ')
           ..write('payerId: $payerId, ')
           ..write('imagePath: $imagePath, ')
-          ..write('negotiatedPriceCents: $negotiatedPriceCents')
+          ..write('negotiatedPriceCents: $negotiatedPriceCents, ')
+          ..write('currentStayId: $currentStayId')
           ..write(')'))
         .toString();
   }
@@ -2184,7 +3678,8 @@ class Room extends DataClass implements Insertable<Room> {
       stayGroup,
       payerId,
       imagePath,
-      negotiatedPriceCents);
+      negotiatedPriceCents,
+      currentStayId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2201,7 +3696,8 @@ class Room extends DataClass implements Insertable<Room> {
           other.stayGroup == this.stayGroup &&
           other.payerId == this.payerId &&
           other.imagePath == this.imagePath &&
-          other.negotiatedPriceCents == this.negotiatedPriceCents);
+          other.negotiatedPriceCents == this.negotiatedPriceCents &&
+          other.currentStayId == this.currentStayId);
 }
 
 class RoomsCompanion extends UpdateCompanion<Room> {
@@ -2218,6 +3714,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
   final Value<int?> payerId;
   final Value<String?> imagePath;
   final Value<int?> negotiatedPriceCents;
+  final Value<int?> currentStayId;
   final Value<int> rowid;
   const RoomsCompanion({
     this.number = const Value.absent(),
@@ -2233,6 +3730,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     this.payerId = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.negotiatedPriceCents = const Value.absent(),
+    this.currentStayId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RoomsCompanion.insert({
@@ -2249,6 +3747,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     this.payerId = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.negotiatedPriceCents = const Value.absent(),
+    this.currentStayId = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : number = Value(number),
         type = Value(type),
@@ -2268,6 +3767,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     Expression<int>? payerId,
     Expression<String>? imagePath,
     Expression<int>? negotiatedPriceCents,
+    Expression<int>? currentStayId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2286,6 +3786,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
       if (imagePath != null) 'image_path': imagePath,
       if (negotiatedPriceCents != null)
         'negotiated_price_cents': negotiatedPriceCents,
+      if (currentStayId != null) 'current_stay_id': currentStayId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2304,6 +3805,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
       Value<int?>? payerId,
       Value<String?>? imagePath,
       Value<int?>? negotiatedPriceCents,
+      Value<int?>? currentStayId,
       Value<int>? rowid}) {
     return RoomsCompanion(
       number: number ?? this.number,
@@ -2319,6 +3821,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
       payerId: payerId ?? this.payerId,
       imagePath: imagePath ?? this.imagePath,
       negotiatedPriceCents: negotiatedPriceCents ?? this.negotiatedPriceCents,
+      currentStayId: currentStayId ?? this.currentStayId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2366,6 +3869,9 @@ class RoomsCompanion extends UpdateCompanion<Room> {
     if (negotiatedPriceCents.present) {
       map['negotiated_price_cents'] = Variable<int>(negotiatedPriceCents.value);
     }
+    if (currentStayId.present) {
+      map['current_stay_id'] = Variable<int>(currentStayId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2388,6 +3894,7 @@ class RoomsCompanion extends UpdateCompanion<Room> {
           ..write('payerId: $payerId, ')
           ..write('imagePath: $imagePath, ')
           ..write('negotiatedPriceCents: $negotiatedPriceCents, ')
+          ..write('currentStayId: $currentStayId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2487,6 +3994,14 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
   late final GeneratedColumn<String> syncError = GeneratedColumn<String>(
       'sync_error', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _stayIdMeta = const VerificationMeta('stayId');
+  @override
+  late final GeneratedColumn<int> stayId = GeneratedColumn<int>(
+      'stay_id', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES stays (id) ON DELETE SET NULL'));
   static const VerificationMeta _uidMeta = const VerificationMeta('uid');
   @override
   late final GeneratedColumn<String> uid = GeneratedColumn<String>(
@@ -2509,6 +4024,7 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
         syncedAt,
         syncAttempts,
         syncError,
+        stayId,
         uid
       ];
   @override
@@ -2574,6 +4090,10 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
       context.handle(_syncErrorMeta,
           syncError.isAcceptableOrUnknown(data['sync_error']!, _syncErrorMeta));
     }
+    if (data.containsKey('stay_id')) {
+      context.handle(_stayIdMeta,
+          stayId.isAcceptableOrUnknown(data['stay_id']!, _stayIdMeta));
+    }
     if (data.containsKey('uid')) {
       context.handle(
           _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
@@ -2615,6 +4135,8 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
           .read(DriftSqlType.int, data['${effectivePrefix}sync_attempts'])!,
       syncError: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}sync_error']),
+      stayId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}stay_id']),
       uid: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
@@ -2653,6 +4175,12 @@ class Sale extends DataClass implements Insertable<Sale> {
   /// première chose qu'on regarde quand une caisse ne remonte plus.
   final String? syncError;
 
+  /// Le séjour sur lequel cette consommation a été mise (v27). Remplace
+  /// le rapprochement par numéro de chambre tapé, qui ne distinguait pas
+  /// deux clients successifs de la même chambre. Null pour une vente
+  /// ordinaire, ou reçue d'un autre poste.
+  final int? stayId;
+
   /// Identité de la vente sur tous les postes (cf. core/identite.dart).
   /// `id` reste le numéro du ticket sur CE poste ; le serveur, lui, ne
   /// connaît la vente que par cet identifiant.
@@ -2674,6 +4202,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       this.syncedAt,
       required this.syncAttempts,
       this.syncError,
+      this.stayId,
       this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2711,6 +4240,9 @@ class Sale extends DataClass implements Insertable<Sale> {
     if (!nullToAbsent || syncError != null) {
       map['sync_error'] = Variable<String>(syncError);
     }
+    if (!nullToAbsent || stayId != null) {
+      map['stay_id'] = Variable<int>(stayId);
+    }
     if (!nullToAbsent || uid != null) {
       map['uid'] = Variable<String>(uid);
     }
@@ -2744,6 +4276,8 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncError: syncError == null && nullToAbsent
           ? const Value.absent()
           : Value(syncError),
+      stayId:
+          stayId == null && nullToAbsent ? const Value.absent() : Value(stayId),
       uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
@@ -2767,6 +4301,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
       syncAttempts: serializer.fromJson<int>(json['syncAttempts']),
       syncError: serializer.fromJson<String?>(json['syncError']),
+      stayId: serializer.fromJson<int?>(json['stayId']),
       uid: serializer.fromJson<String?>(json['uid']),
     );
   }
@@ -2789,6 +4324,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
       'syncAttempts': serializer.toJson<int>(syncAttempts),
       'syncError': serializer.toJson<String?>(syncError),
+      'stayId': serializer.toJson<int?>(stayId),
       'uid': serializer.toJson<String?>(uid),
     };
   }
@@ -2807,6 +4343,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           Value<DateTime?> syncedAt = const Value.absent(),
           int? syncAttempts,
           Value<String?> syncError = const Value.absent(),
+          Value<int?> stayId = const Value.absent(),
           Value<String?> uid = const Value.absent()}) =>
       Sale(
         id: id ?? this.id,
@@ -2824,6 +4361,7 @@ class Sale extends DataClass implements Insertable<Sale> {
         syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
         syncAttempts: syncAttempts ?? this.syncAttempts,
         syncError: syncError.present ? syncError.value : this.syncError,
+        stayId: stayId.present ? stayId.value : this.stayId,
         uid: uid.present ? uid.value : this.uid,
       );
   Sale copyWithCompanion(SalesCompanion data) {
@@ -2848,6 +4386,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           ? data.syncAttempts.value
           : this.syncAttempts,
       syncError: data.syncError.present ? data.syncError.value : this.syncError,
+      stayId: data.stayId.present ? data.stayId.value : this.stayId,
       uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
@@ -2868,6 +4407,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           ..write('syncedAt: $syncedAt, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
+          ..write('stayId: $stayId, ')
           ..write('uid: $uid')
           ..write(')'))
         .toString();
@@ -2888,6 +4428,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncedAt,
       syncAttempts,
       syncError,
+      stayId,
       uid);
   @override
   bool operator ==(Object other) =>
@@ -2906,6 +4447,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           other.syncedAt == this.syncedAt &&
           other.syncAttempts == this.syncAttempts &&
           other.syncError == this.syncError &&
+          other.stayId == this.stayId &&
           other.uid == this.uid);
 }
 
@@ -2923,6 +4465,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
   final Value<DateTime?> syncedAt;
   final Value<int> syncAttempts;
   final Value<String?> syncError;
+  final Value<int?> stayId;
   final Value<String?> uid;
   const SalesCompanion({
     this.id = const Value.absent(),
@@ -2938,6 +4481,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     this.syncedAt = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.stayId = const Value.absent(),
     this.uid = const Value.absent(),
   });
   SalesCompanion.insert({
@@ -2954,6 +4498,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     this.syncedAt = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.stayId = const Value.absent(),
     this.uid = const Value.absent(),
   })  : soldAt = Value(soldAt),
         payment = Value(payment);
@@ -2971,6 +4516,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     Expression<DateTime>? syncedAt,
     Expression<int>? syncAttempts,
     Expression<String>? syncError,
+    Expression<int>? stayId,
     Expression<String>? uid,
   }) {
     return RawValuesInsertable({
@@ -2987,6 +4533,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       if (syncedAt != null) 'synced_at': syncedAt,
       if (syncAttempts != null) 'sync_attempts': syncAttempts,
       if (syncError != null) 'sync_error': syncError,
+      if (stayId != null) 'stay_id': stayId,
       if (uid != null) 'uid': uid,
     });
   }
@@ -3005,6 +4552,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       Value<DateTime?>? syncedAt,
       Value<int>? syncAttempts,
       Value<String?>? syncError,
+      Value<int?>? stayId,
       Value<String?>? uid}) {
     return SalesCompanion(
       id: id ?? this.id,
@@ -3020,6 +4568,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       syncedAt: syncedAt ?? this.syncedAt,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: syncError ?? this.syncError,
+      stayId: stayId ?? this.stayId,
       uid: uid ?? this.uid,
     );
   }
@@ -3068,6 +4617,9 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     if (syncError.present) {
       map['sync_error'] = Variable<String>(syncError.value);
     }
+    if (stayId.present) {
+      map['stay_id'] = Variable<int>(stayId.value);
+    }
     if (uid.present) {
       map['uid'] = Variable<String>(uid.value);
     }
@@ -3090,6 +4642,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
           ..write('syncedAt: $syncedAt, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
+          ..write('stayId: $stayId, ')
           ..write('uid: $uid')
           ..write(')'))
         .toString();
@@ -4786,1373 +6339,6 @@ class ClientsCompanion extends UpdateCompanion<Client> {
   }
 }
 
-class $StaysTable extends Stays with TableInfo<$StaysTable, Stay> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $StaysTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _receiptNumberMeta =
-      const VerificationMeta('receiptNumber');
-  @override
-  late final GeneratedColumn<String> receiptNumber = GeneratedColumn<String>(
-      'receipt_number', aliasedName, false,
-      additionalChecks:
-          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 40),
-      type: DriftSqlType.string,
-      requiredDuringInsert: true);
-  static const VerificationMeta _reservationNumberMeta =
-      const VerificationMeta('reservationNumber');
-  @override
-  late final GeneratedColumn<String> reservationNumber =
-      GeneratedColumn<String>('reservation_number', aliasedName, true,
-          type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _generatedAtMeta =
-      const VerificationMeta('generatedAt');
-  @override
-  late final GeneratedColumn<DateTime> generatedAt = GeneratedColumn<DateTime>(
-      'generated_at', aliasedName, false,
-      type: DriftSqlType.dateTime,
-      requiredDuringInsert: false,
-      defaultValue: currentDateAndTime);
-  static const VerificationMeta _checkinAtMeta =
-      const VerificationMeta('checkinAt');
-  @override
-  late final GeneratedColumn<DateTime> checkinAt = GeneratedColumn<DateTime>(
-      'checkin_at', aliasedName, false,
-      type: DriftSqlType.dateTime, requiredDuringInsert: true);
-  static const VerificationMeta _checkoutAtMeta =
-      const VerificationMeta('checkoutAt');
-  @override
-  late final GeneratedColumn<DateTime> checkoutAt = GeneratedColumn<DateTime>(
-      'checkout_at', aliasedName, false,
-      type: DriftSqlType.dateTime, requiredDuringInsert: true);
-  static const VerificationMeta _guestFullNameMeta =
-      const VerificationMeta('guestFullName');
-  @override
-  late final GeneratedColumn<String> guestFullName = GeneratedColumn<String>(
-      'guest_full_name', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _guestNationalityMeta =
-      const VerificationMeta('guestNationality');
-  @override
-  late final GeneratedColumn<String> guestNationality = GeneratedColumn<String>(
-      'guest_nationality', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _guestPhoneMeta =
-      const VerificationMeta('guestPhone');
-  @override
-  late final GeneratedColumn<String> guestPhone = GeneratedColumn<String>(
-      'guest_phone', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _guestEmailMeta =
-      const VerificationMeta('guestEmail');
-  @override
-  late final GeneratedColumn<String> guestEmail = GeneratedColumn<String>(
-      'guest_email', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _payerNameMeta =
-      const VerificationMeta('payerName');
-  @override
-  late final GeneratedColumn<String> payerName = GeneratedColumn<String>(
-      'payer_name', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _payerTaxIdMeta =
-      const VerificationMeta('payerTaxId');
-  @override
-  late final GeneratedColumn<String> payerTaxId = GeneratedColumn<String>(
-      'payer_tax_id', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _payerAddressMeta =
-      const VerificationMeta('payerAddress');
-  @override
-  late final GeneratedColumn<String> payerAddress = GeneratedColumn<String>(
-      'payer_address', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _payerContactMeta =
-      const VerificationMeta('payerContact');
-  @override
-  late final GeneratedColumn<String> payerContact = GeneratedColumn<String>(
-      'payer_contact', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _subtotalCentsMeta =
-      const VerificationMeta('subtotalCents');
-  @override
-  late final GeneratedColumn<int> subtotalCents = GeneratedColumn<int>(
-      'subtotal_cents', aliasedName, false,
-      type: DriftSqlType.int, requiredDuringInsert: true);
-  static const VerificationMeta _remiseCentsMeta =
-      const VerificationMeta('remiseCents');
-  @override
-  late final GeneratedColumn<int> remiseCents = GeneratedColumn<int>(
-      'remise_cents', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  static const VerificationMeta _remiseKindMeta =
-      const VerificationMeta('remiseKind');
-  @override
-  late final GeneratedColumn<int> remiseKind = GeneratedColumn<int>(
-      'remise_kind', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  static const VerificationMeta _remiseValueMeta =
-      const VerificationMeta('remiseValue');
-  @override
-  late final GeneratedColumn<int> remiseValue = GeneratedColumn<int>(
-      'remise_value', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  static const VerificationMeta _remiseBaseMeta =
-      const VerificationMeta('remiseBase');
-  @override
-  late final GeneratedColumn<int> remiseBase = GeneratedColumn<int>(
-      'remise_base', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(1));
-  static const VerificationMeta _remiseReasonMeta =
-      const VerificationMeta('remiseReason');
-  @override
-  late final GeneratedColumn<String> remiseReason = GeneratedColumn<String>(
-      'remise_reason', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _acompteFcCentsMeta =
-      const VerificationMeta('acompteFcCents');
-  @override
-  late final GeneratedColumn<int> acompteFcCents = GeneratedColumn<int>(
-      'acompte_fc_cents', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  static const VerificationMeta _acompteUsdCentsMeta =
-      const VerificationMeta('acompteUsdCents');
-  @override
-  late final GeneratedColumn<int> acompteUsdCents = GeneratedColumn<int>(
-      'acompte_usd_cents', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  static const VerificationMeta _fcPerUsdCentsMeta =
-      const VerificationMeta('fcPerUsdCents');
-  @override
-  late final GeneratedColumn<int> fcPerUsdCents = GeneratedColumn<int>(
-      'fc_per_usd_cents', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  static const VerificationMeta _paymentModeMeta =
-      const VerificationMeta('paymentMode');
-  @override
-  late final GeneratedColumn<int> paymentMode = GeneratedColumn<int>(
-      'payment_mode', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  static const VerificationMeta _stayGroupMeta =
-      const VerificationMeta('stayGroup');
-  @override
-  late final GeneratedColumn<String> stayGroup = GeneratedColumn<String>(
-      'stay_group', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _serverLoginMeta =
-      const VerificationMeta('serverLogin');
-  @override
-  late final GeneratedColumn<String> serverLogin = GeneratedColumn<String>(
-      'server_login', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _noteMeta = const VerificationMeta('note');
-  @override
-  late final GeneratedColumn<String> note = GeneratedColumn<String>(
-      'note', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _extrasJsonMeta =
-      const VerificationMeta('extrasJson');
-  @override
-  late final GeneratedColumn<String> extrasJson = GeneratedColumn<String>(
-      'extras_json', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: false,
-      defaultValue: const Constant('[]'));
-  static const VerificationMeta _clientVisitsAtCheckoutMeta =
-      const VerificationMeta('clientVisitsAtCheckout');
-  @override
-  late final GeneratedColumn<int> clientVisitsAtCheckout = GeneratedColumn<int>(
-      'client_visits_at_checkout', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
-  @override
-  List<GeneratedColumn> get $columns => [
-        id,
-        receiptNumber,
-        reservationNumber,
-        generatedAt,
-        checkinAt,
-        checkoutAt,
-        guestFullName,
-        guestNationality,
-        guestPhone,
-        guestEmail,
-        payerName,
-        payerTaxId,
-        payerAddress,
-        payerContact,
-        subtotalCents,
-        remiseCents,
-        remiseKind,
-        remiseValue,
-        remiseBase,
-        remiseReason,
-        acompteFcCents,
-        acompteUsdCents,
-        fcPerUsdCents,
-        paymentMode,
-        stayGroup,
-        serverLogin,
-        note,
-        extrasJson,
-        clientVisitsAtCheckout
-      ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'stays';
-  @override
-  VerificationContext validateIntegrity(Insertable<Stay> instance,
-      {bool isInserting = false}) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('receipt_number')) {
-      context.handle(
-          _receiptNumberMeta,
-          receiptNumber.isAcceptableOrUnknown(
-              data['receipt_number']!, _receiptNumberMeta));
-    } else if (isInserting) {
-      context.missing(_receiptNumberMeta);
-    }
-    if (data.containsKey('reservation_number')) {
-      context.handle(
-          _reservationNumberMeta,
-          reservationNumber.isAcceptableOrUnknown(
-              data['reservation_number']!, _reservationNumberMeta));
-    }
-    if (data.containsKey('generated_at')) {
-      context.handle(
-          _generatedAtMeta,
-          generatedAt.isAcceptableOrUnknown(
-              data['generated_at']!, _generatedAtMeta));
-    }
-    if (data.containsKey('checkin_at')) {
-      context.handle(_checkinAtMeta,
-          checkinAt.isAcceptableOrUnknown(data['checkin_at']!, _checkinAtMeta));
-    } else if (isInserting) {
-      context.missing(_checkinAtMeta);
-    }
-    if (data.containsKey('checkout_at')) {
-      context.handle(
-          _checkoutAtMeta,
-          checkoutAt.isAcceptableOrUnknown(
-              data['checkout_at']!, _checkoutAtMeta));
-    } else if (isInserting) {
-      context.missing(_checkoutAtMeta);
-    }
-    if (data.containsKey('guest_full_name')) {
-      context.handle(
-          _guestFullNameMeta,
-          guestFullName.isAcceptableOrUnknown(
-              data['guest_full_name']!, _guestFullNameMeta));
-    } else if (isInserting) {
-      context.missing(_guestFullNameMeta);
-    }
-    if (data.containsKey('guest_nationality')) {
-      context.handle(
-          _guestNationalityMeta,
-          guestNationality.isAcceptableOrUnknown(
-              data['guest_nationality']!, _guestNationalityMeta));
-    }
-    if (data.containsKey('guest_phone')) {
-      context.handle(
-          _guestPhoneMeta,
-          guestPhone.isAcceptableOrUnknown(
-              data['guest_phone']!, _guestPhoneMeta));
-    }
-    if (data.containsKey('guest_email')) {
-      context.handle(
-          _guestEmailMeta,
-          guestEmail.isAcceptableOrUnknown(
-              data['guest_email']!, _guestEmailMeta));
-    }
-    if (data.containsKey('payer_name')) {
-      context.handle(_payerNameMeta,
-          payerName.isAcceptableOrUnknown(data['payer_name']!, _payerNameMeta));
-    }
-    if (data.containsKey('payer_tax_id')) {
-      context.handle(
-          _payerTaxIdMeta,
-          payerTaxId.isAcceptableOrUnknown(
-              data['payer_tax_id']!, _payerTaxIdMeta));
-    }
-    if (data.containsKey('payer_address')) {
-      context.handle(
-          _payerAddressMeta,
-          payerAddress.isAcceptableOrUnknown(
-              data['payer_address']!, _payerAddressMeta));
-    }
-    if (data.containsKey('payer_contact')) {
-      context.handle(
-          _payerContactMeta,
-          payerContact.isAcceptableOrUnknown(
-              data['payer_contact']!, _payerContactMeta));
-    }
-    if (data.containsKey('subtotal_cents')) {
-      context.handle(
-          _subtotalCentsMeta,
-          subtotalCents.isAcceptableOrUnknown(
-              data['subtotal_cents']!, _subtotalCentsMeta));
-    } else if (isInserting) {
-      context.missing(_subtotalCentsMeta);
-    }
-    if (data.containsKey('remise_cents')) {
-      context.handle(
-          _remiseCentsMeta,
-          remiseCents.isAcceptableOrUnknown(
-              data['remise_cents']!, _remiseCentsMeta));
-    }
-    if (data.containsKey('remise_kind')) {
-      context.handle(
-          _remiseKindMeta,
-          remiseKind.isAcceptableOrUnknown(
-              data['remise_kind']!, _remiseKindMeta));
-    }
-    if (data.containsKey('remise_value')) {
-      context.handle(
-          _remiseValueMeta,
-          remiseValue.isAcceptableOrUnknown(
-              data['remise_value']!, _remiseValueMeta));
-    }
-    if (data.containsKey('remise_base')) {
-      context.handle(
-          _remiseBaseMeta,
-          remiseBase.isAcceptableOrUnknown(
-              data['remise_base']!, _remiseBaseMeta));
-    }
-    if (data.containsKey('remise_reason')) {
-      context.handle(
-          _remiseReasonMeta,
-          remiseReason.isAcceptableOrUnknown(
-              data['remise_reason']!, _remiseReasonMeta));
-    }
-    if (data.containsKey('acompte_fc_cents')) {
-      context.handle(
-          _acompteFcCentsMeta,
-          acompteFcCents.isAcceptableOrUnknown(
-              data['acompte_fc_cents']!, _acompteFcCentsMeta));
-    }
-    if (data.containsKey('acompte_usd_cents')) {
-      context.handle(
-          _acompteUsdCentsMeta,
-          acompteUsdCents.isAcceptableOrUnknown(
-              data['acompte_usd_cents']!, _acompteUsdCentsMeta));
-    }
-    if (data.containsKey('fc_per_usd_cents')) {
-      context.handle(
-          _fcPerUsdCentsMeta,
-          fcPerUsdCents.isAcceptableOrUnknown(
-              data['fc_per_usd_cents']!, _fcPerUsdCentsMeta));
-    }
-    if (data.containsKey('payment_mode')) {
-      context.handle(
-          _paymentModeMeta,
-          paymentMode.isAcceptableOrUnknown(
-              data['payment_mode']!, _paymentModeMeta));
-    }
-    if (data.containsKey('stay_group')) {
-      context.handle(_stayGroupMeta,
-          stayGroup.isAcceptableOrUnknown(data['stay_group']!, _stayGroupMeta));
-    }
-    if (data.containsKey('server_login')) {
-      context.handle(
-          _serverLoginMeta,
-          serverLogin.isAcceptableOrUnknown(
-              data['server_login']!, _serverLoginMeta));
-    }
-    if (data.containsKey('note')) {
-      context.handle(
-          _noteMeta, note.isAcceptableOrUnknown(data['note']!, _noteMeta));
-    }
-    if (data.containsKey('extras_json')) {
-      context.handle(
-          _extrasJsonMeta,
-          extrasJson.isAcceptableOrUnknown(
-              data['extras_json']!, _extrasJsonMeta));
-    }
-    if (data.containsKey('client_visits_at_checkout')) {
-      context.handle(
-          _clientVisitsAtCheckoutMeta,
-          clientVisitsAtCheckout.isAcceptableOrUnknown(
-              data['client_visits_at_checkout']!, _clientVisitsAtCheckoutMeta));
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Stay map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Stay(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      receiptNumber: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}receipt_number'])!,
-      reservationNumber: attachedDatabase.typeMapping.read(
-          DriftSqlType.string, data['${effectivePrefix}reservation_number']),
-      generatedAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}generated_at'])!,
-      checkinAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}checkin_at'])!,
-      checkoutAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}checkout_at'])!,
-      guestFullName: attachedDatabase.typeMapping.read(
-          DriftSqlType.string, data['${effectivePrefix}guest_full_name'])!,
-      guestNationality: attachedDatabase.typeMapping.read(
-          DriftSqlType.string, data['${effectivePrefix}guest_nationality']),
-      guestPhone: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}guest_phone']),
-      guestEmail: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}guest_email']),
-      payerName: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}payer_name']),
-      payerTaxId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}payer_tax_id']),
-      payerAddress: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}payer_address']),
-      payerContact: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}payer_contact']),
-      subtotalCents: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}subtotal_cents'])!,
-      remiseCents: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}remise_cents'])!,
-      remiseKind: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}remise_kind'])!,
-      remiseValue: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}remise_value'])!,
-      remiseBase: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}remise_base'])!,
-      remiseReason: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}remise_reason']),
-      acompteFcCents: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}acompte_fc_cents'])!,
-      acompteUsdCents: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}acompte_usd_cents'])!,
-      fcPerUsdCents: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}fc_per_usd_cents'])!,
-      paymentMode: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}payment_mode'])!,
-      stayGroup: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}stay_group']),
-      serverLogin: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}server_login']),
-      note: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}note']),
-      extrasJson: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}extras_json'])!,
-      clientVisitsAtCheckout: attachedDatabase.typeMapping.read(
-          DriftSqlType.int,
-          data['${effectivePrefix}client_visits_at_checkout'])!,
-    );
-  }
-
-  @override
-  $StaysTable createAlias(String alias) {
-    return $StaysTable(attachedDatabase, alias);
-  }
-}
-
-class Stay extends DataClass implements Insertable<Stay> {
-  final int id;
-  final String receiptNumber;
-  final String? reservationNumber;
-  final DateTime generatedAt;
-  final DateTime checkinAt;
-  final DateTime checkoutAt;
-  final String guestFullName;
-  final String? guestNationality;
-  final String? guestPhone;
-  final String? guestEmail;
-  final String? payerName;
-  final String? payerTaxId;
-  final String? payerAddress;
-  final String? payerContact;
-  final int subtotalCents;
-
-  /// Montant de la remise effectivement déduite (cents FC). Reste la
-  /// source de vérité comptable — les 4 colonnes qui suivent ne servent
-  /// qu'à expliquer *comment* ce montant a été obtenu.
-  final int remiseCents;
-
-  /// index de DiscountKind : 0 = montant fixe, 1 = pourcentage.
-  final int remiseKind;
-
-  /// Cents FC si remiseKind=0, centièmes de % si remiseKind=1 (1000 = 10 %).
-  final int remiseValue;
-
-  /// index de DiscountBase : 0 = hébergement seul, 1 = total avec extras.
-  final int remiseBase;
-
-  /// Motif du geste commercial ("Client fidèle", "Accord société"…).
-  final String? remiseReason;
-  final int acompteFcCents;
-  final int acompteUsdCents;
-
-  /// Taux FC pour 1 USD au moment du check-out, × 100.
-  ///
-  /// Figé, et c'est tout l'enjeu. `Currency.rate` est une valeur unique
-  /// et COURANTE : une facture émise à 2300 et réimprimée à 2600
-  /// annoncerait un total en dollars différent de celui que le client a
-  /// payé. Un entier plutôt qu'un flottant : un taux est une donnée
-  /// comptable, il ne s'arrondit pas au hasard des divisions.
-  ///
-  /// 0 = séjour antérieur à la bascule en dollars ; on retombe alors sur
-  /// le taux courant, faute de mieux, et l'écran le dit.
-  final int fcPerUsdCents;
-  final int paymentMode;
-  final String? stayGroup;
-  final String? serverLogin;
-  final String? note;
-  final String extrasJson;
-  final int clientVisitsAtCheckout;
-  const Stay(
-      {required this.id,
-      required this.receiptNumber,
-      this.reservationNumber,
-      required this.generatedAt,
-      required this.checkinAt,
-      required this.checkoutAt,
-      required this.guestFullName,
-      this.guestNationality,
-      this.guestPhone,
-      this.guestEmail,
-      this.payerName,
-      this.payerTaxId,
-      this.payerAddress,
-      this.payerContact,
-      required this.subtotalCents,
-      required this.remiseCents,
-      required this.remiseKind,
-      required this.remiseValue,
-      required this.remiseBase,
-      this.remiseReason,
-      required this.acompteFcCents,
-      required this.acompteUsdCents,
-      required this.fcPerUsdCents,
-      required this.paymentMode,
-      this.stayGroup,
-      this.serverLogin,
-      this.note,
-      required this.extrasJson,
-      required this.clientVisitsAtCheckout});
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['receipt_number'] = Variable<String>(receiptNumber);
-    if (!nullToAbsent || reservationNumber != null) {
-      map['reservation_number'] = Variable<String>(reservationNumber);
-    }
-    map['generated_at'] = Variable<DateTime>(generatedAt);
-    map['checkin_at'] = Variable<DateTime>(checkinAt);
-    map['checkout_at'] = Variable<DateTime>(checkoutAt);
-    map['guest_full_name'] = Variable<String>(guestFullName);
-    if (!nullToAbsent || guestNationality != null) {
-      map['guest_nationality'] = Variable<String>(guestNationality);
-    }
-    if (!nullToAbsent || guestPhone != null) {
-      map['guest_phone'] = Variable<String>(guestPhone);
-    }
-    if (!nullToAbsent || guestEmail != null) {
-      map['guest_email'] = Variable<String>(guestEmail);
-    }
-    if (!nullToAbsent || payerName != null) {
-      map['payer_name'] = Variable<String>(payerName);
-    }
-    if (!nullToAbsent || payerTaxId != null) {
-      map['payer_tax_id'] = Variable<String>(payerTaxId);
-    }
-    if (!nullToAbsent || payerAddress != null) {
-      map['payer_address'] = Variable<String>(payerAddress);
-    }
-    if (!nullToAbsent || payerContact != null) {
-      map['payer_contact'] = Variable<String>(payerContact);
-    }
-    map['subtotal_cents'] = Variable<int>(subtotalCents);
-    map['remise_cents'] = Variable<int>(remiseCents);
-    map['remise_kind'] = Variable<int>(remiseKind);
-    map['remise_value'] = Variable<int>(remiseValue);
-    map['remise_base'] = Variable<int>(remiseBase);
-    if (!nullToAbsent || remiseReason != null) {
-      map['remise_reason'] = Variable<String>(remiseReason);
-    }
-    map['acompte_fc_cents'] = Variable<int>(acompteFcCents);
-    map['acompte_usd_cents'] = Variable<int>(acompteUsdCents);
-    map['fc_per_usd_cents'] = Variable<int>(fcPerUsdCents);
-    map['payment_mode'] = Variable<int>(paymentMode);
-    if (!nullToAbsent || stayGroup != null) {
-      map['stay_group'] = Variable<String>(stayGroup);
-    }
-    if (!nullToAbsent || serverLogin != null) {
-      map['server_login'] = Variable<String>(serverLogin);
-    }
-    if (!nullToAbsent || note != null) {
-      map['note'] = Variable<String>(note);
-    }
-    map['extras_json'] = Variable<String>(extrasJson);
-    map['client_visits_at_checkout'] = Variable<int>(clientVisitsAtCheckout);
-    return map;
-  }
-
-  StaysCompanion toCompanion(bool nullToAbsent) {
-    return StaysCompanion(
-      id: Value(id),
-      receiptNumber: Value(receiptNumber),
-      reservationNumber: reservationNumber == null && nullToAbsent
-          ? const Value.absent()
-          : Value(reservationNumber),
-      generatedAt: Value(generatedAt),
-      checkinAt: Value(checkinAt),
-      checkoutAt: Value(checkoutAt),
-      guestFullName: Value(guestFullName),
-      guestNationality: guestNationality == null && nullToAbsent
-          ? const Value.absent()
-          : Value(guestNationality),
-      guestPhone: guestPhone == null && nullToAbsent
-          ? const Value.absent()
-          : Value(guestPhone),
-      guestEmail: guestEmail == null && nullToAbsent
-          ? const Value.absent()
-          : Value(guestEmail),
-      payerName: payerName == null && nullToAbsent
-          ? const Value.absent()
-          : Value(payerName),
-      payerTaxId: payerTaxId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(payerTaxId),
-      payerAddress: payerAddress == null && nullToAbsent
-          ? const Value.absent()
-          : Value(payerAddress),
-      payerContact: payerContact == null && nullToAbsent
-          ? const Value.absent()
-          : Value(payerContact),
-      subtotalCents: Value(subtotalCents),
-      remiseCents: Value(remiseCents),
-      remiseKind: Value(remiseKind),
-      remiseValue: Value(remiseValue),
-      remiseBase: Value(remiseBase),
-      remiseReason: remiseReason == null && nullToAbsent
-          ? const Value.absent()
-          : Value(remiseReason),
-      acompteFcCents: Value(acompteFcCents),
-      acompteUsdCents: Value(acompteUsdCents),
-      fcPerUsdCents: Value(fcPerUsdCents),
-      paymentMode: Value(paymentMode),
-      stayGroup: stayGroup == null && nullToAbsent
-          ? const Value.absent()
-          : Value(stayGroup),
-      serverLogin: serverLogin == null && nullToAbsent
-          ? const Value.absent()
-          : Value(serverLogin),
-      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
-      extrasJson: Value(extrasJson),
-      clientVisitsAtCheckout: Value(clientVisitsAtCheckout),
-    );
-  }
-
-  factory Stay.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Stay(
-      id: serializer.fromJson<int>(json['id']),
-      receiptNumber: serializer.fromJson<String>(json['receiptNumber']),
-      reservationNumber:
-          serializer.fromJson<String?>(json['reservationNumber']),
-      generatedAt: serializer.fromJson<DateTime>(json['generatedAt']),
-      checkinAt: serializer.fromJson<DateTime>(json['checkinAt']),
-      checkoutAt: serializer.fromJson<DateTime>(json['checkoutAt']),
-      guestFullName: serializer.fromJson<String>(json['guestFullName']),
-      guestNationality: serializer.fromJson<String?>(json['guestNationality']),
-      guestPhone: serializer.fromJson<String?>(json['guestPhone']),
-      guestEmail: serializer.fromJson<String?>(json['guestEmail']),
-      payerName: serializer.fromJson<String?>(json['payerName']),
-      payerTaxId: serializer.fromJson<String?>(json['payerTaxId']),
-      payerAddress: serializer.fromJson<String?>(json['payerAddress']),
-      payerContact: serializer.fromJson<String?>(json['payerContact']),
-      subtotalCents: serializer.fromJson<int>(json['subtotalCents']),
-      remiseCents: serializer.fromJson<int>(json['remiseCents']),
-      remiseKind: serializer.fromJson<int>(json['remiseKind']),
-      remiseValue: serializer.fromJson<int>(json['remiseValue']),
-      remiseBase: serializer.fromJson<int>(json['remiseBase']),
-      remiseReason: serializer.fromJson<String?>(json['remiseReason']),
-      acompteFcCents: serializer.fromJson<int>(json['acompteFcCents']),
-      acompteUsdCents: serializer.fromJson<int>(json['acompteUsdCents']),
-      fcPerUsdCents: serializer.fromJson<int>(json['fcPerUsdCents']),
-      paymentMode: serializer.fromJson<int>(json['paymentMode']),
-      stayGroup: serializer.fromJson<String?>(json['stayGroup']),
-      serverLogin: serializer.fromJson<String?>(json['serverLogin']),
-      note: serializer.fromJson<String?>(json['note']),
-      extrasJson: serializer.fromJson<String>(json['extrasJson']),
-      clientVisitsAtCheckout:
-          serializer.fromJson<int>(json['clientVisitsAtCheckout']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'receiptNumber': serializer.toJson<String>(receiptNumber),
-      'reservationNumber': serializer.toJson<String?>(reservationNumber),
-      'generatedAt': serializer.toJson<DateTime>(generatedAt),
-      'checkinAt': serializer.toJson<DateTime>(checkinAt),
-      'checkoutAt': serializer.toJson<DateTime>(checkoutAt),
-      'guestFullName': serializer.toJson<String>(guestFullName),
-      'guestNationality': serializer.toJson<String?>(guestNationality),
-      'guestPhone': serializer.toJson<String?>(guestPhone),
-      'guestEmail': serializer.toJson<String?>(guestEmail),
-      'payerName': serializer.toJson<String?>(payerName),
-      'payerTaxId': serializer.toJson<String?>(payerTaxId),
-      'payerAddress': serializer.toJson<String?>(payerAddress),
-      'payerContact': serializer.toJson<String?>(payerContact),
-      'subtotalCents': serializer.toJson<int>(subtotalCents),
-      'remiseCents': serializer.toJson<int>(remiseCents),
-      'remiseKind': serializer.toJson<int>(remiseKind),
-      'remiseValue': serializer.toJson<int>(remiseValue),
-      'remiseBase': serializer.toJson<int>(remiseBase),
-      'remiseReason': serializer.toJson<String?>(remiseReason),
-      'acompteFcCents': serializer.toJson<int>(acompteFcCents),
-      'acompteUsdCents': serializer.toJson<int>(acompteUsdCents),
-      'fcPerUsdCents': serializer.toJson<int>(fcPerUsdCents),
-      'paymentMode': serializer.toJson<int>(paymentMode),
-      'stayGroup': serializer.toJson<String?>(stayGroup),
-      'serverLogin': serializer.toJson<String?>(serverLogin),
-      'note': serializer.toJson<String?>(note),
-      'extrasJson': serializer.toJson<String>(extrasJson),
-      'clientVisitsAtCheckout': serializer.toJson<int>(clientVisitsAtCheckout),
-    };
-  }
-
-  Stay copyWith(
-          {int? id,
-          String? receiptNumber,
-          Value<String?> reservationNumber = const Value.absent(),
-          DateTime? generatedAt,
-          DateTime? checkinAt,
-          DateTime? checkoutAt,
-          String? guestFullName,
-          Value<String?> guestNationality = const Value.absent(),
-          Value<String?> guestPhone = const Value.absent(),
-          Value<String?> guestEmail = const Value.absent(),
-          Value<String?> payerName = const Value.absent(),
-          Value<String?> payerTaxId = const Value.absent(),
-          Value<String?> payerAddress = const Value.absent(),
-          Value<String?> payerContact = const Value.absent(),
-          int? subtotalCents,
-          int? remiseCents,
-          int? remiseKind,
-          int? remiseValue,
-          int? remiseBase,
-          Value<String?> remiseReason = const Value.absent(),
-          int? acompteFcCents,
-          int? acompteUsdCents,
-          int? fcPerUsdCents,
-          int? paymentMode,
-          Value<String?> stayGroup = const Value.absent(),
-          Value<String?> serverLogin = const Value.absent(),
-          Value<String?> note = const Value.absent(),
-          String? extrasJson,
-          int? clientVisitsAtCheckout}) =>
-      Stay(
-        id: id ?? this.id,
-        receiptNumber: receiptNumber ?? this.receiptNumber,
-        reservationNumber: reservationNumber.present
-            ? reservationNumber.value
-            : this.reservationNumber,
-        generatedAt: generatedAt ?? this.generatedAt,
-        checkinAt: checkinAt ?? this.checkinAt,
-        checkoutAt: checkoutAt ?? this.checkoutAt,
-        guestFullName: guestFullName ?? this.guestFullName,
-        guestNationality: guestNationality.present
-            ? guestNationality.value
-            : this.guestNationality,
-        guestPhone: guestPhone.present ? guestPhone.value : this.guestPhone,
-        guestEmail: guestEmail.present ? guestEmail.value : this.guestEmail,
-        payerName: payerName.present ? payerName.value : this.payerName,
-        payerTaxId: payerTaxId.present ? payerTaxId.value : this.payerTaxId,
-        payerAddress:
-            payerAddress.present ? payerAddress.value : this.payerAddress,
-        payerContact:
-            payerContact.present ? payerContact.value : this.payerContact,
-        subtotalCents: subtotalCents ?? this.subtotalCents,
-        remiseCents: remiseCents ?? this.remiseCents,
-        remiseKind: remiseKind ?? this.remiseKind,
-        remiseValue: remiseValue ?? this.remiseValue,
-        remiseBase: remiseBase ?? this.remiseBase,
-        remiseReason:
-            remiseReason.present ? remiseReason.value : this.remiseReason,
-        acompteFcCents: acompteFcCents ?? this.acompteFcCents,
-        acompteUsdCents: acompteUsdCents ?? this.acompteUsdCents,
-        fcPerUsdCents: fcPerUsdCents ?? this.fcPerUsdCents,
-        paymentMode: paymentMode ?? this.paymentMode,
-        stayGroup: stayGroup.present ? stayGroup.value : this.stayGroup,
-        serverLogin: serverLogin.present ? serverLogin.value : this.serverLogin,
-        note: note.present ? note.value : this.note,
-        extrasJson: extrasJson ?? this.extrasJson,
-        clientVisitsAtCheckout:
-            clientVisitsAtCheckout ?? this.clientVisitsAtCheckout,
-      );
-  Stay copyWithCompanion(StaysCompanion data) {
-    return Stay(
-      id: data.id.present ? data.id.value : this.id,
-      receiptNumber: data.receiptNumber.present
-          ? data.receiptNumber.value
-          : this.receiptNumber,
-      reservationNumber: data.reservationNumber.present
-          ? data.reservationNumber.value
-          : this.reservationNumber,
-      generatedAt:
-          data.generatedAt.present ? data.generatedAt.value : this.generatedAt,
-      checkinAt: data.checkinAt.present ? data.checkinAt.value : this.checkinAt,
-      checkoutAt:
-          data.checkoutAt.present ? data.checkoutAt.value : this.checkoutAt,
-      guestFullName: data.guestFullName.present
-          ? data.guestFullName.value
-          : this.guestFullName,
-      guestNationality: data.guestNationality.present
-          ? data.guestNationality.value
-          : this.guestNationality,
-      guestPhone:
-          data.guestPhone.present ? data.guestPhone.value : this.guestPhone,
-      guestEmail:
-          data.guestEmail.present ? data.guestEmail.value : this.guestEmail,
-      payerName: data.payerName.present ? data.payerName.value : this.payerName,
-      payerTaxId:
-          data.payerTaxId.present ? data.payerTaxId.value : this.payerTaxId,
-      payerAddress: data.payerAddress.present
-          ? data.payerAddress.value
-          : this.payerAddress,
-      payerContact: data.payerContact.present
-          ? data.payerContact.value
-          : this.payerContact,
-      subtotalCents: data.subtotalCents.present
-          ? data.subtotalCents.value
-          : this.subtotalCents,
-      remiseCents:
-          data.remiseCents.present ? data.remiseCents.value : this.remiseCents,
-      remiseKind:
-          data.remiseKind.present ? data.remiseKind.value : this.remiseKind,
-      remiseValue:
-          data.remiseValue.present ? data.remiseValue.value : this.remiseValue,
-      remiseBase:
-          data.remiseBase.present ? data.remiseBase.value : this.remiseBase,
-      remiseReason: data.remiseReason.present
-          ? data.remiseReason.value
-          : this.remiseReason,
-      acompteFcCents: data.acompteFcCents.present
-          ? data.acompteFcCents.value
-          : this.acompteFcCents,
-      acompteUsdCents: data.acompteUsdCents.present
-          ? data.acompteUsdCents.value
-          : this.acompteUsdCents,
-      fcPerUsdCents: data.fcPerUsdCents.present
-          ? data.fcPerUsdCents.value
-          : this.fcPerUsdCents,
-      paymentMode:
-          data.paymentMode.present ? data.paymentMode.value : this.paymentMode,
-      stayGroup: data.stayGroup.present ? data.stayGroup.value : this.stayGroup,
-      serverLogin:
-          data.serverLogin.present ? data.serverLogin.value : this.serverLogin,
-      note: data.note.present ? data.note.value : this.note,
-      extrasJson:
-          data.extrasJson.present ? data.extrasJson.value : this.extrasJson,
-      clientVisitsAtCheckout: data.clientVisitsAtCheckout.present
-          ? data.clientVisitsAtCheckout.value
-          : this.clientVisitsAtCheckout,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Stay(')
-          ..write('id: $id, ')
-          ..write('receiptNumber: $receiptNumber, ')
-          ..write('reservationNumber: $reservationNumber, ')
-          ..write('generatedAt: $generatedAt, ')
-          ..write('checkinAt: $checkinAt, ')
-          ..write('checkoutAt: $checkoutAt, ')
-          ..write('guestFullName: $guestFullName, ')
-          ..write('guestNationality: $guestNationality, ')
-          ..write('guestPhone: $guestPhone, ')
-          ..write('guestEmail: $guestEmail, ')
-          ..write('payerName: $payerName, ')
-          ..write('payerTaxId: $payerTaxId, ')
-          ..write('payerAddress: $payerAddress, ')
-          ..write('payerContact: $payerContact, ')
-          ..write('subtotalCents: $subtotalCents, ')
-          ..write('remiseCents: $remiseCents, ')
-          ..write('remiseKind: $remiseKind, ')
-          ..write('remiseValue: $remiseValue, ')
-          ..write('remiseBase: $remiseBase, ')
-          ..write('remiseReason: $remiseReason, ')
-          ..write('acompteFcCents: $acompteFcCents, ')
-          ..write('acompteUsdCents: $acompteUsdCents, ')
-          ..write('fcPerUsdCents: $fcPerUsdCents, ')
-          ..write('paymentMode: $paymentMode, ')
-          ..write('stayGroup: $stayGroup, ')
-          ..write('serverLogin: $serverLogin, ')
-          ..write('note: $note, ')
-          ..write('extrasJson: $extrasJson, ')
-          ..write('clientVisitsAtCheckout: $clientVisitsAtCheckout')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hashAll([
-        id,
-        receiptNumber,
-        reservationNumber,
-        generatedAt,
-        checkinAt,
-        checkoutAt,
-        guestFullName,
-        guestNationality,
-        guestPhone,
-        guestEmail,
-        payerName,
-        payerTaxId,
-        payerAddress,
-        payerContact,
-        subtotalCents,
-        remiseCents,
-        remiseKind,
-        remiseValue,
-        remiseBase,
-        remiseReason,
-        acompteFcCents,
-        acompteUsdCents,
-        fcPerUsdCents,
-        paymentMode,
-        stayGroup,
-        serverLogin,
-        note,
-        extrasJson,
-        clientVisitsAtCheckout
-      ]);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Stay &&
-          other.id == this.id &&
-          other.receiptNumber == this.receiptNumber &&
-          other.reservationNumber == this.reservationNumber &&
-          other.generatedAt == this.generatedAt &&
-          other.checkinAt == this.checkinAt &&
-          other.checkoutAt == this.checkoutAt &&
-          other.guestFullName == this.guestFullName &&
-          other.guestNationality == this.guestNationality &&
-          other.guestPhone == this.guestPhone &&
-          other.guestEmail == this.guestEmail &&
-          other.payerName == this.payerName &&
-          other.payerTaxId == this.payerTaxId &&
-          other.payerAddress == this.payerAddress &&
-          other.payerContact == this.payerContact &&
-          other.subtotalCents == this.subtotalCents &&
-          other.remiseCents == this.remiseCents &&
-          other.remiseKind == this.remiseKind &&
-          other.remiseValue == this.remiseValue &&
-          other.remiseBase == this.remiseBase &&
-          other.remiseReason == this.remiseReason &&
-          other.acompteFcCents == this.acompteFcCents &&
-          other.acompteUsdCents == this.acompteUsdCents &&
-          other.fcPerUsdCents == this.fcPerUsdCents &&
-          other.paymentMode == this.paymentMode &&
-          other.stayGroup == this.stayGroup &&
-          other.serverLogin == this.serverLogin &&
-          other.note == this.note &&
-          other.extrasJson == this.extrasJson &&
-          other.clientVisitsAtCheckout == this.clientVisitsAtCheckout);
-}
-
-class StaysCompanion extends UpdateCompanion<Stay> {
-  final Value<int> id;
-  final Value<String> receiptNumber;
-  final Value<String?> reservationNumber;
-  final Value<DateTime> generatedAt;
-  final Value<DateTime> checkinAt;
-  final Value<DateTime> checkoutAt;
-  final Value<String> guestFullName;
-  final Value<String?> guestNationality;
-  final Value<String?> guestPhone;
-  final Value<String?> guestEmail;
-  final Value<String?> payerName;
-  final Value<String?> payerTaxId;
-  final Value<String?> payerAddress;
-  final Value<String?> payerContact;
-  final Value<int> subtotalCents;
-  final Value<int> remiseCents;
-  final Value<int> remiseKind;
-  final Value<int> remiseValue;
-  final Value<int> remiseBase;
-  final Value<String?> remiseReason;
-  final Value<int> acompteFcCents;
-  final Value<int> acompteUsdCents;
-  final Value<int> fcPerUsdCents;
-  final Value<int> paymentMode;
-  final Value<String?> stayGroup;
-  final Value<String?> serverLogin;
-  final Value<String?> note;
-  final Value<String> extrasJson;
-  final Value<int> clientVisitsAtCheckout;
-  const StaysCompanion({
-    this.id = const Value.absent(),
-    this.receiptNumber = const Value.absent(),
-    this.reservationNumber = const Value.absent(),
-    this.generatedAt = const Value.absent(),
-    this.checkinAt = const Value.absent(),
-    this.checkoutAt = const Value.absent(),
-    this.guestFullName = const Value.absent(),
-    this.guestNationality = const Value.absent(),
-    this.guestPhone = const Value.absent(),
-    this.guestEmail = const Value.absent(),
-    this.payerName = const Value.absent(),
-    this.payerTaxId = const Value.absent(),
-    this.payerAddress = const Value.absent(),
-    this.payerContact = const Value.absent(),
-    this.subtotalCents = const Value.absent(),
-    this.remiseCents = const Value.absent(),
-    this.remiseKind = const Value.absent(),
-    this.remiseValue = const Value.absent(),
-    this.remiseBase = const Value.absent(),
-    this.remiseReason = const Value.absent(),
-    this.acompteFcCents = const Value.absent(),
-    this.acompteUsdCents = const Value.absent(),
-    this.fcPerUsdCents = const Value.absent(),
-    this.paymentMode = const Value.absent(),
-    this.stayGroup = const Value.absent(),
-    this.serverLogin = const Value.absent(),
-    this.note = const Value.absent(),
-    this.extrasJson = const Value.absent(),
-    this.clientVisitsAtCheckout = const Value.absent(),
-  });
-  StaysCompanion.insert({
-    this.id = const Value.absent(),
-    required String receiptNumber,
-    this.reservationNumber = const Value.absent(),
-    this.generatedAt = const Value.absent(),
-    required DateTime checkinAt,
-    required DateTime checkoutAt,
-    required String guestFullName,
-    this.guestNationality = const Value.absent(),
-    this.guestPhone = const Value.absent(),
-    this.guestEmail = const Value.absent(),
-    this.payerName = const Value.absent(),
-    this.payerTaxId = const Value.absent(),
-    this.payerAddress = const Value.absent(),
-    this.payerContact = const Value.absent(),
-    required int subtotalCents,
-    this.remiseCents = const Value.absent(),
-    this.remiseKind = const Value.absent(),
-    this.remiseValue = const Value.absent(),
-    this.remiseBase = const Value.absent(),
-    this.remiseReason = const Value.absent(),
-    this.acompteFcCents = const Value.absent(),
-    this.acompteUsdCents = const Value.absent(),
-    this.fcPerUsdCents = const Value.absent(),
-    this.paymentMode = const Value.absent(),
-    this.stayGroup = const Value.absent(),
-    this.serverLogin = const Value.absent(),
-    this.note = const Value.absent(),
-    this.extrasJson = const Value.absent(),
-    this.clientVisitsAtCheckout = const Value.absent(),
-  })  : receiptNumber = Value(receiptNumber),
-        checkinAt = Value(checkinAt),
-        checkoutAt = Value(checkoutAt),
-        guestFullName = Value(guestFullName),
-        subtotalCents = Value(subtotalCents);
-  static Insertable<Stay> custom({
-    Expression<int>? id,
-    Expression<String>? receiptNumber,
-    Expression<String>? reservationNumber,
-    Expression<DateTime>? generatedAt,
-    Expression<DateTime>? checkinAt,
-    Expression<DateTime>? checkoutAt,
-    Expression<String>? guestFullName,
-    Expression<String>? guestNationality,
-    Expression<String>? guestPhone,
-    Expression<String>? guestEmail,
-    Expression<String>? payerName,
-    Expression<String>? payerTaxId,
-    Expression<String>? payerAddress,
-    Expression<String>? payerContact,
-    Expression<int>? subtotalCents,
-    Expression<int>? remiseCents,
-    Expression<int>? remiseKind,
-    Expression<int>? remiseValue,
-    Expression<int>? remiseBase,
-    Expression<String>? remiseReason,
-    Expression<int>? acompteFcCents,
-    Expression<int>? acompteUsdCents,
-    Expression<int>? fcPerUsdCents,
-    Expression<int>? paymentMode,
-    Expression<String>? stayGroup,
-    Expression<String>? serverLogin,
-    Expression<String>? note,
-    Expression<String>? extrasJson,
-    Expression<int>? clientVisitsAtCheckout,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (receiptNumber != null) 'receipt_number': receiptNumber,
-      if (reservationNumber != null) 'reservation_number': reservationNumber,
-      if (generatedAt != null) 'generated_at': generatedAt,
-      if (checkinAt != null) 'checkin_at': checkinAt,
-      if (checkoutAt != null) 'checkout_at': checkoutAt,
-      if (guestFullName != null) 'guest_full_name': guestFullName,
-      if (guestNationality != null) 'guest_nationality': guestNationality,
-      if (guestPhone != null) 'guest_phone': guestPhone,
-      if (guestEmail != null) 'guest_email': guestEmail,
-      if (payerName != null) 'payer_name': payerName,
-      if (payerTaxId != null) 'payer_tax_id': payerTaxId,
-      if (payerAddress != null) 'payer_address': payerAddress,
-      if (payerContact != null) 'payer_contact': payerContact,
-      if (subtotalCents != null) 'subtotal_cents': subtotalCents,
-      if (remiseCents != null) 'remise_cents': remiseCents,
-      if (remiseKind != null) 'remise_kind': remiseKind,
-      if (remiseValue != null) 'remise_value': remiseValue,
-      if (remiseBase != null) 'remise_base': remiseBase,
-      if (remiseReason != null) 'remise_reason': remiseReason,
-      if (acompteFcCents != null) 'acompte_fc_cents': acompteFcCents,
-      if (acompteUsdCents != null) 'acompte_usd_cents': acompteUsdCents,
-      if (fcPerUsdCents != null) 'fc_per_usd_cents': fcPerUsdCents,
-      if (paymentMode != null) 'payment_mode': paymentMode,
-      if (stayGroup != null) 'stay_group': stayGroup,
-      if (serverLogin != null) 'server_login': serverLogin,
-      if (note != null) 'note': note,
-      if (extrasJson != null) 'extras_json': extrasJson,
-      if (clientVisitsAtCheckout != null)
-        'client_visits_at_checkout': clientVisitsAtCheckout,
-    });
-  }
-
-  StaysCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? receiptNumber,
-      Value<String?>? reservationNumber,
-      Value<DateTime>? generatedAt,
-      Value<DateTime>? checkinAt,
-      Value<DateTime>? checkoutAt,
-      Value<String>? guestFullName,
-      Value<String?>? guestNationality,
-      Value<String?>? guestPhone,
-      Value<String?>? guestEmail,
-      Value<String?>? payerName,
-      Value<String?>? payerTaxId,
-      Value<String?>? payerAddress,
-      Value<String?>? payerContact,
-      Value<int>? subtotalCents,
-      Value<int>? remiseCents,
-      Value<int>? remiseKind,
-      Value<int>? remiseValue,
-      Value<int>? remiseBase,
-      Value<String?>? remiseReason,
-      Value<int>? acompteFcCents,
-      Value<int>? acompteUsdCents,
-      Value<int>? fcPerUsdCents,
-      Value<int>? paymentMode,
-      Value<String?>? stayGroup,
-      Value<String?>? serverLogin,
-      Value<String?>? note,
-      Value<String>? extrasJson,
-      Value<int>? clientVisitsAtCheckout}) {
-    return StaysCompanion(
-      id: id ?? this.id,
-      receiptNumber: receiptNumber ?? this.receiptNumber,
-      reservationNumber: reservationNumber ?? this.reservationNumber,
-      generatedAt: generatedAt ?? this.generatedAt,
-      checkinAt: checkinAt ?? this.checkinAt,
-      checkoutAt: checkoutAt ?? this.checkoutAt,
-      guestFullName: guestFullName ?? this.guestFullName,
-      guestNationality: guestNationality ?? this.guestNationality,
-      guestPhone: guestPhone ?? this.guestPhone,
-      guestEmail: guestEmail ?? this.guestEmail,
-      payerName: payerName ?? this.payerName,
-      payerTaxId: payerTaxId ?? this.payerTaxId,
-      payerAddress: payerAddress ?? this.payerAddress,
-      payerContact: payerContact ?? this.payerContact,
-      subtotalCents: subtotalCents ?? this.subtotalCents,
-      remiseCents: remiseCents ?? this.remiseCents,
-      remiseKind: remiseKind ?? this.remiseKind,
-      remiseValue: remiseValue ?? this.remiseValue,
-      remiseBase: remiseBase ?? this.remiseBase,
-      remiseReason: remiseReason ?? this.remiseReason,
-      acompteFcCents: acompteFcCents ?? this.acompteFcCents,
-      acompteUsdCents: acompteUsdCents ?? this.acompteUsdCents,
-      fcPerUsdCents: fcPerUsdCents ?? this.fcPerUsdCents,
-      paymentMode: paymentMode ?? this.paymentMode,
-      stayGroup: stayGroup ?? this.stayGroup,
-      serverLogin: serverLogin ?? this.serverLogin,
-      note: note ?? this.note,
-      extrasJson: extrasJson ?? this.extrasJson,
-      clientVisitsAtCheckout:
-          clientVisitsAtCheckout ?? this.clientVisitsAtCheckout,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (receiptNumber.present) {
-      map['receipt_number'] = Variable<String>(receiptNumber.value);
-    }
-    if (reservationNumber.present) {
-      map['reservation_number'] = Variable<String>(reservationNumber.value);
-    }
-    if (generatedAt.present) {
-      map['generated_at'] = Variable<DateTime>(generatedAt.value);
-    }
-    if (checkinAt.present) {
-      map['checkin_at'] = Variable<DateTime>(checkinAt.value);
-    }
-    if (checkoutAt.present) {
-      map['checkout_at'] = Variable<DateTime>(checkoutAt.value);
-    }
-    if (guestFullName.present) {
-      map['guest_full_name'] = Variable<String>(guestFullName.value);
-    }
-    if (guestNationality.present) {
-      map['guest_nationality'] = Variable<String>(guestNationality.value);
-    }
-    if (guestPhone.present) {
-      map['guest_phone'] = Variable<String>(guestPhone.value);
-    }
-    if (guestEmail.present) {
-      map['guest_email'] = Variable<String>(guestEmail.value);
-    }
-    if (payerName.present) {
-      map['payer_name'] = Variable<String>(payerName.value);
-    }
-    if (payerTaxId.present) {
-      map['payer_tax_id'] = Variable<String>(payerTaxId.value);
-    }
-    if (payerAddress.present) {
-      map['payer_address'] = Variable<String>(payerAddress.value);
-    }
-    if (payerContact.present) {
-      map['payer_contact'] = Variable<String>(payerContact.value);
-    }
-    if (subtotalCents.present) {
-      map['subtotal_cents'] = Variable<int>(subtotalCents.value);
-    }
-    if (remiseCents.present) {
-      map['remise_cents'] = Variable<int>(remiseCents.value);
-    }
-    if (remiseKind.present) {
-      map['remise_kind'] = Variable<int>(remiseKind.value);
-    }
-    if (remiseValue.present) {
-      map['remise_value'] = Variable<int>(remiseValue.value);
-    }
-    if (remiseBase.present) {
-      map['remise_base'] = Variable<int>(remiseBase.value);
-    }
-    if (remiseReason.present) {
-      map['remise_reason'] = Variable<String>(remiseReason.value);
-    }
-    if (acompteFcCents.present) {
-      map['acompte_fc_cents'] = Variable<int>(acompteFcCents.value);
-    }
-    if (acompteUsdCents.present) {
-      map['acompte_usd_cents'] = Variable<int>(acompteUsdCents.value);
-    }
-    if (fcPerUsdCents.present) {
-      map['fc_per_usd_cents'] = Variable<int>(fcPerUsdCents.value);
-    }
-    if (paymentMode.present) {
-      map['payment_mode'] = Variable<int>(paymentMode.value);
-    }
-    if (stayGroup.present) {
-      map['stay_group'] = Variable<String>(stayGroup.value);
-    }
-    if (serverLogin.present) {
-      map['server_login'] = Variable<String>(serverLogin.value);
-    }
-    if (note.present) {
-      map['note'] = Variable<String>(note.value);
-    }
-    if (extrasJson.present) {
-      map['extras_json'] = Variable<String>(extrasJson.value);
-    }
-    if (clientVisitsAtCheckout.present) {
-      map['client_visits_at_checkout'] =
-          Variable<int>(clientVisitsAtCheckout.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('StaysCompanion(')
-          ..write('id: $id, ')
-          ..write('receiptNumber: $receiptNumber, ')
-          ..write('reservationNumber: $reservationNumber, ')
-          ..write('generatedAt: $generatedAt, ')
-          ..write('checkinAt: $checkinAt, ')
-          ..write('checkoutAt: $checkoutAt, ')
-          ..write('guestFullName: $guestFullName, ')
-          ..write('guestNationality: $guestNationality, ')
-          ..write('guestPhone: $guestPhone, ')
-          ..write('guestEmail: $guestEmail, ')
-          ..write('payerName: $payerName, ')
-          ..write('payerTaxId: $payerTaxId, ')
-          ..write('payerAddress: $payerAddress, ')
-          ..write('payerContact: $payerContact, ')
-          ..write('subtotalCents: $subtotalCents, ')
-          ..write('remiseCents: $remiseCents, ')
-          ..write('remiseKind: $remiseKind, ')
-          ..write('remiseValue: $remiseValue, ')
-          ..write('remiseBase: $remiseBase, ')
-          ..write('remiseReason: $remiseReason, ')
-          ..write('acompteFcCents: $acompteFcCents, ')
-          ..write('acompteUsdCents: $acompteUsdCents, ')
-          ..write('fcPerUsdCents: $fcPerUsdCents, ')
-          ..write('paymentMode: $paymentMode, ')
-          ..write('stayGroup: $stayGroup, ')
-          ..write('serverLogin: $serverLogin, ')
-          ..write('note: $note, ')
-          ..write('extrasJson: $extrasJson, ')
-          ..write('clientVisitsAtCheckout: $clientVisitsAtCheckout')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $StayRoomsTable extends StayRooms
     with TableInfo<$StayRoomsTable, StayRoom> {
   @override
@@ -6231,6 +6417,13 @@ class $StayRoomsTable extends StayRooms
   late final GeneratedColumn<int> nights = GeneratedColumn<int>(
       'nights', aliasedName, false,
       type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      clientDefault: nouvelUid);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -6243,7 +6436,8 @@ class $StayRoomsTable extends StayRooms
         priceUsdCents,
         listPriceCents,
         listUsdCents,
-        nights
+        nights,
+        uid
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6324,6 +6518,10 @@ class $StayRoomsTable extends StayRooms
     } else if (isInserting) {
       context.missing(_nightsMeta);
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -6355,6 +6553,8 @@ class $StayRoomsTable extends StayRooms
           .read(DriftSqlType.int, data['${effectivePrefix}list_usd_cents']),
       nights: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}nights'])!,
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -6391,6 +6591,9 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
   /// devise où elle a été négociée.
   final int? listUsdCents;
   final int nights;
+
+  /// Identité de la ligne sur tous les postes.
+  final String? uid;
   const StayRoom(
       {required this.id,
       required this.stayId,
@@ -6402,7 +6605,8 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
       required this.priceUsdCents,
       this.listPriceCents,
       this.listUsdCents,
-      required this.nights});
+      required this.nights,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -6421,6 +6625,9 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
       map['list_usd_cents'] = Variable<int>(listUsdCents);
     }
     map['nights'] = Variable<int>(nights);
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -6441,6 +6648,7 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
           ? const Value.absent()
           : Value(listUsdCents),
       nights: Value(nights),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -6459,6 +6667,7 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
       listPriceCents: serializer.fromJson<int?>(json['listPriceCents']),
       listUsdCents: serializer.fromJson<int?>(json['listUsdCents']),
       nights: serializer.fromJson<int>(json['nights']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -6476,6 +6685,7 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
       'listPriceCents': serializer.toJson<int?>(listPriceCents),
       'listUsdCents': serializer.toJson<int?>(listUsdCents),
       'nights': serializer.toJson<int>(nights),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -6490,7 +6700,8 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
           int? priceUsdCents,
           Value<int?> listPriceCents = const Value.absent(),
           Value<int?> listUsdCents = const Value.absent(),
-          int? nights}) =>
+          int? nights,
+          Value<String?> uid = const Value.absent()}) =>
       StayRoom(
         id: id ?? this.id,
         stayId: stayId ?? this.stayId,
@@ -6505,6 +6716,7 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
         listUsdCents:
             listUsdCents.present ? listUsdCents.value : this.listUsdCents,
         nights: nights ?? this.nights,
+        uid: uid.present ? uid.value : this.uid,
       );
   StayRoom copyWithCompanion(StayRoomsCompanion data) {
     return StayRoom(
@@ -6529,6 +6741,7 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
           ? data.listUsdCents.value
           : this.listUsdCents,
       nights: data.nights.present ? data.nights.value : this.nights,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -6545,7 +6758,8 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
           ..write('priceUsdCents: $priceUsdCents, ')
           ..write('listPriceCents: $listPriceCents, ')
           ..write('listUsdCents: $listUsdCents, ')
-          ..write('nights: $nights')
+          ..write('nights: $nights, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -6562,7 +6776,8 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
       priceUsdCents,
       listPriceCents,
       listUsdCents,
-      nights);
+      nights,
+      uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6577,7 +6792,8 @@ class StayRoom extends DataClass implements Insertable<StayRoom> {
           other.priceUsdCents == this.priceUsdCents &&
           other.listPriceCents == this.listPriceCents &&
           other.listUsdCents == this.listUsdCents &&
-          other.nights == this.nights);
+          other.nights == this.nights &&
+          other.uid == this.uid);
 }
 
 class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
@@ -6592,6 +6808,7 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
   final Value<int?> listPriceCents;
   final Value<int?> listUsdCents;
   final Value<int> nights;
+  final Value<String?> uid;
   const StayRoomsCompanion({
     this.id = const Value.absent(),
     this.stayId = const Value.absent(),
@@ -6604,6 +6821,7 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
     this.listPriceCents = const Value.absent(),
     this.listUsdCents = const Value.absent(),
     this.nights = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   StayRoomsCompanion.insert({
     this.id = const Value.absent(),
@@ -6617,6 +6835,7 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
     this.listPriceCents = const Value.absent(),
     this.listUsdCents = const Value.absent(),
     required int nights,
+    this.uid = const Value.absent(),
   })  : stayId = Value(stayId),
         roomNumber = Value(roomNumber),
         roomType = Value(roomType),
@@ -6636,6 +6855,7 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
     Expression<int>? listPriceCents,
     Expression<int>? listUsdCents,
     Expression<int>? nights,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6650,6 +6870,7 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
       if (listPriceCents != null) 'list_price_cents': listPriceCents,
       if (listUsdCents != null) 'list_usd_cents': listUsdCents,
       if (nights != null) 'nights': nights,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -6664,7 +6885,8 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
       Value<int>? priceUsdCents,
       Value<int?>? listPriceCents,
       Value<int?>? listUsdCents,
-      Value<int>? nights}) {
+      Value<int>? nights,
+      Value<String?>? uid}) {
     return StayRoomsCompanion(
       id: id ?? this.id,
       stayId: stayId ?? this.stayId,
@@ -6677,6 +6899,7 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
       listPriceCents: listPriceCents ?? this.listPriceCents,
       listUsdCents: listUsdCents ?? this.listUsdCents,
       nights: nights ?? this.nights,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -6716,6 +6939,9 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
     if (nights.present) {
       map['nights'] = Variable<int>(nights.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -6732,7 +6958,8 @@ class StayRoomsCompanion extends UpdateCompanion<StayRoom> {
           ..write('priceUsdCents: $priceUsdCents, ')
           ..write('listPriceCents: $listPriceCents, ')
           ..write('listUsdCents: $listUsdCents, ')
-          ..write('nights: $nights')
+          ..write('nights: $nights, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -7815,13 +8042,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $UsersTable users = $UsersTable(this);
   late final $ArticlesTable articles = $ArticlesTable(this);
   late final $PayersTable payers = $PayersTable(this);
+  late final $StaysTable stays = $StaysTable(this);
   late final $RoomsTable rooms = $RoomsTable(this);
   late final $SalesTable sales = $SalesTable(this);
   late final $SaleLinesTable saleLines = $SaleLinesTable(this);
   late final $DebtPaymentsTable debtPayments = $DebtPaymentsTable(this);
   late final $StockMovesTable stockMoves = $StockMovesTable(this);
   late final $ClientsTable clients = $ClientsTable(this);
-  late final $StaysTable stays = $StaysTable(this);
   late final $StayRoomsTable stayRooms = $StayRoomsTable(this);
   late final $ReservationsTable reservations = $ReservationsTable(this);
   late final $ReservationRoomsTable reservationRooms =
@@ -7835,13 +8062,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         users,
         articles,
         payers,
+        stays,
         rooms,
         sales,
         saleLines,
         debtPayments,
         stockMoves,
         clients,
-        stays,
         stayRooms,
         reservations,
         reservationRooms
@@ -7857,7 +8084,21 @@ abstract class _$AppDatabase extends GeneratedDatabase {
             ],
           ),
           WritePropagation(
+            on: TableUpdateQuery.onTableName('stays',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('rooms', kind: UpdateKind.update),
+            ],
+          ),
+          WritePropagation(
             on: TableUpdateQuery.onTableName('users',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('sales', kind: UpdateKind.update),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('stays',
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('sales', kind: UpdateKind.update),
@@ -9056,6 +9297,875 @@ typedef $$PayersTableProcessedTableManager = ProcessedTableManager<
     (Payer, $$PayersTableReferences),
     Payer,
     PrefetchHooks Function({bool roomsRefs, bool reservationsRefs})>;
+typedef $$StaysTableCreateCompanionBuilder = StaysCompanion Function({
+  Value<int> id,
+  required String receiptNumber,
+  Value<String?> reservationNumber,
+  Value<DateTime> generatedAt,
+  required DateTime checkinAt,
+  required DateTime checkoutAt,
+  required String guestFullName,
+  Value<String?> guestNationality,
+  Value<String?> guestPhone,
+  Value<String?> guestEmail,
+  Value<String?> payerName,
+  Value<String?> payerTaxId,
+  Value<String?> payerAddress,
+  Value<String?> payerContact,
+  required int subtotalCents,
+  Value<int> remiseCents,
+  Value<int> remiseKind,
+  Value<int> remiseValue,
+  Value<int> remiseBase,
+  Value<String?> remiseReason,
+  Value<int> acompteFcCents,
+  Value<int> acompteUsdCents,
+  Value<int> fcPerUsdCents,
+  Value<int> paymentMode,
+  Value<String?> stayGroup,
+  Value<String?> serverLogin,
+  Value<String?> note,
+  Value<String> extrasJson,
+  Value<int> clientVisitsAtCheckout,
+  Value<String?> uid,
+  Value<DbStayStatus> statut,
+});
+typedef $$StaysTableUpdateCompanionBuilder = StaysCompanion Function({
+  Value<int> id,
+  Value<String> receiptNumber,
+  Value<String?> reservationNumber,
+  Value<DateTime> generatedAt,
+  Value<DateTime> checkinAt,
+  Value<DateTime> checkoutAt,
+  Value<String> guestFullName,
+  Value<String?> guestNationality,
+  Value<String?> guestPhone,
+  Value<String?> guestEmail,
+  Value<String?> payerName,
+  Value<String?> payerTaxId,
+  Value<String?> payerAddress,
+  Value<String?> payerContact,
+  Value<int> subtotalCents,
+  Value<int> remiseCents,
+  Value<int> remiseKind,
+  Value<int> remiseValue,
+  Value<int> remiseBase,
+  Value<String?> remiseReason,
+  Value<int> acompteFcCents,
+  Value<int> acompteUsdCents,
+  Value<int> fcPerUsdCents,
+  Value<int> paymentMode,
+  Value<String?> stayGroup,
+  Value<String?> serverLogin,
+  Value<String?> note,
+  Value<String> extrasJson,
+  Value<int> clientVisitsAtCheckout,
+  Value<String?> uid,
+  Value<DbStayStatus> statut,
+});
+
+final class $$StaysTableReferences
+    extends BaseReferences<_$AppDatabase, $StaysTable, Stay> {
+  $$StaysTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$RoomsTable, List<Room>> _roomsRefsTable(
+          _$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(db.rooms,
+          aliasName: 'stays__id__rooms__current_stay_id');
+
+  $$RoomsTableProcessedTableManager get roomsRefs {
+    final manager = $$RoomsTableTableManager($_db, $_db.rooms)
+        .filter((f) => f.currentStayId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_roomsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$SalesTable, List<Sale>> _salesRefsTable(
+          _$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(db.sales,
+          aliasName: 'stays__id__sales__stay_id');
+
+  $$SalesTableProcessedTableManager get salesRefs {
+    final manager = $$SalesTableTableManager($_db, $_db.sales)
+        .filter((f) => f.stayId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_salesRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$StayRoomsTable, List<StayRoom>>
+      _stayRoomsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.stayRooms,
+              aliasName: 'stays__id__stay_rooms__stay_id');
+
+  $$StayRoomsTableProcessedTableManager get stayRoomsRefs {
+    final manager = $$StayRoomsTableTableManager($_db, $_db.stayRooms)
+        .filter((f) => f.stayId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_stayRoomsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$ReservationsTable, List<Reservation>>
+      _reservationsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.reservations,
+              aliasName: 'stays__id__reservations__stay_id');
+
+  $$ReservationsTableProcessedTableManager get reservationsRefs {
+    final manager = $$ReservationsTableTableManager($_db, $_db.reservations)
+        .filter((f) => f.stayId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_reservationsRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+}
+
+class $$StaysTableFilterComposer extends Composer<_$AppDatabase, $StaysTable> {
+  $$StaysTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get receiptNumber => $composableBuilder(
+      column: $table.receiptNumber, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get reservationNumber => $composableBuilder(
+      column: $table.reservationNumber,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get generatedAt => $composableBuilder(
+      column: $table.generatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get checkinAt => $composableBuilder(
+      column: $table.checkinAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get checkoutAt => $composableBuilder(
+      column: $table.checkoutAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get guestFullName => $composableBuilder(
+      column: $table.guestFullName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get guestNationality => $composableBuilder(
+      column: $table.guestNationality,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get guestPhone => $composableBuilder(
+      column: $table.guestPhone, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get guestEmail => $composableBuilder(
+      column: $table.guestEmail, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payerName => $composableBuilder(
+      column: $table.payerName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payerTaxId => $composableBuilder(
+      column: $table.payerTaxId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payerAddress => $composableBuilder(
+      column: $table.payerAddress, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payerContact => $composableBuilder(
+      column: $table.payerContact, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get subtotalCents => $composableBuilder(
+      column: $table.subtotalCents, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get remiseCents => $composableBuilder(
+      column: $table.remiseCents, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get remiseKind => $composableBuilder(
+      column: $table.remiseKind, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get remiseValue => $composableBuilder(
+      column: $table.remiseValue, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get remiseBase => $composableBuilder(
+      column: $table.remiseBase, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get remiseReason => $composableBuilder(
+      column: $table.remiseReason, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get acompteFcCents => $composableBuilder(
+      column: $table.acompteFcCents,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get acompteUsdCents => $composableBuilder(
+      column: $table.acompteUsdCents,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get fcPerUsdCents => $composableBuilder(
+      column: $table.fcPerUsdCents, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get paymentMode => $composableBuilder(
+      column: $table.paymentMode, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stayGroup => $composableBuilder(
+      column: $table.stayGroup, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get serverLogin => $composableBuilder(
+      column: $table.serverLogin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get note => $composableBuilder(
+      column: $table.note, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get extrasJson => $composableBuilder(
+      column: $table.extrasJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get clientVisitsAtCheckout => $composableBuilder(
+      column: $table.clientVisitsAtCheckout,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
+
+  ColumnWithTypeConverterFilters<DbStayStatus, DbStayStatus, int> get statut =>
+      $composableBuilder(
+          column: $table.statut,
+          builder: (column) => ColumnWithTypeConverterFilters(column));
+
+  Expression<bool> roomsRefs(
+      Expression<bool> Function($$RoomsTableFilterComposer f) f) {
+    final $$RoomsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.rooms,
+        getReferencedColumn: (t) => t.currentStayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$RoomsTableFilterComposer(
+              $db: $db,
+              $table: $db.rooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> salesRefs(
+      Expression<bool> Function($$SalesTableFilterComposer f) f) {
+    final $$SalesTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.sales,
+        getReferencedColumn: (t) => t.stayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SalesTableFilterComposer(
+              $db: $db,
+              $table: $db.sales,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> stayRoomsRefs(
+      Expression<bool> Function($$StayRoomsTableFilterComposer f) f) {
+    final $$StayRoomsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.stayRooms,
+        getReferencedColumn: (t) => t.stayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StayRoomsTableFilterComposer(
+              $db: $db,
+              $table: $db.stayRooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> reservationsRefs(
+      Expression<bool> Function($$ReservationsTableFilterComposer f) f) {
+    final $$ReservationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.reservations,
+        getReferencedColumn: (t) => t.stayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ReservationsTableFilterComposer(
+              $db: $db,
+              $table: $db.reservations,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$StaysTableOrderingComposer
+    extends Composer<_$AppDatabase, $StaysTable> {
+  $$StaysTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get receiptNumber => $composableBuilder(
+      column: $table.receiptNumber,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get reservationNumber => $composableBuilder(
+      column: $table.reservationNumber,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get generatedAt => $composableBuilder(
+      column: $table.generatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get checkinAt => $composableBuilder(
+      column: $table.checkinAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get checkoutAt => $composableBuilder(
+      column: $table.checkoutAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get guestFullName => $composableBuilder(
+      column: $table.guestFullName,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get guestNationality => $composableBuilder(
+      column: $table.guestNationality,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get guestPhone => $composableBuilder(
+      column: $table.guestPhone, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get guestEmail => $composableBuilder(
+      column: $table.guestEmail, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payerName => $composableBuilder(
+      column: $table.payerName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payerTaxId => $composableBuilder(
+      column: $table.payerTaxId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payerAddress => $composableBuilder(
+      column: $table.payerAddress,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payerContact => $composableBuilder(
+      column: $table.payerContact,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get subtotalCents => $composableBuilder(
+      column: $table.subtotalCents,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get remiseCents => $composableBuilder(
+      column: $table.remiseCents, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get remiseKind => $composableBuilder(
+      column: $table.remiseKind, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get remiseValue => $composableBuilder(
+      column: $table.remiseValue, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get remiseBase => $composableBuilder(
+      column: $table.remiseBase, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get remiseReason => $composableBuilder(
+      column: $table.remiseReason,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get acompteFcCents => $composableBuilder(
+      column: $table.acompteFcCents,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get acompteUsdCents => $composableBuilder(
+      column: $table.acompteUsdCents,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get fcPerUsdCents => $composableBuilder(
+      column: $table.fcPerUsdCents,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get paymentMode => $composableBuilder(
+      column: $table.paymentMode, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stayGroup => $composableBuilder(
+      column: $table.stayGroup, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get serverLogin => $composableBuilder(
+      column: $table.serverLogin, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get note => $composableBuilder(
+      column: $table.note, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get extrasJson => $composableBuilder(
+      column: $table.extrasJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get clientVisitsAtCheckout => $composableBuilder(
+      column: $table.clientVisitsAtCheckout,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get statut => $composableBuilder(
+      column: $table.statut, builder: (column) => ColumnOrderings(column));
+}
+
+class $$StaysTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StaysTable> {
+  $$StaysTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get receiptNumber => $composableBuilder(
+      column: $table.receiptNumber, builder: (column) => column);
+
+  GeneratedColumn<String> get reservationNumber => $composableBuilder(
+      column: $table.reservationNumber, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get generatedAt => $composableBuilder(
+      column: $table.generatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get checkinAt =>
+      $composableBuilder(column: $table.checkinAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get checkoutAt => $composableBuilder(
+      column: $table.checkoutAt, builder: (column) => column);
+
+  GeneratedColumn<String> get guestFullName => $composableBuilder(
+      column: $table.guestFullName, builder: (column) => column);
+
+  GeneratedColumn<String> get guestNationality => $composableBuilder(
+      column: $table.guestNationality, builder: (column) => column);
+
+  GeneratedColumn<String> get guestPhone => $composableBuilder(
+      column: $table.guestPhone, builder: (column) => column);
+
+  GeneratedColumn<String> get guestEmail => $composableBuilder(
+      column: $table.guestEmail, builder: (column) => column);
+
+  GeneratedColumn<String> get payerName =>
+      $composableBuilder(column: $table.payerName, builder: (column) => column);
+
+  GeneratedColumn<String> get payerTaxId => $composableBuilder(
+      column: $table.payerTaxId, builder: (column) => column);
+
+  GeneratedColumn<String> get payerAddress => $composableBuilder(
+      column: $table.payerAddress, builder: (column) => column);
+
+  GeneratedColumn<String> get payerContact => $composableBuilder(
+      column: $table.payerContact, builder: (column) => column);
+
+  GeneratedColumn<int> get subtotalCents => $composableBuilder(
+      column: $table.subtotalCents, builder: (column) => column);
+
+  GeneratedColumn<int> get remiseCents => $composableBuilder(
+      column: $table.remiseCents, builder: (column) => column);
+
+  GeneratedColumn<int> get remiseKind => $composableBuilder(
+      column: $table.remiseKind, builder: (column) => column);
+
+  GeneratedColumn<int> get remiseValue => $composableBuilder(
+      column: $table.remiseValue, builder: (column) => column);
+
+  GeneratedColumn<int> get remiseBase => $composableBuilder(
+      column: $table.remiseBase, builder: (column) => column);
+
+  GeneratedColumn<String> get remiseReason => $composableBuilder(
+      column: $table.remiseReason, builder: (column) => column);
+
+  GeneratedColumn<int> get acompteFcCents => $composableBuilder(
+      column: $table.acompteFcCents, builder: (column) => column);
+
+  GeneratedColumn<int> get acompteUsdCents => $composableBuilder(
+      column: $table.acompteUsdCents, builder: (column) => column);
+
+  GeneratedColumn<int> get fcPerUsdCents => $composableBuilder(
+      column: $table.fcPerUsdCents, builder: (column) => column);
+
+  GeneratedColumn<int> get paymentMode => $composableBuilder(
+      column: $table.paymentMode, builder: (column) => column);
+
+  GeneratedColumn<String> get stayGroup =>
+      $composableBuilder(column: $table.stayGroup, builder: (column) => column);
+
+  GeneratedColumn<String> get serverLogin => $composableBuilder(
+      column: $table.serverLogin, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get extrasJson => $composableBuilder(
+      column: $table.extrasJson, builder: (column) => column);
+
+  GeneratedColumn<int> get clientVisitsAtCheckout => $composableBuilder(
+      column: $table.clientVisitsAtCheckout, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DbStayStatus, int> get statut =>
+      $composableBuilder(column: $table.statut, builder: (column) => column);
+
+  Expression<T> roomsRefs<T extends Object>(
+      Expression<T> Function($$RoomsTableAnnotationComposer a) f) {
+    final $$RoomsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.rooms,
+        getReferencedColumn: (t) => t.currentStayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$RoomsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.rooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> salesRefs<T extends Object>(
+      Expression<T> Function($$SalesTableAnnotationComposer a) f) {
+    final $$SalesTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.sales,
+        getReferencedColumn: (t) => t.stayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$SalesTableAnnotationComposer(
+              $db: $db,
+              $table: $db.sales,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> stayRoomsRefs<T extends Object>(
+      Expression<T> Function($$StayRoomsTableAnnotationComposer a) f) {
+    final $$StayRoomsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.stayRooms,
+        getReferencedColumn: (t) => t.stayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StayRoomsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.stayRooms,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<T> reservationsRefs<T extends Object>(
+      Expression<T> Function($$ReservationsTableAnnotationComposer a) f) {
+    final $$ReservationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.reservations,
+        getReferencedColumn: (t) => t.stayId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$ReservationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.reservations,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+}
+
+class $$StaysTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $StaysTable,
+    Stay,
+    $$StaysTableFilterComposer,
+    $$StaysTableOrderingComposer,
+    $$StaysTableAnnotationComposer,
+    $$StaysTableCreateCompanionBuilder,
+    $$StaysTableUpdateCompanionBuilder,
+    (Stay, $$StaysTableReferences),
+    Stay,
+    PrefetchHooks Function(
+        {bool roomsRefs,
+        bool salesRefs,
+        bool stayRoomsRefs,
+        bool reservationsRefs})> {
+  $$StaysTableTableManager(_$AppDatabase db, $StaysTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StaysTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StaysTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StaysTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> receiptNumber = const Value.absent(),
+            Value<String?> reservationNumber = const Value.absent(),
+            Value<DateTime> generatedAt = const Value.absent(),
+            Value<DateTime> checkinAt = const Value.absent(),
+            Value<DateTime> checkoutAt = const Value.absent(),
+            Value<String> guestFullName = const Value.absent(),
+            Value<String?> guestNationality = const Value.absent(),
+            Value<String?> guestPhone = const Value.absent(),
+            Value<String?> guestEmail = const Value.absent(),
+            Value<String?> payerName = const Value.absent(),
+            Value<String?> payerTaxId = const Value.absent(),
+            Value<String?> payerAddress = const Value.absent(),
+            Value<String?> payerContact = const Value.absent(),
+            Value<int> subtotalCents = const Value.absent(),
+            Value<int> remiseCents = const Value.absent(),
+            Value<int> remiseKind = const Value.absent(),
+            Value<int> remiseValue = const Value.absent(),
+            Value<int> remiseBase = const Value.absent(),
+            Value<String?> remiseReason = const Value.absent(),
+            Value<int> acompteFcCents = const Value.absent(),
+            Value<int> acompteUsdCents = const Value.absent(),
+            Value<int> fcPerUsdCents = const Value.absent(),
+            Value<int> paymentMode = const Value.absent(),
+            Value<String?> stayGroup = const Value.absent(),
+            Value<String?> serverLogin = const Value.absent(),
+            Value<String?> note = const Value.absent(),
+            Value<String> extrasJson = const Value.absent(),
+            Value<int> clientVisitsAtCheckout = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
+            Value<DbStayStatus> statut = const Value.absent(),
+          }) =>
+              StaysCompanion(
+            id: id,
+            receiptNumber: receiptNumber,
+            reservationNumber: reservationNumber,
+            generatedAt: generatedAt,
+            checkinAt: checkinAt,
+            checkoutAt: checkoutAt,
+            guestFullName: guestFullName,
+            guestNationality: guestNationality,
+            guestPhone: guestPhone,
+            guestEmail: guestEmail,
+            payerName: payerName,
+            payerTaxId: payerTaxId,
+            payerAddress: payerAddress,
+            payerContact: payerContact,
+            subtotalCents: subtotalCents,
+            remiseCents: remiseCents,
+            remiseKind: remiseKind,
+            remiseValue: remiseValue,
+            remiseBase: remiseBase,
+            remiseReason: remiseReason,
+            acompteFcCents: acompteFcCents,
+            acompteUsdCents: acompteUsdCents,
+            fcPerUsdCents: fcPerUsdCents,
+            paymentMode: paymentMode,
+            stayGroup: stayGroup,
+            serverLogin: serverLogin,
+            note: note,
+            extrasJson: extrasJson,
+            clientVisitsAtCheckout: clientVisitsAtCheckout,
+            uid: uid,
+            statut: statut,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String receiptNumber,
+            Value<String?> reservationNumber = const Value.absent(),
+            Value<DateTime> generatedAt = const Value.absent(),
+            required DateTime checkinAt,
+            required DateTime checkoutAt,
+            required String guestFullName,
+            Value<String?> guestNationality = const Value.absent(),
+            Value<String?> guestPhone = const Value.absent(),
+            Value<String?> guestEmail = const Value.absent(),
+            Value<String?> payerName = const Value.absent(),
+            Value<String?> payerTaxId = const Value.absent(),
+            Value<String?> payerAddress = const Value.absent(),
+            Value<String?> payerContact = const Value.absent(),
+            required int subtotalCents,
+            Value<int> remiseCents = const Value.absent(),
+            Value<int> remiseKind = const Value.absent(),
+            Value<int> remiseValue = const Value.absent(),
+            Value<int> remiseBase = const Value.absent(),
+            Value<String?> remiseReason = const Value.absent(),
+            Value<int> acompteFcCents = const Value.absent(),
+            Value<int> acompteUsdCents = const Value.absent(),
+            Value<int> fcPerUsdCents = const Value.absent(),
+            Value<int> paymentMode = const Value.absent(),
+            Value<String?> stayGroup = const Value.absent(),
+            Value<String?> serverLogin = const Value.absent(),
+            Value<String?> note = const Value.absent(),
+            Value<String> extrasJson = const Value.absent(),
+            Value<int> clientVisitsAtCheckout = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
+            Value<DbStayStatus> statut = const Value.absent(),
+          }) =>
+              StaysCompanion.insert(
+            id: id,
+            receiptNumber: receiptNumber,
+            reservationNumber: reservationNumber,
+            generatedAt: generatedAt,
+            checkinAt: checkinAt,
+            checkoutAt: checkoutAt,
+            guestFullName: guestFullName,
+            guestNationality: guestNationality,
+            guestPhone: guestPhone,
+            guestEmail: guestEmail,
+            payerName: payerName,
+            payerTaxId: payerTaxId,
+            payerAddress: payerAddress,
+            payerContact: payerContact,
+            subtotalCents: subtotalCents,
+            remiseCents: remiseCents,
+            remiseKind: remiseKind,
+            remiseValue: remiseValue,
+            remiseBase: remiseBase,
+            remiseReason: remiseReason,
+            acompteFcCents: acompteFcCents,
+            acompteUsdCents: acompteUsdCents,
+            fcPerUsdCents: fcPerUsdCents,
+            paymentMode: paymentMode,
+            stayGroup: stayGroup,
+            serverLogin: serverLogin,
+            note: note,
+            extrasJson: extrasJson,
+            clientVisitsAtCheckout: clientVisitsAtCheckout,
+            uid: uid,
+            statut: statut,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) =>
+                  (e.readTable(table), $$StaysTableReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: (
+              {roomsRefs = false,
+              salesRefs = false,
+              stayRoomsRefs = false,
+              reservationsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (roomsRefs) db.rooms,
+                if (salesRefs) db.sales,
+                if (stayRoomsRefs) db.stayRooms,
+                if (reservationsRefs) db.reservations
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (roomsRefs)
+                    await $_getPrefetchedData<Stay, $StaysTable, Room>(
+                        currentTable: table,
+                        referencedTable:
+                            $$StaysTableReferences._roomsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$StaysTableReferences(db, table, p0).roomsRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.currentStayId == item.id),
+                        typedResults: items),
+                  if (salesRefs)
+                    await $_getPrefetchedData<Stay, $StaysTable, Sale>(
+                        currentTable: table,
+                        referencedTable:
+                            $$StaysTableReferences._salesRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$StaysTableReferences(db, table, p0).salesRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.stayId == item.id),
+                        typedResults: items),
+                  if (stayRoomsRefs)
+                    await $_getPrefetchedData<Stay, $StaysTable, StayRoom>(
+                        currentTable: table,
+                        referencedTable:
+                            $$StaysTableReferences._stayRoomsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$StaysTableReferences(db, table, p0).stayRoomsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.stayId == item.id),
+                        typedResults: items),
+                  if (reservationsRefs)
+                    await $_getPrefetchedData<Stay, $StaysTable, Reservation>(
+                        currentTable: table,
+                        referencedTable:
+                            $$StaysTableReferences._reservationsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$StaysTableReferences(db, table, p0)
+                                .reservationsRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.stayId == item.id),
+                        typedResults: items)
+                ];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$StaysTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $StaysTable,
+    Stay,
+    $$StaysTableFilterComposer,
+    $$StaysTableOrderingComposer,
+    $$StaysTableAnnotationComposer,
+    $$StaysTableCreateCompanionBuilder,
+    $$StaysTableUpdateCompanionBuilder,
+    (Stay, $$StaysTableReferences),
+    Stay,
+    PrefetchHooks Function(
+        {bool roomsRefs,
+        bool salesRefs,
+        bool stayRoomsRefs,
+        bool reservationsRefs})>;
 typedef $$RoomsTableCreateCompanionBuilder = RoomsCompanion Function({
   required String number,
   required String type,
@@ -9070,6 +10180,7 @@ typedef $$RoomsTableCreateCompanionBuilder = RoomsCompanion Function({
   Value<int?> payerId,
   Value<String?> imagePath,
   Value<int?> negotiatedPriceCents,
+  Value<int?> currentStayId,
   Value<int> rowid,
 });
 typedef $$RoomsTableUpdateCompanionBuilder = RoomsCompanion Function({
@@ -9086,6 +10197,7 @@ typedef $$RoomsTableUpdateCompanionBuilder = RoomsCompanion Function({
   Value<int?> payerId,
   Value<String?> imagePath,
   Value<int?> negotiatedPriceCents,
+  Value<int?> currentStayId,
   Value<int> rowid,
 });
 
@@ -9102,6 +10214,20 @@ final class $$RoomsTableReferences
     final manager = $$PayersTableTableManager($_db, $_db.payers)
         .filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_payerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $StaysTable _currentStayIdTable(_$AppDatabase db) =>
+      db.stays.createAlias('rooms__current_stay_id__stays__id');
+
+  $$StaysTableProcessedTableManager? get currentStayId {
+    final $_column = $_itemColumn<int>('current_stay_id');
+    if ($_column == null) return null;
+    final manager = $$StaysTableTableManager($_db, $_db.stays)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_currentStayIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
@@ -9168,6 +10294,26 @@ class $$RoomsTableFilterComposer extends Composer<_$AppDatabase, $RoomsTable> {
             $$PayersTableFilterComposer(
               $db: $db,
               $table: $db.payers,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$StaysTableFilterComposer get currentStayId {
+    final $$StaysTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.currentStayId,
+        referencedTable: $db.stays,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StaysTableFilterComposer(
+              $db: $db,
+              $table: $db.stays,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -9246,6 +10392,26 @@ class $$RoomsTableOrderingComposer
             ));
     return composer;
   }
+
+  $$StaysTableOrderingComposer get currentStayId {
+    final $$StaysTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.currentStayId,
+        referencedTable: $db.stays,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StaysTableOrderingComposer(
+              $db: $db,
+              $table: $db.stays,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
 }
 
 class $$RoomsTableAnnotationComposer
@@ -9312,6 +10478,26 @@ class $$RoomsTableAnnotationComposer
             ));
     return composer;
   }
+
+  $$StaysTableAnnotationComposer get currentStayId {
+    final $$StaysTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.currentStayId,
+        referencedTable: $db.stays,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StaysTableAnnotationComposer(
+              $db: $db,
+              $table: $db.stays,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
 }
 
 class $$RoomsTableTableManager extends RootTableManager<
@@ -9325,7 +10511,7 @@ class $$RoomsTableTableManager extends RootTableManager<
     $$RoomsTableUpdateCompanionBuilder,
     (Room, $$RoomsTableReferences),
     Room,
-    PrefetchHooks Function({bool payerId})> {
+    PrefetchHooks Function({bool payerId, bool currentStayId})> {
   $$RoomsTableTableManager(_$AppDatabase db, $RoomsTable table)
       : super(TableManagerState(
           db: db,
@@ -9350,6 +10536,7 @@ class $$RoomsTableTableManager extends RootTableManager<
             Value<int?> payerId = const Value.absent(),
             Value<String?> imagePath = const Value.absent(),
             Value<int?> negotiatedPriceCents = const Value.absent(),
+            Value<int?> currentStayId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               RoomsCompanion(
@@ -9366,6 +10553,7 @@ class $$RoomsTableTableManager extends RootTableManager<
             payerId: payerId,
             imagePath: imagePath,
             negotiatedPriceCents: negotiatedPriceCents,
+            currentStayId: currentStayId,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -9382,6 +10570,7 @@ class $$RoomsTableTableManager extends RootTableManager<
             Value<int?> payerId = const Value.absent(),
             Value<String?> imagePath = const Value.absent(),
             Value<int?> negotiatedPriceCents = const Value.absent(),
+            Value<int?> currentStayId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               RoomsCompanion.insert(
@@ -9398,13 +10587,14 @@ class $$RoomsTableTableManager extends RootTableManager<
             payerId: payerId,
             imagePath: imagePath,
             negotiatedPriceCents: negotiatedPriceCents,
+            currentStayId: currentStayId,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>
                   (e.readTable(table), $$RoomsTableReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({payerId = false}) {
+          prefetchHooksCallback: ({payerId = false, currentStayId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -9430,6 +10620,16 @@ class $$RoomsTableTableManager extends RootTableManager<
                         $$RoomsTableReferences._payerIdTable(db).id,
                   ) as T;
                 }
+                if (currentStayId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.currentStayId,
+                    referencedTable:
+                        $$RoomsTableReferences._currentStayIdTable(db),
+                    referencedColumn:
+                        $$RoomsTableReferences._currentStayIdTable(db).id,
+                  ) as T;
+                }
 
                 return state;
               },
@@ -9452,7 +10652,7 @@ typedef $$RoomsTableProcessedTableManager = ProcessedTableManager<
     $$RoomsTableUpdateCompanionBuilder,
     (Room, $$RoomsTableReferences),
     Room,
-    PrefetchHooks Function({bool payerId})>;
+    PrefetchHooks Function({bool payerId, bool currentStayId})>;
 typedef $$SalesTableCreateCompanionBuilder = SalesCompanion Function({
   Value<int> id,
   required DateTime soldAt,
@@ -9467,6 +10667,7 @@ typedef $$SalesTableCreateCompanionBuilder = SalesCompanion Function({
   Value<DateTime?> syncedAt,
   Value<int> syncAttempts,
   Value<String?> syncError,
+  Value<int?> stayId,
   Value<String?> uid,
 });
 typedef $$SalesTableUpdateCompanionBuilder = SalesCompanion Function({
@@ -9483,6 +10684,7 @@ typedef $$SalesTableUpdateCompanionBuilder = SalesCompanion Function({
   Value<DateTime?> syncedAt,
   Value<int> syncAttempts,
   Value<String?> syncError,
+  Value<int?> stayId,
   Value<String?> uid,
 });
 
@@ -9499,6 +10701,20 @@ final class $$SalesTableReferences
     final manager = $$UsersTableTableManager($_db, $_db.users)
         .filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_serverUserIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $StaysTable _stayIdTable(_$AppDatabase db) =>
+      db.stays.createAlias('sales__stay_id__stays__id');
+
+  $$StaysTableProcessedTableManager? get stayId {
+    final $_column = $_itemColumn<int>('stay_id');
+    if ($_column == null) return null;
+    final manager = $$StaysTableTableManager($_db, $_db.stays)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_stayIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
@@ -9596,6 +10812,26 @@ class $$SalesTableFilterComposer extends Composer<_$AppDatabase, $SalesTable> {
             $$UsersTableFilterComposer(
               $db: $db,
               $table: $db.users,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
+  $$StaysTableFilterComposer get stayId {
+    final $$StaysTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.stayId,
+        referencedTable: $db.stays,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StaysTableFilterComposer(
+              $db: $db,
+              $table: $db.stays,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -9716,6 +10952,26 @@ class $$SalesTableOrderingComposer
             ));
     return composer;
   }
+
+  $$StaysTableOrderingComposer get stayId {
+    final $$StaysTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.stayId,
+        referencedTable: $db.stays,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StaysTableOrderingComposer(
+              $db: $db,
+              $table: $db.stays,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
 }
 
 class $$SalesTableAnnotationComposer
@@ -9786,6 +11042,26 @@ class $$SalesTableAnnotationComposer
     return composer;
   }
 
+  $$StaysTableAnnotationComposer get stayId {
+    final $$StaysTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.stayId,
+        referencedTable: $db.stays,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$StaysTableAnnotationComposer(
+              $db: $db,
+              $table: $db.stays,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+
   Expression<T> saleLinesRefs<T extends Object>(
       Expression<T> Function($$SaleLinesTableAnnotationComposer a) f) {
     final $$SaleLinesTableAnnotationComposer composer = $composerBuilder(
@@ -9841,7 +11117,10 @@ class $$SalesTableTableManager extends RootTableManager<
     (Sale, $$SalesTableReferences),
     Sale,
     PrefetchHooks Function(
-        {bool serverUserId, bool saleLinesRefs, bool debtPaymentsRefs})> {
+        {bool serverUserId,
+        bool stayId,
+        bool saleLinesRefs,
+        bool debtPaymentsRefs})> {
   $$SalesTableTableManager(_$AppDatabase db, $SalesTable table)
       : super(TableManagerState(
           db: db,
@@ -9866,6 +11145,7 @@ class $$SalesTableTableManager extends RootTableManager<
             Value<DateTime?> syncedAt = const Value.absent(),
             Value<int> syncAttempts = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
+            Value<int?> stayId = const Value.absent(),
             Value<String?> uid = const Value.absent(),
           }) =>
               SalesCompanion(
@@ -9882,6 +11162,7 @@ class $$SalesTableTableManager extends RootTableManager<
             syncedAt: syncedAt,
             syncAttempts: syncAttempts,
             syncError: syncError,
+            stayId: stayId,
             uid: uid,
           ),
           createCompanionCallback: ({
@@ -9898,6 +11179,7 @@ class $$SalesTableTableManager extends RootTableManager<
             Value<DateTime?> syncedAt = const Value.absent(),
             Value<int> syncAttempts = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
+            Value<int?> stayId = const Value.absent(),
             Value<String?> uid = const Value.absent(),
           }) =>
               SalesCompanion.insert(
@@ -9914,6 +11196,7 @@ class $$SalesTableTableManager extends RootTableManager<
             syncedAt: syncedAt,
             syncAttempts: syncAttempts,
             syncError: syncError,
+            stayId: stayId,
             uid: uid,
           ),
           withReferenceMapper: (p0) => p0
@@ -9922,6 +11205,7 @@ class $$SalesTableTableManager extends RootTableManager<
               .toList(),
           prefetchHooksCallback: (
               {serverUserId = false,
+              stayId = false,
               saleLinesRefs = false,
               debtPaymentsRefs = false}) {
             return PrefetchHooks(
@@ -9951,6 +11235,15 @@ class $$SalesTableTableManager extends RootTableManager<
                         $$SalesTableReferences._serverUserIdTable(db),
                     referencedColumn:
                         $$SalesTableReferences._serverUserIdTable(db).id,
+                  ) as T;
+                }
+                if (stayId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.stayId,
+                    referencedTable: $$SalesTableReferences._stayIdTable(db),
+                    referencedColumn:
+                        $$SalesTableReferences._stayIdTable(db).id,
                   ) as T;
                 }
 
@@ -10000,7 +11293,10 @@ typedef $$SalesTableProcessedTableManager = ProcessedTableManager<
     (Sale, $$SalesTableReferences),
     Sale,
     PrefetchHooks Function(
-        {bool serverUserId, bool saleLinesRefs, bool debtPaymentsRefs})>;
+        {bool serverUserId,
+        bool stayId,
+        bool saleLinesRefs,
+        bool debtPaymentsRefs})>;
 typedef $$SaleLinesTableCreateCompanionBuilder = SaleLinesCompanion Function({
   Value<int> id,
   required int saleId,
@@ -11107,696 +12403,6 @@ typedef $$ClientsTableProcessedTableManager = ProcessedTableManager<
     (Client, BaseReferences<_$AppDatabase, $ClientsTable, Client>),
     Client,
     PrefetchHooks Function()>;
-typedef $$StaysTableCreateCompanionBuilder = StaysCompanion Function({
-  Value<int> id,
-  required String receiptNumber,
-  Value<String?> reservationNumber,
-  Value<DateTime> generatedAt,
-  required DateTime checkinAt,
-  required DateTime checkoutAt,
-  required String guestFullName,
-  Value<String?> guestNationality,
-  Value<String?> guestPhone,
-  Value<String?> guestEmail,
-  Value<String?> payerName,
-  Value<String?> payerTaxId,
-  Value<String?> payerAddress,
-  Value<String?> payerContact,
-  required int subtotalCents,
-  Value<int> remiseCents,
-  Value<int> remiseKind,
-  Value<int> remiseValue,
-  Value<int> remiseBase,
-  Value<String?> remiseReason,
-  Value<int> acompteFcCents,
-  Value<int> acompteUsdCents,
-  Value<int> fcPerUsdCents,
-  Value<int> paymentMode,
-  Value<String?> stayGroup,
-  Value<String?> serverLogin,
-  Value<String?> note,
-  Value<String> extrasJson,
-  Value<int> clientVisitsAtCheckout,
-});
-typedef $$StaysTableUpdateCompanionBuilder = StaysCompanion Function({
-  Value<int> id,
-  Value<String> receiptNumber,
-  Value<String?> reservationNumber,
-  Value<DateTime> generatedAt,
-  Value<DateTime> checkinAt,
-  Value<DateTime> checkoutAt,
-  Value<String> guestFullName,
-  Value<String?> guestNationality,
-  Value<String?> guestPhone,
-  Value<String?> guestEmail,
-  Value<String?> payerName,
-  Value<String?> payerTaxId,
-  Value<String?> payerAddress,
-  Value<String?> payerContact,
-  Value<int> subtotalCents,
-  Value<int> remiseCents,
-  Value<int> remiseKind,
-  Value<int> remiseValue,
-  Value<int> remiseBase,
-  Value<String?> remiseReason,
-  Value<int> acompteFcCents,
-  Value<int> acompteUsdCents,
-  Value<int> fcPerUsdCents,
-  Value<int> paymentMode,
-  Value<String?> stayGroup,
-  Value<String?> serverLogin,
-  Value<String?> note,
-  Value<String> extrasJson,
-  Value<int> clientVisitsAtCheckout,
-});
-
-final class $$StaysTableReferences
-    extends BaseReferences<_$AppDatabase, $StaysTable, Stay> {
-  $$StaysTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static MultiTypedResultKey<$StayRoomsTable, List<StayRoom>>
-      _stayRoomsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.stayRooms,
-              aliasName: 'stays__id__stay_rooms__stay_id');
-
-  $$StayRoomsTableProcessedTableManager get stayRoomsRefs {
-    final manager = $$StayRoomsTableTableManager($_db, $_db.stayRooms)
-        .filter((f) => f.stayId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_stayRoomsRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
-  }
-
-  static MultiTypedResultKey<$ReservationsTable, List<Reservation>>
-      _reservationsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.reservations,
-              aliasName: 'stays__id__reservations__stay_id');
-
-  $$ReservationsTableProcessedTableManager get reservationsRefs {
-    final manager = $$ReservationsTableTableManager($_db, $_db.reservations)
-        .filter((f) => f.stayId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_reservationsRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
-  }
-}
-
-class $$StaysTableFilterComposer extends Composer<_$AppDatabase, $StaysTable> {
-  $$StaysTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get receiptNumber => $composableBuilder(
-      column: $table.receiptNumber, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get reservationNumber => $composableBuilder(
-      column: $table.reservationNumber,
-      builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<DateTime> get generatedAt => $composableBuilder(
-      column: $table.generatedAt, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<DateTime> get checkinAt => $composableBuilder(
-      column: $table.checkinAt, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<DateTime> get checkoutAt => $composableBuilder(
-      column: $table.checkoutAt, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get guestFullName => $composableBuilder(
-      column: $table.guestFullName, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get guestNationality => $composableBuilder(
-      column: $table.guestNationality,
-      builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get guestPhone => $composableBuilder(
-      column: $table.guestPhone, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get guestEmail => $composableBuilder(
-      column: $table.guestEmail, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get payerName => $composableBuilder(
-      column: $table.payerName, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get payerTaxId => $composableBuilder(
-      column: $table.payerTaxId, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get payerAddress => $composableBuilder(
-      column: $table.payerAddress, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get payerContact => $composableBuilder(
-      column: $table.payerContact, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get subtotalCents => $composableBuilder(
-      column: $table.subtotalCents, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get remiseCents => $composableBuilder(
-      column: $table.remiseCents, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get remiseKind => $composableBuilder(
-      column: $table.remiseKind, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get remiseValue => $composableBuilder(
-      column: $table.remiseValue, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get remiseBase => $composableBuilder(
-      column: $table.remiseBase, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get remiseReason => $composableBuilder(
-      column: $table.remiseReason, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get acompteFcCents => $composableBuilder(
-      column: $table.acompteFcCents,
-      builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get acompteUsdCents => $composableBuilder(
-      column: $table.acompteUsdCents,
-      builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get fcPerUsdCents => $composableBuilder(
-      column: $table.fcPerUsdCents, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get paymentMode => $composableBuilder(
-      column: $table.paymentMode, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get stayGroup => $composableBuilder(
-      column: $table.stayGroup, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get serverLogin => $composableBuilder(
-      column: $table.serverLogin, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get note => $composableBuilder(
-      column: $table.note, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get extrasJson => $composableBuilder(
-      column: $table.extrasJson, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get clientVisitsAtCheckout => $composableBuilder(
-      column: $table.clientVisitsAtCheckout,
-      builder: (column) => ColumnFilters(column));
-
-  Expression<bool> stayRoomsRefs(
-      Expression<bool> Function($$StayRoomsTableFilterComposer f) f) {
-    final $$StayRoomsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.stayRooms,
-        getReferencedColumn: (t) => t.stayId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$StayRoomsTableFilterComposer(
-              $db: $db,
-              $table: $db.stayRooms,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-
-  Expression<bool> reservationsRefs(
-      Expression<bool> Function($$ReservationsTableFilterComposer f) f) {
-    final $$ReservationsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.reservations,
-        getReferencedColumn: (t) => t.stayId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$ReservationsTableFilterComposer(
-              $db: $db,
-              $table: $db.reservations,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-}
-
-class $$StaysTableOrderingComposer
-    extends Composer<_$AppDatabase, $StaysTable> {
-  $$StaysTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get receiptNumber => $composableBuilder(
-      column: $table.receiptNumber,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get reservationNumber => $composableBuilder(
-      column: $table.reservationNumber,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<DateTime> get generatedAt => $composableBuilder(
-      column: $table.generatedAt, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<DateTime> get checkinAt => $composableBuilder(
-      column: $table.checkinAt, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<DateTime> get checkoutAt => $composableBuilder(
-      column: $table.checkoutAt, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get guestFullName => $composableBuilder(
-      column: $table.guestFullName,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get guestNationality => $composableBuilder(
-      column: $table.guestNationality,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get guestPhone => $composableBuilder(
-      column: $table.guestPhone, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get guestEmail => $composableBuilder(
-      column: $table.guestEmail, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get payerName => $composableBuilder(
-      column: $table.payerName, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get payerTaxId => $composableBuilder(
-      column: $table.payerTaxId, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get payerAddress => $composableBuilder(
-      column: $table.payerAddress,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get payerContact => $composableBuilder(
-      column: $table.payerContact,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get subtotalCents => $composableBuilder(
-      column: $table.subtotalCents,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get remiseCents => $composableBuilder(
-      column: $table.remiseCents, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get remiseKind => $composableBuilder(
-      column: $table.remiseKind, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get remiseValue => $composableBuilder(
-      column: $table.remiseValue, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get remiseBase => $composableBuilder(
-      column: $table.remiseBase, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get remiseReason => $composableBuilder(
-      column: $table.remiseReason,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get acompteFcCents => $composableBuilder(
-      column: $table.acompteFcCents,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get acompteUsdCents => $composableBuilder(
-      column: $table.acompteUsdCents,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get fcPerUsdCents => $composableBuilder(
-      column: $table.fcPerUsdCents,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get paymentMode => $composableBuilder(
-      column: $table.paymentMode, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get stayGroup => $composableBuilder(
-      column: $table.stayGroup, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get serverLogin => $composableBuilder(
-      column: $table.serverLogin, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get note => $composableBuilder(
-      column: $table.note, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get extrasJson => $composableBuilder(
-      column: $table.extrasJson, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get clientVisitsAtCheckout => $composableBuilder(
-      column: $table.clientVisitsAtCheckout,
-      builder: (column) => ColumnOrderings(column));
-}
-
-class $$StaysTableAnnotationComposer
-    extends Composer<_$AppDatabase, $StaysTable> {
-  $$StaysTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get receiptNumber => $composableBuilder(
-      column: $table.receiptNumber, builder: (column) => column);
-
-  GeneratedColumn<String> get reservationNumber => $composableBuilder(
-      column: $table.reservationNumber, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get generatedAt => $composableBuilder(
-      column: $table.generatedAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get checkinAt =>
-      $composableBuilder(column: $table.checkinAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get checkoutAt => $composableBuilder(
-      column: $table.checkoutAt, builder: (column) => column);
-
-  GeneratedColumn<String> get guestFullName => $composableBuilder(
-      column: $table.guestFullName, builder: (column) => column);
-
-  GeneratedColumn<String> get guestNationality => $composableBuilder(
-      column: $table.guestNationality, builder: (column) => column);
-
-  GeneratedColumn<String> get guestPhone => $composableBuilder(
-      column: $table.guestPhone, builder: (column) => column);
-
-  GeneratedColumn<String> get guestEmail => $composableBuilder(
-      column: $table.guestEmail, builder: (column) => column);
-
-  GeneratedColumn<String> get payerName =>
-      $composableBuilder(column: $table.payerName, builder: (column) => column);
-
-  GeneratedColumn<String> get payerTaxId => $composableBuilder(
-      column: $table.payerTaxId, builder: (column) => column);
-
-  GeneratedColumn<String> get payerAddress => $composableBuilder(
-      column: $table.payerAddress, builder: (column) => column);
-
-  GeneratedColumn<String> get payerContact => $composableBuilder(
-      column: $table.payerContact, builder: (column) => column);
-
-  GeneratedColumn<int> get subtotalCents => $composableBuilder(
-      column: $table.subtotalCents, builder: (column) => column);
-
-  GeneratedColumn<int> get remiseCents => $composableBuilder(
-      column: $table.remiseCents, builder: (column) => column);
-
-  GeneratedColumn<int> get remiseKind => $composableBuilder(
-      column: $table.remiseKind, builder: (column) => column);
-
-  GeneratedColumn<int> get remiseValue => $composableBuilder(
-      column: $table.remiseValue, builder: (column) => column);
-
-  GeneratedColumn<int> get remiseBase => $composableBuilder(
-      column: $table.remiseBase, builder: (column) => column);
-
-  GeneratedColumn<String> get remiseReason => $composableBuilder(
-      column: $table.remiseReason, builder: (column) => column);
-
-  GeneratedColumn<int> get acompteFcCents => $composableBuilder(
-      column: $table.acompteFcCents, builder: (column) => column);
-
-  GeneratedColumn<int> get acompteUsdCents => $composableBuilder(
-      column: $table.acompteUsdCents, builder: (column) => column);
-
-  GeneratedColumn<int> get fcPerUsdCents => $composableBuilder(
-      column: $table.fcPerUsdCents, builder: (column) => column);
-
-  GeneratedColumn<int> get paymentMode => $composableBuilder(
-      column: $table.paymentMode, builder: (column) => column);
-
-  GeneratedColumn<String> get stayGroup =>
-      $composableBuilder(column: $table.stayGroup, builder: (column) => column);
-
-  GeneratedColumn<String> get serverLogin => $composableBuilder(
-      column: $table.serverLogin, builder: (column) => column);
-
-  GeneratedColumn<String> get note =>
-      $composableBuilder(column: $table.note, builder: (column) => column);
-
-  GeneratedColumn<String> get extrasJson => $composableBuilder(
-      column: $table.extrasJson, builder: (column) => column);
-
-  GeneratedColumn<int> get clientVisitsAtCheckout => $composableBuilder(
-      column: $table.clientVisitsAtCheckout, builder: (column) => column);
-
-  Expression<T> stayRoomsRefs<T extends Object>(
-      Expression<T> Function($$StayRoomsTableAnnotationComposer a) f) {
-    final $$StayRoomsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.stayRooms,
-        getReferencedColumn: (t) => t.stayId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$StayRoomsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.stayRooms,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-
-  Expression<T> reservationsRefs<T extends Object>(
-      Expression<T> Function($$ReservationsTableAnnotationComposer a) f) {
-    final $$ReservationsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.reservations,
-        getReferencedColumn: (t) => t.stayId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$ReservationsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.reservations,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-}
-
-class $$StaysTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $StaysTable,
-    Stay,
-    $$StaysTableFilterComposer,
-    $$StaysTableOrderingComposer,
-    $$StaysTableAnnotationComposer,
-    $$StaysTableCreateCompanionBuilder,
-    $$StaysTableUpdateCompanionBuilder,
-    (Stay, $$StaysTableReferences),
-    Stay,
-    PrefetchHooks Function({bool stayRoomsRefs, bool reservationsRefs})> {
-  $$StaysTableTableManager(_$AppDatabase db, $StaysTable table)
-      : super(TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$StaysTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$StaysTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$StaysTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> receiptNumber = const Value.absent(),
-            Value<String?> reservationNumber = const Value.absent(),
-            Value<DateTime> generatedAt = const Value.absent(),
-            Value<DateTime> checkinAt = const Value.absent(),
-            Value<DateTime> checkoutAt = const Value.absent(),
-            Value<String> guestFullName = const Value.absent(),
-            Value<String?> guestNationality = const Value.absent(),
-            Value<String?> guestPhone = const Value.absent(),
-            Value<String?> guestEmail = const Value.absent(),
-            Value<String?> payerName = const Value.absent(),
-            Value<String?> payerTaxId = const Value.absent(),
-            Value<String?> payerAddress = const Value.absent(),
-            Value<String?> payerContact = const Value.absent(),
-            Value<int> subtotalCents = const Value.absent(),
-            Value<int> remiseCents = const Value.absent(),
-            Value<int> remiseKind = const Value.absent(),
-            Value<int> remiseValue = const Value.absent(),
-            Value<int> remiseBase = const Value.absent(),
-            Value<String?> remiseReason = const Value.absent(),
-            Value<int> acompteFcCents = const Value.absent(),
-            Value<int> acompteUsdCents = const Value.absent(),
-            Value<int> fcPerUsdCents = const Value.absent(),
-            Value<int> paymentMode = const Value.absent(),
-            Value<String?> stayGroup = const Value.absent(),
-            Value<String?> serverLogin = const Value.absent(),
-            Value<String?> note = const Value.absent(),
-            Value<String> extrasJson = const Value.absent(),
-            Value<int> clientVisitsAtCheckout = const Value.absent(),
-          }) =>
-              StaysCompanion(
-            id: id,
-            receiptNumber: receiptNumber,
-            reservationNumber: reservationNumber,
-            generatedAt: generatedAt,
-            checkinAt: checkinAt,
-            checkoutAt: checkoutAt,
-            guestFullName: guestFullName,
-            guestNationality: guestNationality,
-            guestPhone: guestPhone,
-            guestEmail: guestEmail,
-            payerName: payerName,
-            payerTaxId: payerTaxId,
-            payerAddress: payerAddress,
-            payerContact: payerContact,
-            subtotalCents: subtotalCents,
-            remiseCents: remiseCents,
-            remiseKind: remiseKind,
-            remiseValue: remiseValue,
-            remiseBase: remiseBase,
-            remiseReason: remiseReason,
-            acompteFcCents: acompteFcCents,
-            acompteUsdCents: acompteUsdCents,
-            fcPerUsdCents: fcPerUsdCents,
-            paymentMode: paymentMode,
-            stayGroup: stayGroup,
-            serverLogin: serverLogin,
-            note: note,
-            extrasJson: extrasJson,
-            clientVisitsAtCheckout: clientVisitsAtCheckout,
-          ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String receiptNumber,
-            Value<String?> reservationNumber = const Value.absent(),
-            Value<DateTime> generatedAt = const Value.absent(),
-            required DateTime checkinAt,
-            required DateTime checkoutAt,
-            required String guestFullName,
-            Value<String?> guestNationality = const Value.absent(),
-            Value<String?> guestPhone = const Value.absent(),
-            Value<String?> guestEmail = const Value.absent(),
-            Value<String?> payerName = const Value.absent(),
-            Value<String?> payerTaxId = const Value.absent(),
-            Value<String?> payerAddress = const Value.absent(),
-            Value<String?> payerContact = const Value.absent(),
-            required int subtotalCents,
-            Value<int> remiseCents = const Value.absent(),
-            Value<int> remiseKind = const Value.absent(),
-            Value<int> remiseValue = const Value.absent(),
-            Value<int> remiseBase = const Value.absent(),
-            Value<String?> remiseReason = const Value.absent(),
-            Value<int> acompteFcCents = const Value.absent(),
-            Value<int> acompteUsdCents = const Value.absent(),
-            Value<int> fcPerUsdCents = const Value.absent(),
-            Value<int> paymentMode = const Value.absent(),
-            Value<String?> stayGroup = const Value.absent(),
-            Value<String?> serverLogin = const Value.absent(),
-            Value<String?> note = const Value.absent(),
-            Value<String> extrasJson = const Value.absent(),
-            Value<int> clientVisitsAtCheckout = const Value.absent(),
-          }) =>
-              StaysCompanion.insert(
-            id: id,
-            receiptNumber: receiptNumber,
-            reservationNumber: reservationNumber,
-            generatedAt: generatedAt,
-            checkinAt: checkinAt,
-            checkoutAt: checkoutAt,
-            guestFullName: guestFullName,
-            guestNationality: guestNationality,
-            guestPhone: guestPhone,
-            guestEmail: guestEmail,
-            payerName: payerName,
-            payerTaxId: payerTaxId,
-            payerAddress: payerAddress,
-            payerContact: payerContact,
-            subtotalCents: subtotalCents,
-            remiseCents: remiseCents,
-            remiseKind: remiseKind,
-            remiseValue: remiseValue,
-            remiseBase: remiseBase,
-            remiseReason: remiseReason,
-            acompteFcCents: acompteFcCents,
-            acompteUsdCents: acompteUsdCents,
-            fcPerUsdCents: fcPerUsdCents,
-            paymentMode: paymentMode,
-            stayGroup: stayGroup,
-            serverLogin: serverLogin,
-            note: note,
-            extrasJson: extrasJson,
-            clientVisitsAtCheckout: clientVisitsAtCheckout,
-          ),
-          withReferenceMapper: (p0) => p0
-              .map((e) =>
-                  (e.readTable(table), $$StaysTableReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: (
-              {stayRoomsRefs = false, reservationsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (stayRoomsRefs) db.stayRooms,
-                if (reservationsRefs) db.reservations
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (stayRoomsRefs)
-                    await $_getPrefetchedData<Stay, $StaysTable, StayRoom>(
-                        currentTable: table,
-                        referencedTable:
-                            $$StaysTableReferences._stayRoomsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$StaysTableReferences(db, table, p0).stayRoomsRefs,
-                        referencedItemsForCurrentItem: (item,
-                                referencedItems) =>
-                            referencedItems.where((e) => e.stayId == item.id),
-                        typedResults: items),
-                  if (reservationsRefs)
-                    await $_getPrefetchedData<Stay, $StaysTable, Reservation>(
-                        currentTable: table,
-                        referencedTable:
-                            $$StaysTableReferences._reservationsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$StaysTableReferences(db, table, p0)
-                                .reservationsRefs,
-                        referencedItemsForCurrentItem: (item,
-                                referencedItems) =>
-                            referencedItems.where((e) => e.stayId == item.id),
-                        typedResults: items)
-                ];
-              },
-            );
-          },
-        ));
-}
-
-typedef $$StaysTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $StaysTable,
-    Stay,
-    $$StaysTableFilterComposer,
-    $$StaysTableOrderingComposer,
-    $$StaysTableAnnotationComposer,
-    $$StaysTableCreateCompanionBuilder,
-    $$StaysTableUpdateCompanionBuilder,
-    (Stay, $$StaysTableReferences),
-    Stay,
-    PrefetchHooks Function({bool stayRoomsRefs, bool reservationsRefs})>;
 typedef $$StayRoomsTableCreateCompanionBuilder = StayRoomsCompanion Function({
   Value<int> id,
   required int stayId,
@@ -11809,6 +12415,7 @@ typedef $$StayRoomsTableCreateCompanionBuilder = StayRoomsCompanion Function({
   Value<int?> listPriceCents,
   Value<int?> listUsdCents,
   required int nights,
+  Value<String?> uid,
 });
 typedef $$StayRoomsTableUpdateCompanionBuilder = StayRoomsCompanion Function({
   Value<int> id,
@@ -11822,6 +12429,7 @@ typedef $$StayRoomsTableUpdateCompanionBuilder = StayRoomsCompanion Function({
   Value<int?> listPriceCents,
   Value<int?> listUsdCents,
   Value<int> nights,
+  Value<String?> uid,
 });
 
 final class $$StayRoomsTableReferences
@@ -11883,6 +12491,9 @@ class $$StayRoomsTableFilterComposer
 
   ColumnFilters<int> get nights => $composableBuilder(
       column: $table.nights, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
 
   $$StaysTableFilterComposer get stayId {
     final $$StaysTableFilterComposer composer = $composerBuilder(
@@ -11948,6 +12559,9 @@ class $$StayRoomsTableOrderingComposer
   ColumnOrderings<int> get nights => $composableBuilder(
       column: $table.nights, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
+
   $$StaysTableOrderingComposer get stayId {
     final $$StaysTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -12008,6 +12622,9 @@ class $$StayRoomsTableAnnotationComposer
   GeneratedColumn<int> get nights =>
       $composableBuilder(column: $table.nights, builder: (column) => column);
 
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
+
   $$StaysTableAnnotationComposer get stayId {
     final $$StaysTableAnnotationComposer composer = $composerBuilder(
         composer: this,
@@ -12063,6 +12680,7 @@ class $$StayRoomsTableTableManager extends RootTableManager<
             Value<int?> listPriceCents = const Value.absent(),
             Value<int?> listUsdCents = const Value.absent(),
             Value<int> nights = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               StayRoomsCompanion(
             id: id,
@@ -12076,6 +12694,7 @@ class $$StayRoomsTableTableManager extends RootTableManager<
             listPriceCents: listPriceCents,
             listUsdCents: listUsdCents,
             nights: nights,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -12089,6 +12708,7 @@ class $$StayRoomsTableTableManager extends RootTableManager<
             Value<int?> listPriceCents = const Value.absent(),
             Value<int?> listUsdCents = const Value.absent(),
             required int nights,
+            Value<String?> uid = const Value.absent(),
           }) =>
               StayRoomsCompanion.insert(
             id: id,
@@ -12102,6 +12722,7 @@ class $$StayRoomsTableTableManager extends RootTableManager<
             listPriceCents: listPriceCents,
             listUsdCents: listUsdCents,
             nights: nights,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -13025,6 +13646,8 @@ class $AppDatabaseManager {
       $$ArticlesTableTableManager(_db, _db.articles);
   $$PayersTableTableManager get payers =>
       $$PayersTableTableManager(_db, _db.payers);
+  $$StaysTableTableManager get stays =>
+      $$StaysTableTableManager(_db, _db.stays);
   $$RoomsTableTableManager get rooms =>
       $$RoomsTableTableManager(_db, _db.rooms);
   $$SalesTableTableManager get sales =>
@@ -13037,8 +13660,6 @@ class $AppDatabaseManager {
       $$StockMovesTableTableManager(_db, _db.stockMoves);
   $$ClientsTableTableManager get clients =>
       $$ClientsTableTableManager(_db, _db.clients);
-  $$StaysTableTableManager get stays =>
-      $$StaysTableTableManager(_db, _db.stays);
   $$StayRoomsTableTableManager get stayRooms =>
       $$StayRoomsTableTableManager(_db, _db.stayRooms);
   $$ReservationsTableTableManager get reservations =>

@@ -16,8 +16,7 @@ void main() {
   group('Sans serveur', () {
     test("on rend l'heure du poste, et on le dit", () {
       expect(Horloge.source, SourceHeure.posteSeul);
-      final ecart =
-          Horloge.maintenant().difference(DateTime.now()).abs();
+      final ecart = Horloge.maintenant().difference(DateTime.now()).abs();
       expect(ecart, lessThan(const Duration(seconds: 1)));
     });
 
@@ -27,8 +26,7 @@ void main() {
       Horloge.restaurerDecalage(const Duration(hours: 2));
       expect(Horloge.source, SourceHeure.dernierAccord);
       final corrigee = Horloge.maintenant();
-      expect(DateTime.now().difference(corrigee).inMinutes,
-          closeTo(120, 1),
+      expect(DateTime.now().difference(corrigee).inMinutes, closeTo(120, 1),
           reason: 'le poste avance de 2h, on les retranche');
     });
   });
@@ -36,7 +34,8 @@ void main() {
   group('Ancrée sur le serveur', () {
     test("l'heure rendue est celle du serveur, pas celle du poste", () {
       // Poste réglé deux heures en avance, comme à Lubumbashi.
-      final vraieHeure = DateTime.now().toUtc().subtract(const Duration(hours: 2));
+      final vraieHeure =
+          DateTime.now().toUtc().subtract(const Duration(hours: 2));
       Horloge.ancrer(vraieHeure, const Duration(milliseconds: 40));
 
       expect(Horloge.source, SourceHeure.serveur);
@@ -46,7 +45,8 @@ void main() {
 
     test("le décalage du poste est mesuré, et c'est lui qui déclenche l'alerte",
         () {
-      final vraieHeure = DateTime.now().toUtc().subtract(const Duration(hours: 2));
+      final vraieHeure =
+          DateTime.now().toUtc().subtract(const Duration(hours: 2));
       Horloge.ancrer(vraieHeure, Duration.zero);
       expect(Horloge.decalage!.inMinutes, closeTo(120, 1));
     });
@@ -68,7 +68,8 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       final t2 = Horloge.maintenant();
       expect(t2.isAfter(t1), isTrue,
-          reason: 'sinon toutes les ventes d\'une session auraient la même heure');
+          reason:
+              'sinon toutes les ventes d\'une session auraient la même heure');
     });
 
     test('une mesure fraîche prime sur un souvenir', () {

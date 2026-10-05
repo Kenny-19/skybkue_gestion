@@ -65,8 +65,8 @@ class _Dialogue extends StatefulWidget {
 }
 
 class _DialogueState extends State<_Dialogue> {
-  late final TextEditingController _montant = TextEditingController(
-      text: (widget.resteCents / 100).round().toString());
+  late final TextEditingController _montant =
+      TextEditingController(text: (widget.resteCents / 100).round().toString());
   DbPayment _payment = DbPayment.values.first;
   String? _erreur;
 
@@ -92,8 +92,8 @@ class _DialogueState extends State<_Dialogue> {
       return;
     }
     if (c > widget.resteCents) {
-      setState(() => _erreur =
-          'Le client ne doit que ${moneyCents(widget.resteCents)}.');
+      setState(() =>
+          _erreur = 'Le client ne doit que ${moneyCents(widget.resteCents)}.');
       return;
     }
     Navigator.of(context).pop(Encaissement(c, _payment));
@@ -135,7 +135,8 @@ class _DialogueState extends State<_Dialogue> {
                 onChanged: (_) => setState(() => _erreur = null),
                 onSubmitted: (_) => _valider(),
                 decoration: const InputDecoration(
-                    labelText: 'Montant reçu (FC)', prefixIcon: Icon(Icons.payments_outlined)),
+                    labelText: 'Montant reçu (FC)',
+                    prefixIcon: Icon(Icons.payments_outlined)),
               ),
               if (_erreur != null) ...[
                 const SizedBox(height: BsSpace.sm),
@@ -173,7 +174,8 @@ class _DialogueState extends State<_Dialogue> {
                 height: BsControl.primary,
                 child: FilledButton(
                   onPressed: _valider,
-                  child: Text(solde ? 'Solder la dette' : 'Encaisser l\'acompte'),
+                  child:
+                      Text(solde ? 'Solder la dette' : 'Encaisser l\'acompte'),
                 ),
               ),
               const SizedBox(height: BsSpace.xs),

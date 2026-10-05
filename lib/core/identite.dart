@@ -46,6 +46,14 @@ String uidVenteHerite(int id, DateTime soldAt) =>
 String uidLigneHerite(String uidVente, int idLigne) =>
     _md5Uuid('$uidVente|$idLigne');
 
+/// Identifiant d'un séjour ANTÉRIEUR à l'identité : déduit de son numéro
+/// local et de son heure de départ. Le préfixe « S| » le distingue d'une
+/// vente de même numéro à la même seconde. Même formule côté serveur
+/// (sql/2026_10_identite_sejours.sql) :
+///   md5('S|' || id::text || '|' || floor(extract(epoch from checkout_at))::bigint::text)::uuid
+String uidSejourHerite(int id, DateTime checkoutAt) =>
+    _md5Uuid('S|$id|${checkoutAt.millisecondsSinceEpoch ~/ 1000}');
+
 String _md5Uuid(String texte) =>
     _formater(md5.convert(utf8.encode(texte)).bytes);
 

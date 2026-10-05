@@ -99,7 +99,9 @@ class _StayRow extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(DateFormat("d MMM y", 'fr_FR').format(aLubumbashi(s.generatedAt)),
+              Text(
+                  DateFormat("d MMM y", 'fr_FR')
+                      .format(aLubumbashi(s.generatedAt)),
                   style: BsType.body(12, w: FontWeight.w700)),
               const SizedBox(height: 2),
               Text(s.receiptNumber,

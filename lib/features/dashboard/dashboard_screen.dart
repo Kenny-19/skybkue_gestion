@@ -415,7 +415,8 @@ class _WeekChart extends StatelessWidget {
                 if (i < 0 || i >= days.length) return const SizedBox();
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(DateFormat('E', 'fr_FR').format(aLubumbashi(days[i].day)),
+                  child: Text(
+                      DateFormat('E', 'fr_FR').format(aLubumbashi(days[i].day)),
                       style: BsType.body(11, color: BsColors.slate)),
                 );
               },

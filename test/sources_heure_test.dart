@@ -93,8 +93,8 @@ void main() {
       // avant le 21 septembre 2026.
       final t = DateTime.utc(2026, 9, 21, 14);
       final a = mesure(t, const Duration(hours: 2));
-      final b = mesure(t.add(const Duration(seconds: 5)),
-          const Duration(hours: 2));
+      final b =
+          mesure(t.add(const Duration(seconds: 5)), const Duration(hours: 2));
 
       expect(a.instantCorrige, isNot(b.instantCorrige),
           reason: 'les instants diffèrent bien, forcément');
@@ -108,8 +108,8 @@ void main() {
       final b = mesure(t.add(const Duration(seconds: 5)),
           const Duration(hours: 6)); // 4 h de plus : le cas timeapi.io
 
-      expect((a.decalagePoste - b.decalagePoste).abs(),
-          const Duration(hours: 4));
+      expect(
+          (a.decalagePoste - b.decalagePoste).abs(), const Duration(hours: 4));
     });
   });
 }

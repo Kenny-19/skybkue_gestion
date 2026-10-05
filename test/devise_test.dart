@@ -74,8 +74,7 @@ void main() {
     /// `fr_FR` sépare les milliers avec une espace INSÉCABLE, pas une
     /// espace ordinaire. Comparer sans normaliser fait échouer un test
     /// sur deux caractères qui se ressemblent à l'œil nu.
-    String normalise(String t) =>
-        t.replaceAll(' ', ' ').replaceAll(' ', ' ');
+    String normalise(String t) => t.replaceAll(' ', ' ').replaceAll(' ', ' ');
 
     test('le dollar vient en premier, le franc entre parenthèses', () {
       final t = montantHotel(4500);

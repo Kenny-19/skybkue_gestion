@@ -64,9 +64,8 @@ String montantHotel(int usdCents, {double? taux}) =>
 /// presque toujours rond, et « $45.00 » partout ajoute du bruit sans
 /// rien apprendre — mais « $45 » quand le vrai prix est 45,50 serait un
 /// mensonge, alors on garde les décimales quand elles existent.
-String moneyUsdCourt(int usdCents) => usdCents % 100 == 0
-    ? '\$${usdCents ~/ 100}'
-    : moneyUsd(usdCents);
+String moneyUsdCourt(int usdCents) =>
+    usdCents % 100 == 0 ? '\$${usdCents ~/ 100}' : moneyUsd(usdCents);
 
 /// Version compacte pour les listes : `"$45 · 103 500 FC"`.
 ///

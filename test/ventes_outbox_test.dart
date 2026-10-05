@@ -1,4 +1,4 @@
-﻿import 'package:blue_sky/data/database.dart';
+import 'package:blue_sky/data/database.dart';
 import 'package:blue_sky/data/schema.dart';
 import 'package:blue_sky/services/ventes_outbox.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,8 +43,8 @@ void main() {
       await file.marquerEnvoyee(id);
       expect(await file.enAttente(), 0);
 
-      final v =
-          await (db.select(db.sales)..where((s) => s.id.equals(id))).getSingle();
+      final v = await (db.select(db.sales)..where((s) => s.id.equals(id)))
+          .getSingle();
       expect(v.syncedAt, isNotNull);
       expect(v.syncError, isNull);
     });
@@ -57,8 +57,8 @@ void main() {
 
       expect(await file.enAttente(), 1,
           reason: "c'est de l'argent encaissÃ© : elle ne disparaÃ®t pas");
-      final v =
-          await (db.select(db.sales)..where((s) => s.id.equals(id))).getSingle();
+      final v = await (db.select(db.sales)..where((s) => s.id.equals(id)))
+          .getSingle();
       expect(v.syncAttempts, 1);
       expect(v.syncError, contains('SocketException'));
       expect(v.syncedAt, isNull);
@@ -71,8 +71,8 @@ void main() {
             .getSingle();
         await file.marquerEchec(id, 'Ã©chec', v.syncAttempts);
       }
-      final v =
-          await (db.select(db.sales)..where((s) => s.id.equals(id))).getSingle();
+      final v = await (db.select(db.sales)..where((s) => s.id.equals(id)))
+          .getSingle();
       expect(v.syncAttempts, 3);
     });
 
@@ -82,8 +82,8 @@ void main() {
       await file.marquerEchec(id, 'Ã©chec', 4);
       await file.marquerEnvoyee(id);
 
-      final v =
-          await (db.select(db.sales)..where((s) => s.id.equals(id))).getSingle();
+      final v = await (db.select(db.sales)..where((s) => s.id.equals(id)))
+          .getSingle();
       expect(v.syncAttempts, 0);
       expect(v.syncError, isNull);
     });

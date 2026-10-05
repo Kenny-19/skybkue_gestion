@@ -21,6 +21,15 @@ enum DbPayerType { individual, company }
 
 enum DbReservationStatus { pending, confirmed, checkedIn, cancelled, noShow }
 
+/// Vie d'un séjour. Ajouté à la fin seulement : la position est stockée.
+///   * enCours        : client arrivé, pas encore parti ;
+///   * facture        : parti, facture émise (tous les séjours d'avant
+///                      la v27 sont dans cet état) ;
+///   * sansFacture    : chambre libérée sans facture — il en reste une
+///                      trace, il n'en restait aucune ;
+///   * clotureAilleurs : le départ a été fait sur un autre poste.
+enum DbStayStatus { enCours, facture, sansFacture, clotureAilleurs }
+
 /// Réglages application (clé/valeur). Ex: taux de change USD→FC.
 class Settings extends Table {
   TextColumn get key => text()();
@@ -131,6 +140,15 @@ class Rooms extends Table {
   /// au check-in, vidé au checkOut.
   IntColumn get negotiatedPriceCents => integer().nullable()();
 
+  /// Le séjour en cours dans cette chambre (v27). Une vraie clé
+  /// étrangère : c'est le séjour qui fait foi sur l'occupant, les dates et
+  /// le tarif. Les champs « séjour en cours » ci-dessus restent remplis
+  /// pour l'affichage et pour les postes pas encore à jour ; ils seront
+  /// retirés dans une itération suivante.
+  IntColumn get currentStayId => integer()
+      .references(Stays, #id, onDelete: KeyAction.setNull)
+      .nullable()();
+
   @override
   Set<Column> get primaryKey => {number};
 }
@@ -217,6 +235,15 @@ class Stays extends Table {
   TextColumn get extrasJson => text().withDefault(const Constant('[]'))();
   IntColumn get clientVisitsAtCheckout =>
       integer().withDefault(const Constant(0))();
+
+  /// Identité du séjour sur tous les postes (même raison que les ventes :
+  /// le serveur rangeait les séjours par numéro local).
+  TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
+
+  /// Où en est le séjour. Les séjours d'avant la v27 n'existaient qu'une
+  /// fois facturés : « facture » par défaut.
+  IntColumn get statut => intEnum<DbStayStatus>()
+      .withDefault(Constant(DbStayStatus.facture.index))();
 }
 
 /// Réservation future d'une ou plusieurs chambres. Distincte des séjours
@@ -296,6 +323,9 @@ class StayRooms extends Table {
   /// devise où elle a été négociée.
   IntColumn get listUsdCents => integer().nullable()();
   IntColumn get nights => integer()();
+
+  /// Identité de la ligne sur tous les postes.
+  TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
 }
 
 /// Payeurs tiers (sociétés, ONG, ambassades…) qui prennent en charge un
@@ -395,6 +425,14 @@ class Sales extends Table {
   /// Pourquoi la dernière tentative a échoué. Gardé en clair : c'est la
   /// première chose qu'on regarde quand une caisse ne remonte plus.
   TextColumn get syncError => text().nullable()();
+
+  /// Le séjour sur lequel cette consommation a été mise (v27). Remplace
+  /// le rapprochement par numéro de chambre tapé, qui ne distinguait pas
+  /// deux clients successifs de la même chambre. Null pour une vente
+  /// ordinaire, ou reçue d'un autre poste.
+  IntColumn get stayId => integer()
+      .references(Stays, #id, onDelete: KeyAction.setNull)
+      .nullable()();
 
   /// Identité de la vente sur tous les postes (cf. core/identite.dart).
   /// `id` reste le numéro du ticket sur CE poste ; le serveur, lui, ne

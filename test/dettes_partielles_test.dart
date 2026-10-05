@@ -26,7 +26,9 @@ void main() {
   Future<int> venteACredit(int totalCents) async {
     final articleId = await db.into(db.articles).insert(
         ArticlesCompanion.insert(
-            name: 'Primus', priceCents: totalCents, category: DbCategory.boissons));
+            name: 'Primus',
+            priceCents: totalCents,
+            category: DbCategory.boissons));
     final saleId = await db.into(db.sales).insert(SalesCompanion.insert(
           soldAt: DateTime.now(),
           payment: DbPayment.values.first,

@@ -560,8 +560,10 @@ class RoomsScreen extends ConsumerWidget {
       // Uniquement les consommations MISES SUR LA NOTE. Celles déjà
       // réglées au bar ne doivent pas réapparaître ici : le client les
       // paierait deux fois.
-      final extrasDisponibles = await sales.unpaidForRoomsSince(
-          targets.map((r) => r.number).toList(), earliest);
+      final extrasDisponibles = await sales.unpaidForStay(
+          sejourId: room.currentStayId,
+          roomNumbers: targets.map((r) => r.number).toList(),
+          since: earliest);
       final now = DateTime.now();
 
       // Fidélité : retrouve le client par nom pour afficher le badge et
@@ -668,9 +670,11 @@ class RoomsScreen extends ConsumerWidget {
         extras: extras,
         generatedAt: now,
       );
-      // Persistance historique — utile pour rejouer la facture depuis
-      // l'onglet Historique, et pour la fiche client fidélité.
-      await ref.read(staysRepoProvider).record(
+      // Le séjour existe depuis l'arrivée : on le CLÔTURE avec sa facture
+      // (et on le détache du groupe si seules ces chambres partent).
+      await ref.read(staysRepoProvider).cloturer(
+        sejourId: room.currentStayId,
+        chambres: targets.map((r) => r.number).toList(),
         receiptNumber: receiptNumber,
         reservationNumber: reservationNumber,
         generatedAt: now,
@@ -745,6 +749,14 @@ class RoomsScreen extends ConsumerWidget {
             .read(clientsRepoProvider)
             .addSpending(client.id, data.totalCents);
       }
+    }
+
+    // Sans facture : le séjour est clôturé « sans facture » au lieu de
+    // disparaître. Il en reste une trace sur ce poste.
+    if (choice == 'no_invoice') {
+      await ref
+          .read(staysRepoProvider)
+          .libererSansFacture(sejourId: room.currentStayId, chambres: targets);
     }
 
     // Libère les chambres facturées.
@@ -1085,8 +1097,7 @@ class RoomsScreen extends ConsumerWidget {
                                   hintText: '0',
                                   prefixText: '${String.fromCharCode(36)} ',
                                   isDense: true,
-                                  helperText: _usdEnCents(remiseAmount.text) >
-                                          0
+                                  helperText: _usdEnCents(remiseAmount.text) > 0
                                       // L'équivalent en francs, tout de
                                       // suite : c'est ce qui sera déduit
                                       // du total, et la réception doit le
@@ -1131,7 +1142,7 @@ class RoomsScreen extends ConsumerWidget {
                                 Expanded(
                                   child: Text(
                                       'Remise : −${moneyUsdCourt(fcVersUsd(rem))} '
-                                          '(−${moneyCents(rem)})'
+                                      '(−${moneyCents(rem)})'
                                       '${discount.formulaLabel == null ? "" : " (${discount.formulaLabel})"}',
                                       style: BsType.body(12,
                                           w: FontWeight.w700,

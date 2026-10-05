@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/horloge.dart';
 import '../core/identite.dart';
 import '../core/room_type.dart';
 import 'schema.dart';
@@ -40,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -291,6 +292,25 @@ class AppDatabase extends _$AppDatabase {
               await _addColumnIfMissing(m, saleLines, saleLines.uid);
             }
           }
+          // v27 : le séjour existe dès l'arrivée. Statut et identité des
+          // séjours, lien chambre → séjour en cours, lien vente → séjour.
+          // Les séjours des chambres déjà occupées sont créés à
+          // l'ouverture (beforeOpen), comme toute réparation.
+          if (from < 27) {
+            if (await _tableExists('stays')) {
+              await _addColumnIfMissing(m, stays, stays.uid);
+              await _addColumnIfMissing(m, stays, stays.statut);
+            }
+            if (await _tableExists('stay_rooms')) {
+              await _addColumnIfMissing(m, stayRooms, stayRooms.uid);
+            }
+            if (await _tableExists('rooms')) {
+              await _addColumnIfMissing(m, rooms, rooms.currentStayId);
+            }
+            if (await _tableExists('sales')) {
+              await _addColumnIfMissing(m, sales, sales.stayId);
+            }
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -329,6 +349,10 @@ class AppDatabase extends _$AppDatabase {
           // index unique posé sur des valeurs encore vides passerait,
           // mais ne protégerait rien.
           await _attribuerIdentites();
+          // Chambres occupées sans séjour : celles d'avant la v27, ou
+          // reçues occupées d'un autre poste. Leur séjour est ouvert ici,
+          // pour que le départ ait de quoi clôturer.
+          await _ouvrirSejoursManquants();
           // Filet de rattrapage, à CHAQUE ouverture.
           //
           // La conversion en dollars est idempotente — elle ne touche que
@@ -587,6 +611,183 @@ class AppDatabase extends _$AppDatabase {
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_uid ON sales (uid)');
     await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
         'idx_sale_lines_uid ON sale_lines (uid)');
+
+    // Séjours (v27) : même principe, déduit du numéro et de l'heure de
+    // départ.
+    if (!await _tableExists('stays') || !await _tableExists('stay_rooms')) {
+      return;
+    }
+    if (!(await _existingColumns('stays')).contains('uid') ||
+        !(await _existingColumns('stay_rooms')).contains('uid')) {
+      return;
+    }
+    final sejours = await customSelect(
+      'SELECT id, checkout_at FROM stays WHERE uid IS NULL',
+    ).get();
+    for (final s in sejours) {
+      final id = s.read<int>('id');
+      final depart = DateTime.fromMillisecondsSinceEpoch(
+          s.read<int>('checkout_at') * 1000,
+          isUtc: true);
+      await customStatement('UPDATE stays SET uid = ? WHERE id = ?',
+          [uidSejourHerite(id, depart), id]);
+    }
+    final chambres = await customSelect(
+      'SELECT r.id AS id, s.uid AS sejour FROM stay_rooms r '
+      'JOIN stays s ON s.id = r.stay_id WHERE r.uid IS NULL',
+    ).get();
+    for (final r in chambres) {
+      await customStatement('UPDATE stay_rooms SET uid = ? WHERE id = ?', [
+        uidLigneHerite(r.read<String>('sejour'), r.read<int>('id')),
+        r.read<int>('id'),
+      ]);
+    }
+    await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_stays_uid ON stays (uid)');
+    await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
+        'idx_stay_rooms_uid ON stay_rooms (uid)');
+  }
+
+  /// Ouvre le séjour des chambres occupées qui n'en ont pas.
+  ///
+  /// Deux origines : une base d'avant la v27, où le séjour n'existait
+  /// qu'au départ ; et une chambre reçue occupée d'un autre poste. Les
+  /// chambres d'un même groupe partagent un seul séjour. Idempotent.
+  Future<void> _ouvrirSejoursManquants() async {
+    if (!await _tableExists('rooms') || !await _tableExists('stays')) return;
+    if (!(await _existingColumns('rooms')).contains('current_stay_id') ||
+        !(await _existingColumns('stays')).contains('statut')) {
+      return;
+    }
+    final orphelines = await (select(rooms)
+          ..where((r) =>
+              r.status.equals(DbRoomStatus.occupee.index) &
+              r.currentStayId.isNull()))
+        .get();
+    if (orphelines.isEmpty) return;
+    final parGroupe = <String, List<Room>>{};
+    for (final r in orphelines) {
+      parGroupe.putIfAbsent(r.stayGroup ?? 'solo:${r.number}', () => []).add(r);
+    }
+    for (final groupe in parGroupe.values) {
+      await ouvrirSejour(groupe);
+    }
+  }
+
+  /// Le séjour qui contient EXACTEMENT les chambres [numeros] du séjour
+  /// [sejourId] — celui-ci s'il n'en a pas d'autres, sinon un séjour
+  /// détaché, qui reprend l'occupant, l'arrivée et le groupe, et emporte
+  /// ces chambres et leurs consommations.
+  ///
+  /// Sert au départ d'une seule chambre d'un groupe : elle a sa propre
+  /// facture, le reste du groupe reste en cours. Renvoie l'id du séjour.
+  Future<int> isolerChambres(int sejourId, List<String> numeros) {
+    return transaction(() async {
+      final source = await (select(stays)..where((s) => s.id.equals(sejourId)))
+          .getSingle();
+      final lignes = await (select(stayRooms)
+            ..where((r) => r.stayId.equals(sejourId)))
+          .get();
+      final concernees =
+          lignes.where((r) => numeros.contains(r.roomNumber)).toList();
+      if (concernees.length == lignes.length) return sejourId;
+
+      final nouveau = await into(stays).insert(StaysCompanion.insert(
+        receiptNumber: source.receiptNumber,
+        checkinAt: source.checkinAt,
+        checkoutAt: source.checkoutAt,
+        guestFullName: source.guestFullName,
+        subtotalCents: 0,
+        statut: Value(source.statut),
+        stayGroup: Value(source.stayGroup),
+        note: Value(source.note),
+      ));
+      final ids = concernees.map((r) => r.id).toList();
+      await (update(stayRooms)..where((r) => r.id.isIn(ids)))
+          .write(StayRoomsCompanion(stayId: Value(nouveau)));
+      await (update(rooms)
+            ..where((r) =>
+                r.number.isIn(numeros) & r.currentStayId.equals(sejourId)))
+          .write(RoomsCompanion(currentStayId: Value(nouveau)));
+      await (update(sales)
+            ..where(
+                (s) => s.stayId.equals(sejourId) & s.roomNumber.isIn(numeros)))
+          .write(SalesCompanion(stayId: Value(nouveau)));
+      return nouveau;
+    });
+  }
+
+  /// Crée le séjour « en cours » de [chambres] (déjà marquées occupées,
+  /// avec leur occupant, leurs dates et leur tarif) et y rattache chaque
+  /// chambre. Renvoie l'id du séjour.
+  ///
+  /// La facture n'existe pas encore : numéro de reçu provisoire, montants
+  /// à zéro, départ prévu en guise de départ. Tout est fixé au départ réel
+  /// (StaysRepo.cloturer).
+  Future<int> ouvrirSejour(List<Room> chambres) async {
+    assert(chambres.isNotEmpty);
+    final maintenant = Horloge.maintenant();
+    final premiere = chambres.first;
+    final arrivee = chambres
+        .map((r) => r.checkinAt ?? maintenant)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    return transaction(() async {
+      // Une chambre ne peut être que dans un séjour en cours à la fois :
+      // un séjour resté ouvert ici alors que le départ a été fait sur un
+      // autre poste est clôturé, proprement, maintenant.
+      //
+      // Seulement CES chambres : dans un séjour groupé, les autres
+      // chambres sont peut-être encore occupées.
+      final numeros = chambres.map((r) => r.number).toList();
+      final anciens = await (selectOnly(stayRooms, distinct: true)
+            ..addColumns([stayRooms.stayId])
+            ..join([innerJoin(stays, stays.id.equalsExp(stayRooms.stayId))])
+            ..where(stayRooms.roomNumber.isIn(numeros) &
+                stays.statut.equals(DbStayStatus.enCours.index)))
+          .map((r) => r.read(stayRooms.stayId)!)
+          .get();
+      for (final ancien in anciens) {
+        final isole = await isolerChambres(ancien, numeros);
+        await (update(stays)..where((s) => s.id.equals(isole))).write(
+            StaysCompanion(
+                statut: const Value(DbStayStatus.clotureAilleurs),
+                checkoutAt: Value(maintenant)));
+      }
+
+      final id = await into(stays).insert(StaysCompanion.insert(
+        receiptNumber: 'EN COURS',
+        checkinAt: arrivee,
+        checkoutAt: premiere.checkoutDate ?? maintenant,
+        guestFullName: (premiere.currentGuest?.trim().isNotEmpty ?? false)
+            ? premiere.currentGuest!.trim()
+            : 'Client',
+        subtotalCents: 0,
+        statut: const Value(DbStayStatus.enCours),
+        stayGroup: Value(premiere.stayGroup),
+        note: Value(premiere.checkinNote),
+      ));
+      for (final r in chambres) {
+        final negocie = r.negotiatedPriceCents;
+        await into(stayRooms).insert(StayRoomsCompanion.insert(
+          stayId: id,
+          roomNumber: r.number,
+          roomType: r.type,
+          checkinAt: r.checkinAt ?? maintenant,
+          checkoutAt: r.checkoutDate ?? maintenant,
+          pricePerNightCents:
+              (negocie != null && negocie > 0) ? negocie : r.pricePerNightCents,
+          // Provisoire : le prix en dollars est figé au départ, au taux du
+          // jour. Sans tarif négocié, le tarif catalogue fait l'affaire.
+          priceUsdCents:
+              Value((negocie != null && negocie > 0) ? 0 : r.priceUsdCents),
+          listPriceCents: Value(r.pricePerNightCents),
+          nights: 0,
+        ));
+        await (update(rooms)..where((x) => x.number.equals(r.number)))
+            .write(RoomsCompanion(currentStayId: Value(id)));
+      }
+      return id;
+    });
   }
 
   /// Aligne le fichier sur le schéma du code : crée les tables absentes,

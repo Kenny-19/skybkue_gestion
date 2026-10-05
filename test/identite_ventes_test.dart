@@ -72,8 +72,7 @@ void main() {
           article_id INTEGER, article_name TEXT NOT NULL,
           qty INTEGER NOT NULL, unit_price_cents INTEGER NOT NULL);
       ''');
-      raw.execute(
-          'INSERT INTO sales (id, sold_at, payment) VALUES (?, ?, 0)',
+      raw.execute('INSERT INTO sales (id, sold_at, payment) VALUES (?, ?, 0)',
           [idVente, soldAt]);
       raw.execute(
           "INSERT INTO sale_lines (id, sale_id, article_name, qty, unit_price_cents) "

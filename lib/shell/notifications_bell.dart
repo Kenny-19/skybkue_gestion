@@ -187,7 +187,8 @@ class _RequestRow extends StatelessWidget {
             const Spacer(),
             if (req.requestedAt != null)
               Text(
-                  DateFormat("d MMM · HH:mm", 'fr_FR').format(aLubumbashi(req.requestedAt!)),
+                  DateFormat("d MMM · HH:mm", 'fr_FR')
+                      .format(aLubumbashi(req.requestedAt!)),
                   style: BsType.body(11, color: BsColors.slateSoft)),
           ]),
           const SizedBox(height: 6),

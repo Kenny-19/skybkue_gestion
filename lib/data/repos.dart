@@ -875,10 +875,15 @@ class StaysRepo {
   StaysRepo(this._db);
   final AppDatabase _db;
 
+  /// Séjours FACTURÉS des [days] derniers jours — l'historique de l'hôtel.
+  /// Les séjours en cours ou libérés sans facture n'ont pas de facture à
+  /// réimprimer : ils n'y figurent pas.
   Stream<List<StayWithRooms>> watchRecent({int days = 90}) {
     final since = Horloge.maintenant().subtract(Duration(days: days));
     final q = _db.select(_db.stays)
-      ..where((s) => s.generatedAt.isBiggerOrEqualValue(since))
+      ..where((s) =>
+          s.generatedAt.isBiggerOrEqualValue(since) &
+          s.statut.equals(DbStayStatus.facture.index))
       ..orderBy([(s) => OrderingTerm.desc(s.generatedAt)]);
     return q.watch().asyncMap(_hydrate);
   }
@@ -886,10 +891,191 @@ class StaysRepo {
   Future<List<StayWithRooms>> allRecent({int days = 90}) {
     final since = Horloge.maintenant().subtract(Duration(days: days));
     return (_db.select(_db.stays)
-          ..where((s) => s.generatedAt.isBiggerOrEqualValue(since))
+          ..where((s) =>
+              s.generatedAt.isBiggerOrEqualValue(since) &
+              s.statut.equals(DbStayStatus.facture.index))
           ..orderBy([(s) => OrderingTerm.desc(s.generatedAt)]))
         .get()
         .then(_hydrate);
+  }
+
+  /// Clôture au départ, avec facture, le séjour en cours [sejourId] pour
+  /// les chambres [chambres].
+  ///
+  /// C'est le pendant de l'arrivée : le séjour existe déjà, on y fixe la
+  /// facture au lieu d'en créer un. Si seules certaines chambres d'un
+  /// groupe partent, elles sont détachées dans leur propre séjour (leur
+  /// facture), et le reste du groupe reste en cours.
+  ///
+  /// Sans séjour en cours (chambre occupée sur un autre poste, ou séjour
+  /// introuvable), on retombe sur la création au départ, comme avant la
+  /// v27 : un départ ne doit jamais être bloqué.
+  Future<int> cloturer({
+    required int? sejourId,
+    required List<String> chambres,
+    required String receiptNumber,
+    String? reservationNumber,
+    required DateTime generatedAt,
+    required DateTime checkinAt,
+    required DateTime checkoutAt,
+    required String guestFullName,
+    String? guestNationality,
+    String? guestPhone,
+    String? guestEmail,
+    String? payerName,
+    String? payerTaxId,
+    String? payerAddress,
+    String? payerContact,
+    required int subtotalCents,
+    int remiseCents = 0,
+    Discount discount = Discount.none,
+    int acompteFcCents = 0,
+    int acompteUsdCents = 0,
+    int paymentMode = 0,
+    String? stayGroup,
+    String? serverLogin,
+    String? note,
+    String extrasJson = '[]',
+    int clientVisitsAtCheckout = 0,
+    required List<
+            ({
+              String number,
+              String type,
+              DateTime checkinAt,
+              DateTime checkoutAt,
+              int pricePerNightCents,
+              int? listPriceCents,
+              int nights,
+            })>
+        rooms,
+  }) async {
+    final ouvert = await _sejourEnCours(sejourId);
+    if (ouvert == null) {
+      return record(
+        receiptNumber: receiptNumber,
+        reservationNumber: reservationNumber,
+        generatedAt: generatedAt,
+        checkinAt: checkinAt,
+        checkoutAt: checkoutAt,
+        guestFullName: guestFullName,
+        guestNationality: guestNationality,
+        guestPhone: guestPhone,
+        guestEmail: guestEmail,
+        payerName: payerName,
+        payerTaxId: payerTaxId,
+        payerAddress: payerAddress,
+        payerContact: payerContact,
+        subtotalCents: subtotalCents,
+        remiseCents: remiseCents,
+        discount: discount,
+        acompteFcCents: acompteFcCents,
+        acompteUsdCents: acompteUsdCents,
+        paymentMode: paymentMode,
+        stayGroup: stayGroup,
+        serverLogin: serverLogin,
+        note: note,
+        extrasJson: extrasJson,
+        clientVisitsAtCheckout: clientVisitsAtCheckout,
+        rooms: rooms,
+      );
+    }
+
+    final id = await _db.transaction(() async {
+      final id = await _db.isolerChambres(ouvert, chambres);
+      await (_db.update(_db.stays)..where((s) => s.id.equals(id))).write(
+        StaysCompanion(
+          statut: const Value(DbStayStatus.facture),
+          // Le taux du jour, figé ici et plus jamais touché.
+          fcPerUsdCents: Value(tauxCourantEnCents()),
+          receiptNumber: Value(receiptNumber),
+          reservationNumber: Value(reservationNumber),
+          generatedAt: Value(generatedAt),
+          checkinAt: Value(checkinAt),
+          checkoutAt: Value(checkoutAt),
+          guestFullName: Value(guestFullName),
+          guestNationality: Value(guestNationality),
+          guestPhone: Value(guestPhone),
+          guestEmail: Value(guestEmail),
+          payerName: Value(payerName),
+          payerTaxId: Value(payerTaxId),
+          payerAddress: Value(payerAddress),
+          payerContact: Value(payerContact),
+          subtotalCents: Value(subtotalCents),
+          remiseCents: Value(remiseCents),
+          remiseKind: Value(discount.kind.index),
+          remiseValue: Value(discount.value),
+          remiseBase: Value(discount.base.index),
+          remiseReason: Value(
+              (discount.reason == null || discount.reason!.trim().isEmpty)
+                  ? null
+                  : discount.reason!.trim()),
+          acompteFcCents: Value(acompteFcCents),
+          acompteUsdCents: Value(acompteUsdCents),
+          paymentMode: Value(paymentMode),
+          stayGroup: Value(stayGroup),
+          serverLogin: Value(serverLogin),
+          note: Value(note),
+          extrasJson: Value(extrasJson),
+          clientVisitsAtCheckout: Value(clientVisitsAtCheckout),
+        ),
+      );
+      // Les chambres du séjour reçoivent leurs valeurs facturées.
+      for (final r in rooms) {
+        await (_db.update(_db.stayRooms)
+              ..where(
+                  (x) => x.stayId.equals(id) & x.roomNumber.equals(r.number)))
+            .write(StayRoomsCompanion(
+          roomType: Value(r.type),
+          checkinAt: Value(r.checkinAt),
+          checkoutAt: Value(r.checkoutAt),
+          pricePerNightCents: Value(r.pricePerNightCents),
+          priceUsdCents: Value(fcVersUsd(r.pricePerNightCents)),
+          listPriceCents: Value(r.listPriceCents),
+          listUsdCents: Value(
+              r.listPriceCents == null ? null : fcVersUsd(r.listPriceCents!)),
+          nights: Value(r.nights),
+        ));
+      }
+      return id;
+    });
+    unawaited(MirrorService.pushStayById(id));
+    return id;
+  }
+
+  /// Libère des chambres SANS facture, en gardant la trace du séjour.
+  ///
+  /// Avant la v27, « Libérer sans facture » ne laissait rien : le client
+  /// était passé, et aucune ligne ne le disait. Le séjour est maintenant
+  /// clôturé avec le statut « sans facture ». Il ne part pas au tableau
+  /// de bord (aucun montant), mais il reste sur ce poste.
+  Future<int> libererSansFacture(
+      {required int? sejourId, required List<Room> chambres}) async {
+    final maintenant = Horloge.maintenant();
+    return _db.transaction(() async {
+      final ouvert = await _sejourEnCours(sejourId);
+      final id = ouvert == null
+          ? await _db.ouvrirSejour(chambres)
+          : await _db.isolerChambres(
+              ouvert, chambres.map((r) => r.number).toList());
+      await (_db.update(_db.stays)..where((s) => s.id.equals(id))).write(
+          StaysCompanion(
+              statut: const Value(DbStayStatus.sansFacture),
+              checkoutAt: Value(maintenant),
+              generatedAt: Value(maintenant)));
+      await (_db.update(_db.stayRooms)..where((r) => r.stayId.equals(id)))
+          .write(StayRoomsCompanion(checkoutAt: Value(maintenant)));
+      return id;
+    });
+  }
+
+  /// [id] s'il désigne un séjour encore en cours, sinon null.
+  Future<int?> _sejourEnCours(int? id) async {
+    if (id == null) return null;
+    final s = await (_db.select(_db.stays)
+          ..where((x) =>
+              x.id.equals(id) & x.statut.equals(DbStayStatus.enCours.index)))
+        .getSingleOrNull();
+    return s?.id;
   }
 
   Future<StayWithRooms?> byId(int id) async {
@@ -1062,25 +1248,36 @@ class RoomsRepo {
   /// [negotiatedPriceCents] : tarif/nuit consenti pour CE séjour
   /// uniquement (null → tarif catalogue). Le catalogue n'est jamais
   /// modifié : l'écart devient une remise visible sur la facture.
-  Future<void> checkIn(String number, String guest, DateTime checkout,
+  ///
+  /// Ouvre le séjour (v27) et renvoie son id : le séjour existe dès
+  /// l'arrivée, plus seulement au départ.
+  Future<int> checkIn(String number, String guest, DateTime checkout,
       {String? note, int? payerId, int? negotiatedPriceCents}) async {
-    await (_db.update(_db.rooms)..where((r) => r.number.equals(number))).write(
-      RoomsCompanion(
-        status: const Value(DbRoomStatus.occupee),
-        currentGuest: Value(guest),
-        checkoutDate: Value(checkout),
-        checkinNote: Value(
-            (note != null && note.trim().isNotEmpty) ? note.trim() : null),
-        checkinAt: Value(Horloge.maintenant()),
-        stayGroup: const Value(null),
-        payerId: Value(payerId),
-        negotiatedPriceCents: Value(
-            (negotiatedPriceCents != null && negotiatedPriceCents > 0)
-                ? negotiatedPriceCents
-                : null),
-      ),
-    );
+    final sejour = await _db.transaction(() async {
+      await (_db.update(_db.rooms)..where((r) => r.number.equals(number)))
+          .write(
+        RoomsCompanion(
+          status: const Value(DbRoomStatus.occupee),
+          currentGuest: Value(guest),
+          checkoutDate: Value(checkout),
+          checkinNote: Value(
+              (note != null && note.trim().isNotEmpty) ? note.trim() : null),
+          checkinAt: Value(Horloge.maintenant()),
+          stayGroup: const Value(null),
+          payerId: Value(payerId),
+          negotiatedPriceCents: Value(
+              (negotiatedPriceCents != null && negotiatedPriceCents > 0)
+                  ? negotiatedPriceCents
+                  : null),
+        ),
+      );
+      final chambre = await (_db.select(_db.rooms)
+            ..where((r) => r.number.equals(number)))
+          .getSingle();
+      return _db.ouvrirSejour([chambre]);
+    });
     unawaited(MirrorService.pushRoomByNumber(number));
+    return sejour;
   }
 
   /// Check-in de plusieurs chambres en une fois pour un même payeur
@@ -1091,8 +1288,8 @@ class RoomsRepo {
   ///     séparément ensuite)
   ///   - la même note
   ///
-  /// Retourne le `stayGroup` généré (utile pour navigation UI).
-  Future<String> groupCheckIn({
+  /// Ouvre UN séjour pour tout le groupe (v27) et renvoie son id.
+  Future<int> groupCheckIn({
     required List<String> numbers,
     required String guest,
     required DateTime checkout,
@@ -1108,7 +1305,7 @@ class RoomsRepo {
         'GRP-${ts.year}${ts.month.toString().padLeft(2, '0')}${ts.day.toString().padLeft(2, '0')}'
         '-${ts.hour.toString().padLeft(2, '0')}${ts.minute.toString().padLeft(2, '0')}'
         '-${(ts.millisecond % 100).toString().padLeft(2, '0')}';
-    await _db.transaction(() async {
+    final sejour = await _db.transaction(() async {
       for (final n in numbers) {
         await (_db.update(_db.rooms)..where((r) => r.number.equals(n))).write(
           RoomsCompanion(
@@ -1127,12 +1324,16 @@ class RoomsRepo {
           ),
         );
       }
+      final chambres = await (_db.select(_db.rooms)
+            ..where((r) => r.number.isIn(numbers)))
+          .get();
+      return _db.ouvrirSejour(chambres);
     });
     // Push miroir en parallèle (best-effort).
     for (final n in numbers) {
       unawaited(MirrorService.pushRoomByNumber(n));
     }
-    return ref;
+    return sejour;
   }
 
   /// Renvoie toutes les chambres actuellement occupées faisant partie
@@ -1142,6 +1343,9 @@ class RoomsRepo {
         .get();
   }
 
+  /// Libère la chambre. Le séjour, lui, est clôturé par
+  /// [StaysRepo.cloturer] ou [StaysRepo.libererSansFacture] : ici on ne
+  /// fait que détacher la chambre de son séjour.
   Future<void> checkOut(String number) async {
     await (_db.update(_db.rooms)..where((r) => r.number.equals(number))).write(
       const RoomsCompanion(
@@ -1153,6 +1357,7 @@ class RoomsRepo {
         stayGroup: Value(null),
         payerId: Value(null),
         negotiatedPriceCents: Value(null),
+        currentStayId: Value(null),
       ),
     );
     unawaited(MirrorService.pushRoomByNumber(number));
@@ -1288,18 +1493,33 @@ class SalesRepo {
   ///
   /// Seules comptent ici les ventes mises sur la note : `onCredit` et
   /// pas encore réglées.
-  Future<List<SaleWithLines>> unpaidForRoomsSince(
-      List<String> roomNumbers, DateTime since) async {
-    if (roomNumbers.isEmpty) return [];
-    final sales = await (_db.select(_db.sales)
-          ..where((s) =>
-              s.roomNumber.isIn(roomNumbers) &
-              s.soldAt.isBiggerOrEqualValue(since) &
-              s.onCredit.equals(true) &
-              s.settledAt.isNull())
+  /// Consommations mises sur la note d'un séjour, encore dues.
+  ///
+  /// D'abord celles RATTACHÉES au séjour [sejourId] (v27). Puis, pour ce
+  /// que le lien ne couvre pas — ventes d'avant la v27, ou saisies sur un
+  /// autre poste —, l'ancien rapprochement par numéro de chambre depuis
+  /// l'arrivée, limité aux ventes rattachées à AUCUN séjour : une vente
+  /// d'un autre séjour de la même chambre n'est jamais reprise.
+  Future<List<SaleWithLines>> unpaidForStay({
+    required int? sejourId,
+    required List<String> roomNumbers,
+    required DateTime since,
+  }) async {
+    final dues = (Expression<bool> lien) => (_db.select(_db.sales)
+          ..where((s) => lien & s.onCredit.equals(true) & s.settledAt.isNull())
           ..orderBy([(s) => OrderingTerm.asc(s.soldAt)]))
         .get();
-    return _hydrate(sales);
+    final rattachees = sejourId == null
+        ? <Sale>[]
+        : await dues(_db.sales.stayId.equals(sejourId));
+    final parChambre = roomNumbers.isEmpty
+        ? <Sale>[]
+        : await dues(_db.sales.stayId.isNull() &
+            _db.sales.roomNumber.isIn(roomNumbers) &
+            _db.sales.soldAt.isBiggerOrEqualValue(since));
+    final toutes = [...rattachees, ...parChambre]
+      ..sort((a, b) => a.soldAt.compareTo(b.soldAt));
+    return _hydrate(toutes);
   }
 
   /// Solde une dette d'un seul coup.
@@ -1486,6 +1706,16 @@ class SalesRepo {
   }) async {
     final sorties = <int, int>{};
     return _db.transaction(() async {
+      // Consommation mise sur une chambre : rattachée au séjour EN COURS
+      // de cette chambre (v27). Le numéro de chambre seul ne distinguait
+      // pas le client de cette semaine de celui de la semaine dernière.
+      int? sejour;
+      if (roomNumber != null && roomNumber.trim().isNotEmpty) {
+        sejour = (await (_db.select(_db.rooms)
+                  ..where((r) => r.number.equals(roomNumber.trim())))
+                .getSingleOrNull())
+            ?.currentStayId;
+      }
       final saleId = await _db.into(_db.sales).insert(SalesCompanion.insert(
             soldAt: Horloge.maintenant(),
             payment: payment,
@@ -1495,6 +1725,7 @@ class SalesRepo {
             roomNumber: Value(roomNumber),
             onCredit: Value(onCredit),
             note: Value(note),
+            stayId: Value(sejour),
           ));
       for (final entry in articleQuantities.entries) {
         final art = await (_db.select(_db.articles)

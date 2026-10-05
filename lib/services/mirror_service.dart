@@ -176,18 +176,55 @@ class MirrorService {
             ..where((s) => s.id.equals(stayId)))
           .getSingleOrNull();
       if (stay == null) return;
-      final rooms = await (_db.select(_db.stayRooms)
-            ..where((r) => r.stayId.equals(stayId)))
-          .get();
-
-      await c.from('mirror_stays').upsert(_stayJson(stay), onConflict: 'id');
-      if (rooms.isNotEmpty) {
-        await c
-            .from('mirror_stay_rooms')
-            .upsert(rooms.map(_stayRoomJson).toList(), onConflict: 'id');
-      }
+      await _pousserSejours([stay]);
     } catch (_) {
       // best-effort
+    }
+  }
+
+  /// Envoie des séjours FACTURÉS et leurs chambres, par uid. Lève en cas
+  /// d'échec.
+  ///
+  /// Seuls les séjours facturés partent : un séjour en cours n'a pas
+  /// encore de montant, et un séjour libéré sans facture n'en aura pas —
+  /// le tableau de bord compte des recettes.
+  ///
+  /// Même schéma que les ventes : création seule pour le numéro local et
+  /// le poste, puis mise à jour du reste ; le serveur numérote, et les
+  /// chambres se rattachent à son numéro.
+  static Future<void> _pousserSejours(List<Stay> sejours) async {
+    final c = _c;
+    if (c == null) return;
+    final factures =
+        sejours.where((s) => s.statut == DbStayStatus.facture).toList();
+    if (factures.isEmpty) return;
+    final poste = HeartbeatService.nomDuPoste;
+    for (var i = 0; i < factures.length; i += 200) {
+      final lot = factures.sublist(i, (i + 200).clamp(0, factures.length));
+      final uidParId = {
+        for (final s in lot) s.id: s.uid ?? uidSejourHerite(s.id, s.checkoutAt)
+      };
+      final corps = [for (final s in lot) _stayJson(s, uidParId[s.id]!)];
+      await c.from('mirror_stays').upsert([
+        for (var k = 0; k < lot.length; k++)
+          {...corps[k], 'numero_local': lot[k].id, 'poste': poste},
+      ], onConflict: 'uid', ignoreDuplicates: true);
+      final rangees = await c
+          .from('mirror_stays')
+          .upsert(corps, onConflict: 'uid')
+          .select('id, uid');
+      final idServeurParUid = {
+        for (final r in rangees) r['uid'] as String: (r['id'] as num).toInt()
+      };
+      final chambres = await (_db.select(_db.stayRooms)
+            ..where((r) => r.stayId.isIn(lot.map((s) => s.id).toList())))
+          .get();
+      if (chambres.isEmpty) continue;
+      await c.from('mirror_stay_rooms').upsert([
+        for (final r in chambres)
+          _stayRoomJson(
+              r, uidParId[r.stayId]!, idServeurParUid[uidParId[r.stayId]]!),
+      ], onConflict: 'uid');
     }
   }
 
@@ -429,6 +466,15 @@ class MirrorService {
       uidVenteHerite((s['id'] as num).toInt(),
           _parseDate(s['sold_at']) ?? DateTime.fromMillisecondsSinceEpoch(0));
 
+  /// L'uid d'un séjour lu sur le serveur (déduit, avant le script
+  /// 2026_10_identite_sejours.sql).
+  static String _uidDeSejour(Map<String, dynamic> s) =>
+      (s['uid'] as String?) ??
+      uidSejourHerite(
+          (s['id'] as num).toInt(),
+          _parseDate(s['checkout_at']) ??
+              DateTime.fromMillisecondsSinceEpoch(0));
+
   static String _uidDeLigne(Map<String, dynamic> l, String? uidVente) =>
       (l['uid'] as String?) ??
       uidLigneHerite(uidVente ?? nouvelUid(), (l['id'] as num).toInt());
@@ -585,63 +631,96 @@ class MirrorService {
               .inFilter('stay_id', paquet)
               .order('id'));
 
+      // Reconnus par leur UID (v27). Avant, le séjour était écrit sous le
+      // numéro du serveur : il pouvait écraser un séjour local de même
+      // numéro — et depuis que les séjours existent dès l'arrivée, ce
+      // pouvait être un client encore dans sa chambre.
+      final dejaLa = {
+        for (final s in await _db.select(_db.stays).get())
+          if (s.uid != null) s.uid!,
+      };
+      final uidParServeur = {
+        for (final r in rows) (r['id'] as num).toInt(): _uidDeSejour(r)
+      };
+      final localParServeur = <int, int>{};
+      var ajoutes = 0;
+
       await _db.transaction(() async {
         for (final r in rows) {
-          await _db.into(_db.stays).insertOnConflictUpdate(Stay(
-                id: (r['id'] as num).toInt(),
+          final idServeur = (r['id'] as num).toInt();
+          final uid = uidParServeur[idServeur]!;
+          if (dejaLa.contains(uid)) continue;
+          // Pas d'`id` : la copie prend un numéro de ce poste.
+          localParServeur[idServeur] = await _db
+              .into(_db.stays)
+              .insert(StaysCompanion.insert(
+                uid: Value(uid),
+                statut: const Value(DbStayStatus.facture),
                 receiptNumber: r['receipt_number'] as String,
-                reservationNumber: r['reservation_number'] as String?,
-                generatedAt:
-                    _parseDate(r['generated_at']) ?? Horloge.maintenant(),
+                reservationNumber: Value(r['reservation_number'] as String?),
+                generatedAt: Value(
+                    _parseDate(r['generated_at']) ?? Horloge.maintenant()),
                 checkinAt: _parseDate(r['checkin_at']) ?? Horloge.maintenant(),
                 checkoutAt:
                     _parseDate(r['checkout_at']) ?? Horloge.maintenant(),
                 guestFullName: r['guest_full_name'] as String,
-                guestNationality: r['guest_nationality'] as String?,
-                guestPhone: r['guest_phone'] as String?,
-                guestEmail: r['guest_email'] as String?,
-                payerName: r['payer_name'] as String?,
-                payerTaxId: r['payer_tax_id'] as String?,
-                payerAddress: r['payer_address'] as String?,
-                payerContact: r['payer_contact'] as String?,
+                guestNationality: Value(r['guest_nationality'] as String?),
+                guestPhone: Value(r['guest_phone'] as String?),
+                guestEmail: Value(r['guest_email'] as String?),
+                payerName: Value(r['payer_name'] as String?),
+                payerTaxId: Value(r['payer_tax_id'] as String?),
+                payerAddress: Value(r['payer_address'] as String?),
+                payerContact: Value(r['payer_contact'] as String?),
                 subtotalCents: _entier(r['subtotal_cents']),
-                remiseCents: _entier(r['remise_cents']),
-                remiseKind: _entier(r['remise_kind']),
-                remiseValue: _entier(r['remise_value']),
-                remiseBase: _entier(r['remise_base']),
-                remiseReason: r['remise_reason'] as String?,
-                acompteFcCents: _entier(r['acompte_fc_cents']),
-                acompteUsdCents: _entier(r['acompte_usd_cents']),
-                paymentMode: _entier(r['payment_mode']),
-                stayGroup: r['stay_group'] as String?,
-                serverLogin: r['server_login'] as String?,
-                note: r['note'] as String?,
-                extrasJson: (r['extras_json'] as String?) ?? '[]',
-                clientVisitsAtCheckout: _entier(r['client_visits_at_checkout']),
+                remiseCents: Value(_entier(r['remise_cents'])),
+                remiseKind: Value(_entier(r['remise_kind'])),
+                remiseValue: Value(_entier(r['remise_value'])),
+                remiseBase: Value(_entier(r['remise_base'])),
+                remiseReason: Value(r['remise_reason'] as String?),
+                acompteFcCents: Value(_entier(r['acompte_fc_cents'])),
+                acompteUsdCents: Value(_entier(r['acompte_usd_cents'])),
+                paymentMode: Value(_entier(r['payment_mode'])),
+                stayGroup: Value(r['stay_group'] as String?),
+                serverLogin: Value(r['server_login'] as String?),
+                note: Value(r['note'] as String?),
+                extrasJson: Value((r['extras_json'] as String?) ?? '[]'),
+                clientVisitsAtCheckout:
+                    Value(_entier(r['client_visits_at_checkout'])),
                 // Le taux figé du séjour. Absent côté miroir sur les
-                // séjours d'avant la bascule : 0 signifie « retombe sur
-                // le taux courant », et l'écran le dit.
-                fcPerUsdCents: _entier(r['fc_per_usd_cents']),
+                // séjours d'avant la bascule : 0 signifie « retombe
+                // sur le taux courant », et l'écran le dit.
+                fcPerUsdCents: Value(_entier(r['fc_per_usd_cents'])),
               ));
+          ajoutes++;
         }
         for (final l in lignes) {
-          await _db.into(_db.stayRooms).insertOnConflictUpdate(StayRoom(
-                id: (l['id'] as num).toInt(),
-                stayId: (l['stay_id'] as num).toInt(),
-                roomNumber: l['room_number'] as String,
-                roomType: l['room_type'] as String,
-                checkinAt: _parseDate(l['checkin_at']) ?? Horloge.maintenant(),
-                checkoutAt:
-                    _parseDate(l['checkout_at']) ?? Horloge.maintenant(),
-                pricePerNightCents: _entier(l['price_per_night_cents']),
-                priceUsdCents: _entier(l['price_usd_cents']),
-                listPriceCents: (l['list_price_cents'] as num?)?.toInt(),
-                listUsdCents: (l['list_usd_cents'] as num?)?.toInt(),
-                nights: _entier(l['nights'], defaut: 1),
-              ));
+          final idServeur = (l['stay_id'] as num).toInt();
+          final local = localParServeur[idServeur];
+          if (local == null) continue; // séjour déjà présent : intouché
+          await _db.into(_db.stayRooms).insert(
+                StayRoomsCompanion.insert(
+                  uid: Value((l['uid'] as String?) ??
+                      uidLigneHerite(
+                          uidParServeur[idServeur]!, (l['id'] as num).toInt())),
+                  stayId: local,
+                  roomNumber: l['room_number'] as String,
+                  roomType: l['room_type'] as String,
+                  checkinAt:
+                      _parseDate(l['checkin_at']) ?? Horloge.maintenant(),
+                  checkoutAt:
+                      _parseDate(l['checkout_at']) ?? Horloge.maintenant(),
+                  pricePerNightCents: _entier(l['price_per_night_cents']),
+                  priceUsdCents: Value(_entier(l['price_usd_cents'])),
+                  listPriceCents:
+                      Value((l['list_price_cents'] as num?)?.toInt()),
+                  listUsdCents: Value((l['list_usd_cents'] as num?)?.toInt()),
+                  nights: _entier(l['nights'], defaut: 1),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
         }
       });
-      return rows.length;
+      return ajoutes;
     } catch (_) {
       // Best-effort : un historique incomplet vaut mieux qu'un écran en
       // erreur. La prochaine passe rattrapera.
@@ -1282,20 +1361,11 @@ class MirrorService {
       // la file rattrape ce qui manque.
       final venteEnvoyees = await VentesOutbox.instance.vider();
 
-      // Séjours : jusqu'ici absents du miroir, donc invisibles pour le
-      // tableau de bord. On les pousse en bloc pour rattraper l'existant.
-      final stays = await _db.select(_db.stays).get();
-      if (stays.isNotEmpty) {
-        await c
-            .from('mirror_stays')
-            .upsert(stays.map(_stayJson).toList(), onConflict: 'id');
-        final stayRooms = await _db.select(_db.stayRooms).get();
-        if (stayRooms.isNotEmpty) {
-          await c
-              .from('mirror_stay_rooms')
-              .upsert(stayRooms.map(_stayRoomJson).toList(), onConflict: 'id');
-        }
-      }
+      // Séjours facturés : renvoyés en bloc pour rattraper ceux qu'un
+      // départ hors ligne n'a pas pu envoyer. Par uid, comme les ventes.
+      await _pousserSejours(await (_db.select(_db.stays)
+            ..where((s) => s.statut.equals(DbStayStatus.facture.index)))
+          .get());
       final reste = await VentesOutbox.instance.enAttente();
       return reste == 0
           ? 'Synchronisation réussie ($venteEnvoyees vente(s) envoyée(s), '
@@ -1469,8 +1539,9 @@ class MirrorService {
         'price_per_night_cents': rr.pricePerNightCents,
       };
 
-  static Map<String, dynamic> _stayJson(Stay s) => {
-        'id': s.id,
+  /// Pas d'`id` : c'est le serveur qui numérote. `uid` est la clé.
+  static Map<String, dynamic> _stayJson(Stay s, String uid) => {
+        'uid': uid,
         'receipt_number': s.receiptNumber,
         'reservation_number': s.reservationNumber,
         'generated_at': isoServeur(s.generatedAt),
@@ -1501,9 +1572,12 @@ class MirrorService {
         'client_visits_at_checkout': s.clientVisitsAtCheckout,
       };
 
-  static Map<String, dynamic> _stayRoomJson(StayRoom r) => {
-        'id': r.id,
-        'stay_id': r.stayId,
+  /// [idServeur] : le numéro que le serveur a donné au séjour.
+  static Map<String, dynamic> _stayRoomJson(
+          StayRoom r, String uidSejour, int idServeur) =>
+      {
+        'uid': r.uid ?? uidLigneHerite(uidSejour, r.id),
+        'stay_id': idServeur,
         'room_number': r.roomNumber,
         'room_type': r.roomType,
         'checkin_at': isoServeur(r.checkinAt),

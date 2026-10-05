@@ -84,7 +84,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     if (!mounted) return;
     final loc = cart.location.label;
     ref.read(posCartProvider.notifier).clear();
-    final now = DateFormat("HH:mm:ss", 'fr_FR').format(aLubumbashi(Horloge.maintenant()));
+    final now = DateFormat("HH:mm:ss", 'fr_FR')
+        .format(aLubumbashi(Horloge.maintenant()));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
           content: Text(onCredit
@@ -719,7 +720,8 @@ class _OccupiedRoomLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final since = room.checkinAt == null
         ? null
-        : DateFormat('d MMM · HH:mm', 'fr_FR').format(aLubumbashi(room.checkinAt!));
+        : DateFormat('d MMM · HH:mm', 'fr_FR')
+            .format(aLubumbashi(room.checkinAt!));
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(

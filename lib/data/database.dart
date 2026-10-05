@@ -98,15 +98,15 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(settings);
           }
           // v8 : passage en Franc Congolais comme devise unique. On purge
-          // produits/chambres/ventes (données de test en cents USD) et on
-          // ressème avec des prix FC. Les utilisateurs sont conservés.
-          // (Doit venir APRÈS v6 : le seed insère les colonnes stock.)
+          // produits/chambres/ventes (données de test en cents USD). Les
+          // utilisateurs sont conservés. Il n'y a plus de ressemis
+          // d'exemples : le vrai catalogue et les vraies chambres
+          // arrivent du serveur.
           if (from < 8) {
             await customStatement('DELETE FROM sale_lines');
             await customStatement('DELETE FROM sales');
             await customStatement('DELETE FROM articles');
             await customStatement('DELETE FROM rooms');
-            await seedInitialData(this, seedUser: false);
           }
           // v9 : chambre + gestion de dette sur les ventes.
           if (from < 9) {

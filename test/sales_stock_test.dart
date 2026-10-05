@@ -16,8 +16,9 @@ void main() {
     db = newTestDb();
     articles = ArticlesRepo(db);
     sales = SalesRepo(db);
-    // Force l'exécution du onCreate (seed) avant les tests.
-    await db.customSelect('SELECT 1').get();
+    // Le catalogue d'exemple n'existe plus en production : les tests
+    // sèment le leur.
+    await semerCatalogueDeTest(db);
   });
 
   tearDown(() async => db.close());

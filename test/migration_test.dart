@@ -9,7 +9,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test(
-      'migration v5 → v9 : utilisateurs préservés, produits FC re-semés, '
+      'migration v5 → v9 : utilisateurs préservés, produits de test purgés, '
       'nouvelles colonnes disponibles', () async {
     // 1. Fabrique une base au format v5 sur disque (raw sqlite3).
     final dir = Directory.systemTemp.createTempSync('bs_migr');
@@ -83,13 +83,11 @@ void main() {
     expect(user, isNotNull);
     expect(user!.fullName, 'Ancien Admin');
 
-    // 3b. Les vieux produits sont purgés, le catalogue FC est re-semé.
-    final coca = await (db.select(db.articles)
-          ..where((a) => a.name.equals('Coca Cola 33cl')))
-        .getSingleOrNull();
-    expect(coca, isNotNull, reason: 'le seed FC doit avoir été appliqué');
-    expect(coca!.priceCents, 3000); // prix en FC, plus en cents USD
-    expect(coca.trackStock, true);
+    // 3b. Les vieux produits (cents USD) sont purgés. Plus de catalogue
+    //     d'exemple re-semé : le vrai catalogue arrive du serveur.
+    expect(await db.select(db.articles).get(), isEmpty,
+        reason: 'ni les vieux produits, ni des exemples');
+    expect(await db.select(db.rooms).get(), isEmpty);
 
     // 3c. Les colonnes v9 (dette) existent et sont interrogeables.
     final debts = await (db.select(db.sales)

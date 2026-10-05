@@ -31,7 +31,10 @@ void main() {
 
   group('Un mouvement déclaré est conservé jusqu\'à confirmation', () {
     late AppDatabase db;
-    setUp(() => db = newTestDb());
+    setUp(() async {
+      db = newTestDb();
+      await semerCatalogueDeTest(db);
+    });
     tearDown(() => db.close());
 
     test('une sortie inscrit un delta négatif et bouge le stock local',

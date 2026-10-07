@@ -1486,7 +1486,14 @@ class MirrorService {
 
     await etape('articles', () => _envoyerArticles(c));
     await etape('chambres', () => _envoyerChambres(c, debut));
-    await etape('comptes', () => _envoyerComptesMiroir(c));
+    // Plus d'envoi vers `mirror_users` : les comptes vivent dans
+    // `app_users`. Cet envoi demandait au serveur de reconnaître un compte
+    // par son login, sur une table qui n'a aucune contrainte d'unicité sur
+    // ce champ : il échouait à CHAQUE synchronisation. Avant le 6 octobre,
+    // cet échec arrêtait en silence tout ce qui suivait — dont le
+    // rattrapage des séjours. La table garde ses lignes actuelles, qui
+    // servent encore à nommer le serveur d'une vente reçue d'un autre
+    // poste.
     // Les ventes ne sont plus repoussées en bloc ici.
     //
     // Ce renvoi complet coûtait 21 Mo par jour pour 207 ventes, et
@@ -1550,19 +1557,6 @@ class MirrorService {
         .upsert(rooms.map(_roomJson).toList(), onConflict: 'number');
     await _confirmerChambres(rooms.map((r) => r.number).toList(), debut);
     return rooms.length;
-  }
-
-  /// `mirror_users` ne sert plus qu'à retrouver le serveur d'une vente
-  /// reçue d'un autre poste. Les super admins restent locaux.
-  static Future<int> _envoyerComptesMiroir(SupabaseClient c) async {
-    final users = (await _db.select(_db.users).get())
-        .where((u) => u.role != DbUserRole.superAdmin)
-        .toList();
-    if (users.isEmpty) return 0;
-    await c
-        .from('mirror_users')
-        .upsert(users.map(_userJson).toList(), onConflict: 'login');
-    return users.length;
   }
 
   // ─── Mappage vers JSON (colonnes Supabase) ───────────────────────────
@@ -1789,16 +1783,5 @@ class MirrorService {
         'contact': p.contact,
         'notes': p.notes,
         'created_at': isoServeur(p.createdAt),
-      };
-
-  // Pas de mot de passe dans le miroir (sécurité).
-  static Map<String, dynamic> _userJson(User u) => {
-        'id': u.id,
-        'full_name': u.fullName,
-        'login': u.login,
-        'role': u.role.index,
-        'active': u.active,
-        'created_at': isoServeur(u.createdAt),
-        'last_login': isoServeurOuNull(u.lastLogin),
       };
 }

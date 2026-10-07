@@ -39,6 +39,20 @@ class MirrorPullService {
 
   DateTime? get lastPull => _lastPull;
 
+  /// Synchronisations complètes ratées d'affilée, et le moment avant
+  /// lequel on n'en retente pas d'autre.
+  int _echecsSync = 0;
+  DateTime? _prochainEssai;
+
+  /// Attente avant de retenter une synchronisation complète ratée
+  /// [echecs] fois d'affilée : 15 s, 30 s, 1 min, 2 min… plafonnée à
+  /// 10 min, l'intervalle normal.
+  static Duration delaiAvantNouvelEssai(int echecs) {
+    if (echecs <= 0) return Duration.zero;
+    final secondes = 15 * (1 << (echecs - 1).clamp(0, 10));
+    return Duration(seconds: secondes.clamp(15, 600));
+  }
+
   void start() {
     if (_timer != null) return;
     // Pull immédiat au démarrage puis à intervalle régulier.
@@ -96,20 +110,34 @@ class MirrorPullService {
       // Une coupure au lancement laissait la journée entière invisible
       // pour le gérant, même une fois la connexion revenue.
       final poussee = _dernierePoussee;
-      final aRattraper = _etaitHorsLigne ||
+      final maintenant = DateTime.now();
+      final essaiPermis =
+          _prochainEssai == null || !maintenant.isBefore(_prochainEssai!);
+      final aRattraper = (_etaitHorsLigne && essaiPermis) ||
           poussee == null ||
-          DateTime.now().difference(poussee) > _intervallePoussee;
-      _etaitHorsLigne = false;
+          maintenant.difference(poussee) > _intervallePoussee;
       if (aRattraper) {
+        _etaitHorsLigne = false;
         await MirrorService.syncAll();
         _dernierePoussee = DateTime.now();
-        // Une étape en échec : on retentera au prochain tour, pas dans
-        // dix minutes. `syncAll` ne lève plus — c'est son bilan qui dit
-        // si tout est passé.
+        // `syncAll` ne lève plus : c'est son bilan qui dit si tout est
+        // passé. En cas d'échec, on retente — mais de plus en plus loin.
+        //
+        // Le 7 octobre 2026, une erreur PERMANENTE (envoi des comptes
+        // refusé par le serveur) relançait la synchronisation complète à
+        // chaque tour de quinze secondes : une quarantaine d'échecs toutes
+        // les dix minutes, et tout le catalogue renvoyé quatre fois par
+        // minute. Une coupure passagère, elle, est toujours rattrapée vite.
         final bilan = MirrorService.dernierBilan;
         if (bilan != null && bilan.cloudConfigured && !bilan.ok) {
+          _echecsSync++;
           _etaitHorsLigne = true;
+          _prochainEssai =
+              DateTime.now().add(delaiAvantNouvelEssai(_echecsSync));
           _lastError = bilan.errors.join(' · ');
+        } else {
+          _echecsSync = 0;
+          _prochainEssai = null;
         }
       }
     } catch (e, st) {

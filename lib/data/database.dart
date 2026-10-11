@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3/sqlite3.dart' show Database;
 
 import '../core/horloge.dart';
 import '../core/identite.dart';
@@ -1070,6 +1071,17 @@ class AppDatabase extends _$AppDatabase {
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final file = await AppDatabase.dbFile();
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase.createInBackground(file, setup: _reglerConnexion);
   });
+}
+
+/// Réglages posés dès l'ouverture du fichier, AVANT toute lecture.
+///
+/// Le `busy_timeout` de `beforeOpen` arrivait trop tard : la toute
+/// première requête — la lecture de `user_version` par les migrations —
+/// part avant lui. Sur un verrou, même bref, elle échouait aussitôt et
+/// la base restait fermée (DESKTOP-DPJ4R46, 9 octobre 2026). Ici, elle
+/// attend jusqu'à dix secondes.
+void _reglerConnexion(Database db) {
+  db.execute('PRAGMA busy_timeout = 10000');
 }

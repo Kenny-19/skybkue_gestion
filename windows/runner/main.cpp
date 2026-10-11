@@ -7,6 +7,31 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Une seule instance par session Windows.
+  //
+  // Le 9 octobre 2026, le poste DESKTOP-DPJ4R46 a eu DEUX Skyblue ouverts
+  // en même temps. Le premier encaissait normalement ; le second, caché
+  // derrière, n'a jamais pu ouvrir la base (« database is locked ») et a
+  // remonté plus de 600 erreurs en dix-sept heures. Deux applications sur
+  // la même caisse, c'est aussi deux synchronisations qui se marchent
+  // dessus. Un second lancement ramène donc la fenêtre déjà ouverte au
+  // premier plan, et s'arrête là.
+  //
+  // Le mutex disparaît avec le processus : après un plantage ou le
+  // taskkill de l'installeur, le lancement suivant repart normalement.
+  HANDLE instance_unique =
+      ::CreateMutexW(nullptr, TRUE, L"Local\\Skyblue.Ventes.InstanceUnique");
+  if (instance_unique != nullptr &&
+      ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    HWND deja = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"Skyblue");
+    if (deja != nullptr) {
+      if (::IsIconic(deja)) ::ShowWindow(deja, SW_RESTORE);
+      ::SetForegroundWindow(deja);
+    }
+    ::CloseHandle(instance_unique);
+    return EXIT_SUCCESS;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {

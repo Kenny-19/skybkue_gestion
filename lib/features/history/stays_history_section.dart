@@ -177,6 +177,9 @@ class _StayRow extends ConsumerWidget {
       extrasRaw = jsonDecode(stay.stay.extrasJson) as List<dynamic>;
     } catch (_) {}
     final data = StayInvoiceData(
+      // Le taux figé au départ ; null pour une facture d'avant la TVA, qui
+      // se réimprime telle qu'elle a été remise.
+      tvaBp: stay.stay.tvaBp,
       receiptNumber: stay.stay.receiptNumber,
       reservationNumber: stay.stay.reservationNumber,
       generatedAt: stay.stay.generatedAt,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/cat_ui.dart';
+import '../../core/tva.dart';
 import '../../core/user_error.dart';
 import '../../services/mirror_pull_service.dart';
 import '../../core/app_version.dart';
@@ -69,6 +70,17 @@ class SettingsScreen extends ConsumerWidget {
               ),
               // Taux de change FC → USD — accessible admin + super admin.
               if (perms.canCurrency) const _CurrencySection(),
+              // Taux de TVA — super admin seul : il change ce qui est
+              // déclaré sur chaque facture.
+              if (isSuper)
+                const _Section(
+                  title: 'TVA',
+                  subtitle: 'Taux appliqué aux PROCHAINES factures et '
+                      'tickets. Les prix restent TTC : le client paie le même '
+                      'montant, la facture détaille le HT et la TVA. Les '
+                      'factures déjà émises gardent leur taux.',
+                  child: _TvaReglage(),
+                ),
               // Récupération ORDINAIRE — gérant et super admin.
               //
               // Ne supprime rien : elle va chercher ce qui manque
@@ -1426,6 +1438,90 @@ class _VerificationVentesState extends State<_VerificationVentes> {
           if (b.absentes.length > 50)
             Text('… et ${b.absentes.length - 50} autre(s)',
                 style: BsType.body(12, color: BsColors.slate)),
+        ],
+      ],
+    );
+  }
+}
+
+/// Réglage du taux de TVA (super admin).
+class _TvaReglage extends ConsumerStatefulWidget {
+  const _TvaReglage();
+  @override
+  ConsumerState<_TvaReglage> createState() => _TvaReglageState();
+}
+
+class _TvaReglageState extends ConsumerState<_TvaReglage> {
+  final _saisie = TextEditingController();
+  int? _actuel;
+  String? _erreur;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(settingsRepoProvider).getTvaBp().then((bp) {
+      if (!mounted) return;
+      setState(() {
+        _actuel = bp;
+        _saisie.text = libelleTaux(bp).replaceAll(' %', '');
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _saisie.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enregistrer() async {
+    final bp = tauxDepuisSaisie(_saisie.text);
+    if (bp == null) {
+      setState(() => _erreur = 'Saisis un taux entre 0 et 50 (ex. 16).');
+      return;
+    }
+    await ref.read(settingsRepoProvider).setTvaBp(bp);
+    if (!mounted) return;
+    setState(() {
+      _actuel = bp;
+      _erreur = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text('TVA à ${libelleTaux(bp)} pour les prochaines factures.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 120,
+              child: TextField(
+                controller: _saisie,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(suffixText: '%'),
+                onSubmitted: (_) => _enregistrer(),
+              ),
+            ),
+            FilledButton(
+                onPressed: _actuel == null ? null : _enregistrer,
+                child: const Text('Enregistrer')),
+            if (_actuel != null)
+              Text('Taux actuel : ${libelleTaux(_actuel!)}',
+                  style: BsType.body(12, color: BsColors.slate)),
+          ],
+        ),
+        if (_erreur != null) ...[
+          const SizedBox(height: BsSpace.sm),
+          Text(_erreur!, style: BsType.body(12, color: BsColors.danger)),
         ],
       ],
     );

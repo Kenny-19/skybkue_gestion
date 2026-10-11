@@ -16,6 +16,7 @@ import 'backup_service.dart';
 import '../core/temps.dart';
 import '../core/horloge.dart';
 import '../core/devise.dart';
+import '../core/tva.dart';
 
 /// Représente une ligne dans un ticket 80 mm (facture ou aperçu).
 class _ReceiptLine {
@@ -218,7 +219,12 @@ class StayInvoiceData {
   /// Null → la ligne "Remise" reste affichée sans justification.
   final String? remiseLabel;
 
+  /// Taux de TVA de la facture, en points de base (1600 = 16 %), figé au
+  /// départ. Null : facture d'avant la TVA, réimprimée telle quelle.
+  final int? tvaBp;
+
   const StayInvoiceData({
+    this.tvaBp,
     required this.receiptNumber,
     required this.generatedAt,
     required this.guestFullName,
@@ -459,6 +465,7 @@ class PdfService {
         totalCents: s.totalCents,
         note: s.sale.note,
         showFooter: true,
+        tvaBp: s.sale.tvaBp,
       ),
     ));
     return doc.save();
@@ -495,6 +502,7 @@ class PdfService {
     DateTime? settledAt,
     bool showFooter = false,
     int guestCount = 1,
+    int? tvaBp,
   }) {
     // Construit le libellé "Table R4" façon référence : lettre = initiale
     // du lieu (R restaurant, T terrasse, H hôtel), suffixe = numéro salle
@@ -636,20 +644,46 @@ class PdfService {
           pw.Text(_money(0), style: const pw.TextStyle(fontSize: 8)),
         ]),
         pw.SizedBox(height: 4),
-        pw.Row(children: [
-          pw.Text('Exonéré de TVA (vente)',
-              style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
-          pw.Spacer(),
-          pw.Text(_money(0),
-              style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
-        ]),
-        pw.Row(children: [
-          pw.Text('Total des taxes',
-              style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
-          pw.Spacer(),
-          pw.Text(_money(0),
-              style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
-        ]),
+        // TVA : le prix est TTC, le ticket détaille ce qu'il contient. Une
+        // vente d'avant la TVA (tvaBp null) se réimprime telle qu'elle a
+        // été remise au client.
+        if (tvaBp == null) ...[
+          pw.Row(children: [
+            pw.Text('Exonéré de TVA (vente)',
+                style:
+                    const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+            pw.Spacer(),
+            pw.Text(_money(0),
+                style:
+                    const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+          ]),
+          pw.Row(children: [
+            pw.Text('Total des taxes',
+                style:
+                    const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+            pw.Spacer(),
+            pw.Text(_money(0),
+                style:
+                    const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+          ]),
+        ] else ...[
+          for (final (libelle, montant) in [
+            ('Total HT', detaillerTtc(totalCents, tvaBp).ht),
+            ('TVA ${libelleTaux(tvaBp)}', detaillerTtc(totalCents, tvaBp).tva),
+          ])
+            pw.Row(children: [
+              pw.Text(libelle,
+                  style: const pw.TextStyle(
+                      fontSize: 7, color: PdfColors.grey700)),
+              pw.Spacer(),
+              pw.Text(_money(montant),
+                  style: const pw.TextStyle(
+                      fontSize: 7, color: PdfColors.grey700)),
+            ]),
+          pw.Text('Prix TTC — TVA incluse',
+              style:
+                  const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600)),
+        ],
         pw.SizedBox(height: 4),
         pw.Row(children: [
           pw.Spacer(),
@@ -746,6 +780,8 @@ class PdfService {
   static Future<Uint8List> _buildCartPreview(List<CartPreviewLine> lines,
       DbPayment payment, String? serverName) async {
     final total = lines.fold<int>(0, (s, l) => s + l.unitPriceCents * l.qty);
+    // L'aperçu montre la TVA au taux du jour, comme le ticket encaissé.
+    final tvaBp = await SettingsRepo(AppDatabase.instance).getTvaBp();
     final doc = pw.Document(title: 'Aperçu ticket');
     doc.addPage(pw.Page(
       pageTheme: await _receiptPageTheme(),
@@ -759,6 +795,7 @@ class PdfService {
           for (final l in lines) _ReceiptLine(l.name, l.qty, l.unitPriceCents),
         ],
         totalCents: total,
+        tvaBp: tvaBp,
         previewNotice: 'APERÇU — vente non enregistrée tant que « Encaisser » '
             "n'est pas cliqué.",
       ),
@@ -1535,6 +1572,15 @@ class PdfService {
     return _buildStayInvoiceReceipt(d);
   }
 
+  /// Octets d'une facture de séjour, sans l'afficher — pour les tests et
+  /// les aperçus hors écran.
+  static Future<Uint8List> construireFactureSejour(StayInvoiceData d) =>
+      _buildStayInvoiceReceipt(d);
+
+  /// Octets d'un ticket de vente, sans l'afficher.
+  static Future<Uint8List> construireTicket(SaleWithLines s) =>
+      _buildInvoice(s);
+
   /// Layout facture calqué sur le reçu papier "SKY BLEU GUEST HOUSE" :
   /// header centré, 2 colonnes client/référence, table hébergement,
   /// bloc totaux à droite, footer légal.
@@ -1939,8 +1985,22 @@ class PdfService {
                           fontStyle: pw.FontStyle.italic,
                           color: PdfColors.grey700)),
                 ),
-              _totalsLine('Total',
+              _totalsLine(d.tvaBp == null ? 'Total' : 'Total TTC',
                   '${d.enDollars(d.totalCents)}  ·  ${_money(d.totalCents)}'),
+              // Ce que le total contient : le prix est TTC, la facture le
+              // détaille sans l'augmenter.
+              if (d.tvaBp != null) ...[
+                _totalsLine(
+                    'dont HT',
+                    '${d.enDollars(detaillerTtc(d.totalCents, d.tvaBp!).ht)}'
+                        '  ·  ${_money(detaillerTtc(d.totalCents, d.tvaBp!).ht)}',
+                    bg: PdfColors.grey100),
+                _totalsLine(
+                    'dont TVA ${libelleTaux(d.tvaBp!)}',
+                    '${d.enDollars(detaillerTtc(d.totalCents, d.tvaBp!).tva)}'
+                        '  ·  ${_money(detaillerTtc(d.totalCents, d.tvaBp!).tva)}',
+                    bg: PdfColors.grey100),
+              ],
               _totalsLine(
                   'Reste à payer',
                   '${d.enDollars(d.remainingCents)}  ·  '
@@ -1970,8 +2030,10 @@ class PdfService {
 
   static pw.Widget _totalsLine(String label, String value,
       {PdfColor? bg, bool bold = false, bool big = false}) {
+    // La couleur passe par la décoration SEULEMENT : les deux à la fois
+    // lèvent une assertion (invisible en version publiée, bloquante en
+    // développement dès qu'une ligne a un fond — acompte, détail TVA).
     return pw.Container(
-      color: bg,
       padding: pw.EdgeInsets.symmetric(horizontal: 8, vertical: big ? 8 : 5),
       decoration: pw.BoxDecoration(
         color: bg,

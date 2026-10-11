@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 
 import '../core/auth.dart';
 import '../core/identite.dart';
+import '../core/tva.dart';
 import '../core/room_type.dart';
 import '../core/discount.dart';
 import '../core/format.dart';
@@ -71,6 +72,16 @@ class SettingsRepo {
       [rate],
     );
   }
+
+  static const String kTva = 'tva_taux_bp';
+
+  /// Taux de TVA courant, en points de base (1600 = 16 %).
+  Future<int> getTvaBp() async =>
+      int.tryParse(await _get(kTva) ?? '') ?? kTvaDefautBp;
+
+  /// Change le taux de TVA des PROCHAINES factures. Les factures déjà
+  /// émises gardent le leur, figé à l'émission.
+  Future<void> setTvaBp(int bp) => _set(kTva, bp.toString());
 
   /// Stream réactif pour mettre à jour l'UI dès qu'un admin change le taux.
   Stream<double> watchRate() {
@@ -984,11 +995,14 @@ class StaysRepo {
       );
     }
 
+    final tvaBp = await SettingsRepo(_db).getTvaBp();
     final id = await _db.transaction(() async {
       final id = await _db.isolerChambres(ouvert, chambres);
       await (_db.update(_db.stays)..where((s) => s.id.equals(id))).write(
         StaysCompanion(
           statut: const Value(DbStayStatus.facture),
+          // TVA du jour, figée comme le taux de change.
+          tvaBp: Value(tvaBp),
           // Le taux du jour, figé ici et plus jamais touché.
           fcPerUsdCents: Value(tauxCourantEnCents()),
           receiptNumber: Value(receiptNumber),
@@ -1131,12 +1145,14 @@ class StaysRepo {
             })>
         rooms,
   }) async {
+    final tvaBp = await SettingsRepo(_db).getTvaBp();
     return _db.transaction(() async {
       final stayId = await _db.into(_db.stays).insert(StaysCompanion.insert(
             // Le taux du jour, figé ici et plus jamais touché. Sans lui,
             // réimprimer cette facture dans six mois annoncerait un
             // total en dollars que le client n'a jamais payé.
             fcPerUsdCents: Value(tauxCourantEnCents()),
+            tvaBp: Value(tvaBp),
             receiptNumber: receiptNumber,
             reservationNumber: reservationNumber == null
                 ? const Value.absent()
@@ -1709,6 +1725,9 @@ class SalesRepo {
     String? note,
   }) async {
     final sorties = <int, int>{};
+    // Le taux de TVA du jour, figé sur la vente : un ticket réimprimé plus
+    // tard doit montrer la TVA réellement facturée.
+    final tvaBp = await SettingsRepo(_db).getTvaBp();
     return _db.transaction(() async {
       // Consommation mise sur une chambre : rattachée au séjour EN COURS
       // de cette chambre (v27). Le numéro de chambre seul ne distinguait
@@ -1730,6 +1749,7 @@ class SalesRepo {
             onCredit: Value(onCredit),
             note: Value(note),
             stayId: Value(sejour),
+            tvaBp: Value(tvaBp),
           ));
       for (final entry in articleQuantities.entries) {
         final art = await (_db.select(_db.articles)

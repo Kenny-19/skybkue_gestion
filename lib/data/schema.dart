@@ -256,6 +256,10 @@ class Stays extends Table {
   /// le serveur rangeait les séjours par numéro local).
   TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
 
+  /// Taux de TVA de la facture, en points de base, figé au départ (v30).
+  /// Null : facture d'avant la TVA, réimprimée telle qu'elle a été remise.
+  IntColumn get tvaBp => integer().nullable()();
+
   /// Où en est le séjour. Les séjours d'avant la v27 n'existaient qu'une
   /// fois facturés : « facture » par défaut.
   IntColumn get statut => intEnum<DbStayStatus>()
@@ -441,6 +445,11 @@ class Sales extends Table {
   /// Pourquoi la dernière tentative a échoué. Gardé en clair : c'est la
   /// première chose qu'on regarde quand une caisse ne remonte plus.
   TextColumn get syncError => text().nullable()();
+
+  /// Taux de TVA appliqué à cette vente, en points de base (1600 = 16 %),
+  /// figé à l'encaissement (v30). Null : vente d'avant la TVA — son
+  /// ticket se réimprime tel qu'il a été remis, sans détail de TVA.
+  IntColumn get tvaBp => integer().nullable()();
 
   /// Le séjour sur lequel cette consommation a été mise (v27). Remplace
   /// le rapprochement par numéro de chambre tapé, qui ne distinguait pas

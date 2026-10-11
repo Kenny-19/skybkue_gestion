@@ -1936,6 +1936,11 @@ class $StaysTable extends Stays with TableInfo<$StaysTable, Stay> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       clientDefault: nouvelUid);
+  static const VerificationMeta _tvaBpMeta = const VerificationMeta('tvaBp');
+  @override
+  late final GeneratedColumn<int> tvaBp = GeneratedColumn<int>(
+      'tva_bp', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   @override
   late final GeneratedColumnWithTypeConverter<DbStayStatus, int> statut =
       GeneratedColumn<int>('statut', aliasedName, false,
@@ -1975,6 +1980,7 @@ class $StaysTable extends Stays with TableInfo<$StaysTable, Stay> {
         extrasJson,
         clientVisitsAtCheckout,
         uid,
+        tvaBp,
         statut
       ];
   @override
@@ -2164,6 +2170,10 @@ class $StaysTable extends Stays with TableInfo<$StaysTable, Stay> {
       context.handle(
           _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
     }
+    if (data.containsKey('tva_bp')) {
+      context.handle(
+          _tvaBpMeta, tvaBp.isAcceptableOrUnknown(data['tva_bp']!, _tvaBpMeta));
+    }
     return context;
   }
 
@@ -2234,6 +2244,8 @@ class $StaysTable extends Stays with TableInfo<$StaysTable, Stay> {
           data['${effectivePrefix}client_visits_at_checkout'])!,
       uid: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}uid']),
+      tvaBp: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}tva_bp']),
       statut: $StaysTable.$converterstatut.fromSql(attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}statut'])!),
     );
@@ -2306,6 +2318,10 @@ class Stay extends DataClass implements Insertable<Stay> {
   /// le serveur rangeait les séjours par numéro local).
   final String? uid;
 
+  /// Taux de TVA de la facture, en points de base, figé au départ (v30).
+  /// Null : facture d'avant la TVA, réimprimée telle qu'elle a été remise.
+  final int? tvaBp;
+
   /// Où en est le séjour. Les séjours d'avant la v27 n'existaient qu'une
   /// fois facturés : « facture » par défaut.
   final DbStayStatus statut;
@@ -2340,6 +2356,7 @@ class Stay extends DataClass implements Insertable<Stay> {
       required this.extrasJson,
       required this.clientVisitsAtCheckout,
       this.uid,
+      this.tvaBp,
       required this.statut});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2399,6 +2416,9 @@ class Stay extends DataClass implements Insertable<Stay> {
     map['client_visits_at_checkout'] = Variable<int>(clientVisitsAtCheckout);
     if (!nullToAbsent || uid != null) {
       map['uid'] = Variable<String>(uid);
+    }
+    if (!nullToAbsent || tvaBp != null) {
+      map['tva_bp'] = Variable<int>(tvaBp);
     }
     {
       map['statut'] = Variable<int>($StaysTable.$converterstatut.toSql(statut));
@@ -2460,6 +2480,8 @@ class Stay extends DataClass implements Insertable<Stay> {
       extrasJson: Value(extrasJson),
       clientVisitsAtCheckout: Value(clientVisitsAtCheckout),
       uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
+      tvaBp:
+          tvaBp == null && nullToAbsent ? const Value.absent() : Value(tvaBp),
       statut: Value(statut),
     );
   }
@@ -2500,6 +2522,7 @@ class Stay extends DataClass implements Insertable<Stay> {
       clientVisitsAtCheckout:
           serializer.fromJson<int>(json['clientVisitsAtCheckout']),
       uid: serializer.fromJson<String?>(json['uid']),
+      tvaBp: serializer.fromJson<int?>(json['tvaBp']),
       statut: $StaysTable.$converterstatut
           .fromJson(serializer.fromJson<int>(json['statut'])),
     );
@@ -2538,6 +2561,7 @@ class Stay extends DataClass implements Insertable<Stay> {
       'extrasJson': serializer.toJson<String>(extrasJson),
       'clientVisitsAtCheckout': serializer.toJson<int>(clientVisitsAtCheckout),
       'uid': serializer.toJson<String?>(uid),
+      'tvaBp': serializer.toJson<int?>(tvaBp),
       'statut':
           serializer.toJson<int>($StaysTable.$converterstatut.toJson(statut)),
     };
@@ -2574,6 +2598,7 @@ class Stay extends DataClass implements Insertable<Stay> {
           String? extrasJson,
           int? clientVisitsAtCheckout,
           Value<String?> uid = const Value.absent(),
+          Value<int?> tvaBp = const Value.absent(),
           DbStayStatus? statut}) =>
       Stay(
         id: id ?? this.id,
@@ -2614,6 +2639,7 @@ class Stay extends DataClass implements Insertable<Stay> {
         clientVisitsAtCheckout:
             clientVisitsAtCheckout ?? this.clientVisitsAtCheckout,
         uid: uid.present ? uid.value : this.uid,
+        tvaBp: tvaBp.present ? tvaBp.value : this.tvaBp,
         statut: statut ?? this.statut,
       );
   Stay copyWithCompanion(StaysCompanion data) {
@@ -2684,6 +2710,7 @@ class Stay extends DataClass implements Insertable<Stay> {
           ? data.clientVisitsAtCheckout.value
           : this.clientVisitsAtCheckout,
       uid: data.uid.present ? data.uid.value : this.uid,
+      tvaBp: data.tvaBp.present ? data.tvaBp.value : this.tvaBp,
       statut: data.statut.present ? data.statut.value : this.statut,
     );
   }
@@ -2721,6 +2748,7 @@ class Stay extends DataClass implements Insertable<Stay> {
           ..write('extrasJson: $extrasJson, ')
           ..write('clientVisitsAtCheckout: $clientVisitsAtCheckout, ')
           ..write('uid: $uid, ')
+          ..write('tvaBp: $tvaBp, ')
           ..write('statut: $statut')
           ..write(')'))
         .toString();
@@ -2758,6 +2786,7 @@ class Stay extends DataClass implements Insertable<Stay> {
         extrasJson,
         clientVisitsAtCheckout,
         uid,
+        tvaBp,
         statut
       ]);
   @override
@@ -2794,6 +2823,7 @@ class Stay extends DataClass implements Insertable<Stay> {
           other.extrasJson == this.extrasJson &&
           other.clientVisitsAtCheckout == this.clientVisitsAtCheckout &&
           other.uid == this.uid &&
+          other.tvaBp == this.tvaBp &&
           other.statut == this.statut);
 }
 
@@ -2828,6 +2858,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
   final Value<String> extrasJson;
   final Value<int> clientVisitsAtCheckout;
   final Value<String?> uid;
+  final Value<int?> tvaBp;
   final Value<DbStayStatus> statut;
   const StaysCompanion({
     this.id = const Value.absent(),
@@ -2860,6 +2891,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
     this.extrasJson = const Value.absent(),
     this.clientVisitsAtCheckout = const Value.absent(),
     this.uid = const Value.absent(),
+    this.tvaBp = const Value.absent(),
     this.statut = const Value.absent(),
   });
   StaysCompanion.insert({
@@ -2893,6 +2925,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
     this.extrasJson = const Value.absent(),
     this.clientVisitsAtCheckout = const Value.absent(),
     this.uid = const Value.absent(),
+    this.tvaBp = const Value.absent(),
     this.statut = const Value.absent(),
   })  : receiptNumber = Value(receiptNumber),
         checkinAt = Value(checkinAt),
@@ -2930,6 +2963,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
     Expression<String>? extrasJson,
     Expression<int>? clientVisitsAtCheckout,
     Expression<String>? uid,
+    Expression<int>? tvaBp,
     Expression<int>? statut,
   }) {
     return RawValuesInsertable({
@@ -2964,6 +2998,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
       if (clientVisitsAtCheckout != null)
         'client_visits_at_checkout': clientVisitsAtCheckout,
       if (uid != null) 'uid': uid,
+      if (tvaBp != null) 'tva_bp': tvaBp,
       if (statut != null) 'statut': statut,
     });
   }
@@ -2999,6 +3034,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
       Value<String>? extrasJson,
       Value<int>? clientVisitsAtCheckout,
       Value<String?>? uid,
+      Value<int?>? tvaBp,
       Value<DbStayStatus>? statut}) {
     return StaysCompanion(
       id: id ?? this.id,
@@ -3032,6 +3068,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
       clientVisitsAtCheckout:
           clientVisitsAtCheckout ?? this.clientVisitsAtCheckout,
       uid: uid ?? this.uid,
+      tvaBp: tvaBp ?? this.tvaBp,
       statut: statut ?? this.statut,
     );
   }
@@ -3130,6 +3167,9 @@ class StaysCompanion extends UpdateCompanion<Stay> {
     if (uid.present) {
       map['uid'] = Variable<String>(uid.value);
     }
+    if (tvaBp.present) {
+      map['tva_bp'] = Variable<int>(tvaBp.value);
+    }
     if (statut.present) {
       map['statut'] =
           Variable<int>($StaysTable.$converterstatut.toSql(statut.value));
@@ -3170,6 +3210,7 @@ class StaysCompanion extends UpdateCompanion<Stay> {
           ..write('extrasJson: $extrasJson, ')
           ..write('clientVisitsAtCheckout: $clientVisitsAtCheckout, ')
           ..write('uid: $uid, ')
+          ..write('tvaBp: $tvaBp, ')
           ..write('statut: $statut')
           ..write(')'))
         .toString();
@@ -4089,6 +4130,11 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
   late final GeneratedColumn<String> syncError = GeneratedColumn<String>(
       'sync_error', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _tvaBpMeta = const VerificationMeta('tvaBp');
+  @override
+  late final GeneratedColumn<int> tvaBp = GeneratedColumn<int>(
+      'tva_bp', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _stayIdMeta = const VerificationMeta('stayId');
   @override
   late final GeneratedColumn<int> stayId = GeneratedColumn<int>(
@@ -4119,6 +4165,7 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
         syncedAt,
         syncAttempts,
         syncError,
+        tvaBp,
         stayId,
         uid
       ];
@@ -4185,6 +4232,10 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
       context.handle(_syncErrorMeta,
           syncError.isAcceptableOrUnknown(data['sync_error']!, _syncErrorMeta));
     }
+    if (data.containsKey('tva_bp')) {
+      context.handle(
+          _tvaBpMeta, tvaBp.isAcceptableOrUnknown(data['tva_bp']!, _tvaBpMeta));
+    }
     if (data.containsKey('stay_id')) {
       context.handle(_stayIdMeta,
           stayId.isAcceptableOrUnknown(data['stay_id']!, _stayIdMeta));
@@ -4230,6 +4281,8 @@ class $SalesTable extends Sales with TableInfo<$SalesTable, Sale> {
           .read(DriftSqlType.int, data['${effectivePrefix}sync_attempts'])!,
       syncError: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}sync_error']),
+      tvaBp: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}tva_bp']),
       stayId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}stay_id']),
       uid: attachedDatabase.typeMapping
@@ -4270,6 +4323,11 @@ class Sale extends DataClass implements Insertable<Sale> {
   /// première chose qu'on regarde quand une caisse ne remonte plus.
   final String? syncError;
 
+  /// Taux de TVA appliqué à cette vente, en points de base (1600 = 16 %),
+  /// figé à l'encaissement (v30). Null : vente d'avant la TVA — son
+  /// ticket se réimprime tel qu'il a été remis, sans détail de TVA.
+  final int? tvaBp;
+
   /// Le séjour sur lequel cette consommation a été mise (v27). Remplace
   /// le rapprochement par numéro de chambre tapé, qui ne distinguait pas
   /// deux clients successifs de la même chambre. Null pour une vente
@@ -4297,6 +4355,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       this.syncedAt,
       required this.syncAttempts,
       this.syncError,
+      this.tvaBp,
       this.stayId,
       this.uid});
   @override
@@ -4335,6 +4394,9 @@ class Sale extends DataClass implements Insertable<Sale> {
     if (!nullToAbsent || syncError != null) {
       map['sync_error'] = Variable<String>(syncError);
     }
+    if (!nullToAbsent || tvaBp != null) {
+      map['tva_bp'] = Variable<int>(tvaBp);
+    }
     if (!nullToAbsent || stayId != null) {
       map['stay_id'] = Variable<int>(stayId);
     }
@@ -4371,6 +4433,8 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncError: syncError == null && nullToAbsent
           ? const Value.absent()
           : Value(syncError),
+      tvaBp:
+          tvaBp == null && nullToAbsent ? const Value.absent() : Value(tvaBp),
       stayId:
           stayId == null && nullToAbsent ? const Value.absent() : Value(stayId),
       uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
@@ -4396,6 +4460,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
       syncAttempts: serializer.fromJson<int>(json['syncAttempts']),
       syncError: serializer.fromJson<String?>(json['syncError']),
+      tvaBp: serializer.fromJson<int?>(json['tvaBp']),
       stayId: serializer.fromJson<int?>(json['stayId']),
       uid: serializer.fromJson<String?>(json['uid']),
     );
@@ -4419,6 +4484,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
       'syncAttempts': serializer.toJson<int>(syncAttempts),
       'syncError': serializer.toJson<String?>(syncError),
+      'tvaBp': serializer.toJson<int?>(tvaBp),
       'stayId': serializer.toJson<int?>(stayId),
       'uid': serializer.toJson<String?>(uid),
     };
@@ -4438,6 +4504,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           Value<DateTime?> syncedAt = const Value.absent(),
           int? syncAttempts,
           Value<String?> syncError = const Value.absent(),
+          Value<int?> tvaBp = const Value.absent(),
           Value<int?> stayId = const Value.absent(),
           Value<String?> uid = const Value.absent()}) =>
       Sale(
@@ -4456,6 +4523,7 @@ class Sale extends DataClass implements Insertable<Sale> {
         syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
         syncAttempts: syncAttempts ?? this.syncAttempts,
         syncError: syncError.present ? syncError.value : this.syncError,
+        tvaBp: tvaBp.present ? tvaBp.value : this.tvaBp,
         stayId: stayId.present ? stayId.value : this.stayId,
         uid: uid.present ? uid.value : this.uid,
       );
@@ -4481,6 +4549,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           ? data.syncAttempts.value
           : this.syncAttempts,
       syncError: data.syncError.present ? data.syncError.value : this.syncError,
+      tvaBp: data.tvaBp.present ? data.tvaBp.value : this.tvaBp,
       stayId: data.stayId.present ? data.stayId.value : this.stayId,
       uid: data.uid.present ? data.uid.value : this.uid,
     );
@@ -4502,6 +4571,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           ..write('syncedAt: $syncedAt, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
+          ..write('tvaBp: $tvaBp, ')
           ..write('stayId: $stayId, ')
           ..write('uid: $uid')
           ..write(')'))
@@ -4523,6 +4593,7 @@ class Sale extends DataClass implements Insertable<Sale> {
       syncedAt,
       syncAttempts,
       syncError,
+      tvaBp,
       stayId,
       uid);
   @override
@@ -4542,6 +4613,7 @@ class Sale extends DataClass implements Insertable<Sale> {
           other.syncedAt == this.syncedAt &&
           other.syncAttempts == this.syncAttempts &&
           other.syncError == this.syncError &&
+          other.tvaBp == this.tvaBp &&
           other.stayId == this.stayId &&
           other.uid == this.uid);
 }
@@ -4560,6 +4632,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
   final Value<DateTime?> syncedAt;
   final Value<int> syncAttempts;
   final Value<String?> syncError;
+  final Value<int?> tvaBp;
   final Value<int?> stayId;
   final Value<String?> uid;
   const SalesCompanion({
@@ -4576,6 +4649,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     this.syncedAt = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.tvaBp = const Value.absent(),
     this.stayId = const Value.absent(),
     this.uid = const Value.absent(),
   });
@@ -4593,6 +4667,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     this.syncedAt = const Value.absent(),
     this.syncAttempts = const Value.absent(),
     this.syncError = const Value.absent(),
+    this.tvaBp = const Value.absent(),
     this.stayId = const Value.absent(),
     this.uid = const Value.absent(),
   })  : soldAt = Value(soldAt),
@@ -4611,6 +4686,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     Expression<DateTime>? syncedAt,
     Expression<int>? syncAttempts,
     Expression<String>? syncError,
+    Expression<int>? tvaBp,
     Expression<int>? stayId,
     Expression<String>? uid,
   }) {
@@ -4628,6 +4704,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       if (syncedAt != null) 'synced_at': syncedAt,
       if (syncAttempts != null) 'sync_attempts': syncAttempts,
       if (syncError != null) 'sync_error': syncError,
+      if (tvaBp != null) 'tva_bp': tvaBp,
       if (stayId != null) 'stay_id': stayId,
       if (uid != null) 'uid': uid,
     });
@@ -4647,6 +4724,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       Value<DateTime?>? syncedAt,
       Value<int>? syncAttempts,
       Value<String?>? syncError,
+      Value<int?>? tvaBp,
       Value<int?>? stayId,
       Value<String?>? uid}) {
     return SalesCompanion(
@@ -4663,6 +4741,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
       syncedAt: syncedAt ?? this.syncedAt,
       syncAttempts: syncAttempts ?? this.syncAttempts,
       syncError: syncError ?? this.syncError,
+      tvaBp: tvaBp ?? this.tvaBp,
       stayId: stayId ?? this.stayId,
       uid: uid ?? this.uid,
     );
@@ -4712,6 +4791,9 @@ class SalesCompanion extends UpdateCompanion<Sale> {
     if (syncError.present) {
       map['sync_error'] = Variable<String>(syncError.value);
     }
+    if (tvaBp.present) {
+      map['tva_bp'] = Variable<int>(tvaBp.value);
+    }
     if (stayId.present) {
       map['stay_id'] = Variable<int>(stayId.value);
     }
@@ -4737,6 +4819,7 @@ class SalesCompanion extends UpdateCompanion<Sale> {
           ..write('syncedAt: $syncedAt, ')
           ..write('syncAttempts: $syncAttempts, ')
           ..write('syncError: $syncError, ')
+          ..write('tvaBp: $tvaBp, ')
           ..write('stayId: $stayId, ')
           ..write('uid: $uid')
           ..write(')'))
@@ -9438,6 +9521,7 @@ typedef $$StaysTableCreateCompanionBuilder = StaysCompanion Function({
   Value<String> extrasJson,
   Value<int> clientVisitsAtCheckout,
   Value<String?> uid,
+  Value<int?> tvaBp,
   Value<DbStayStatus> statut,
 });
 typedef $$StaysTableUpdateCompanionBuilder = StaysCompanion Function({
@@ -9471,6 +9555,7 @@ typedef $$StaysTableUpdateCompanionBuilder = StaysCompanion Function({
   Value<String> extrasJson,
   Value<int> clientVisitsAtCheckout,
   Value<String?> uid,
+  Value<int?> tvaBp,
   Value<DbStayStatus> statut,
 });
 
@@ -9637,6 +9722,9 @@ class $$StaysTableFilterComposer extends Composer<_$AppDatabase, $StaysTable> {
 
   ColumnFilters<String> get uid => $composableBuilder(
       column: $table.uid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get tvaBp => $composableBuilder(
+      column: $table.tvaBp, builder: (column) => ColumnFilters(column));
 
   ColumnWithTypeConverterFilters<DbStayStatus, DbStayStatus, int> get statut =>
       $composableBuilder(
@@ -9839,6 +9927,9 @@ class $$StaysTableOrderingComposer
   ColumnOrderings<String> get uid => $composableBuilder(
       column: $table.uid, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get tvaBp => $composableBuilder(
+      column: $table.tvaBp, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get statut => $composableBuilder(
       column: $table.statut, builder: (column) => ColumnOrderings(column));
 }
@@ -9941,6 +10032,9 @@ class $$StaysTableAnnotationComposer
 
   GeneratedColumn<String> get uid =>
       $composableBuilder(column: $table.uid, builder: (column) => column);
+
+  GeneratedColumn<int> get tvaBp =>
+      $composableBuilder(column: $table.tvaBp, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<DbStayStatus, int> get statut =>
       $composableBuilder(column: $table.statut, builder: (column) => column);
@@ -10087,6 +10181,7 @@ class $$StaysTableTableManager extends RootTableManager<
             Value<String> extrasJson = const Value.absent(),
             Value<int> clientVisitsAtCheckout = const Value.absent(),
             Value<String?> uid = const Value.absent(),
+            Value<int?> tvaBp = const Value.absent(),
             Value<DbStayStatus> statut = const Value.absent(),
           }) =>
               StaysCompanion(
@@ -10120,6 +10215,7 @@ class $$StaysTableTableManager extends RootTableManager<
             extrasJson: extrasJson,
             clientVisitsAtCheckout: clientVisitsAtCheckout,
             uid: uid,
+            tvaBp: tvaBp,
             statut: statut,
           ),
           createCompanionCallback: ({
@@ -10153,6 +10249,7 @@ class $$StaysTableTableManager extends RootTableManager<
             Value<String> extrasJson = const Value.absent(),
             Value<int> clientVisitsAtCheckout = const Value.absent(),
             Value<String?> uid = const Value.absent(),
+            Value<int?> tvaBp = const Value.absent(),
             Value<DbStayStatus> statut = const Value.absent(),
           }) =>
               StaysCompanion.insert(
@@ -10186,6 +10283,7 @@ class $$StaysTableTableManager extends RootTableManager<
             extrasJson: extrasJson,
             clientVisitsAtCheckout: clientVisitsAtCheckout,
             uid: uid,
+            tvaBp: tvaBp,
             statut: statut,
           ),
           withReferenceMapper: (p0) => p0
@@ -10793,6 +10891,7 @@ typedef $$SalesTableCreateCompanionBuilder = SalesCompanion Function({
   Value<DateTime?> syncedAt,
   Value<int> syncAttempts,
   Value<String?> syncError,
+  Value<int?> tvaBp,
   Value<int?> stayId,
   Value<String?> uid,
 });
@@ -10810,6 +10909,7 @@ typedef $$SalesTableUpdateCompanionBuilder = SalesCompanion Function({
   Value<DateTime?> syncedAt,
   Value<int> syncAttempts,
   Value<String?> syncError,
+  Value<int?> tvaBp,
   Value<int?> stayId,
   Value<String?> uid,
 });
@@ -10922,6 +11022,9 @@ class $$SalesTableFilterComposer extends Composer<_$AppDatabase, $SalesTable> {
 
   ColumnFilters<String> get syncError => $composableBuilder(
       column: $table.syncError, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get tvaBp => $composableBuilder(
+      column: $table.tvaBp, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get uid => $composableBuilder(
       column: $table.uid, builder: (column) => ColumnFilters(column));
@@ -11056,6 +11159,9 @@ class $$SalesTableOrderingComposer
   ColumnOrderings<String> get syncError => $composableBuilder(
       column: $table.syncError, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get tvaBp => $composableBuilder(
+      column: $table.tvaBp, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get uid => $composableBuilder(
       column: $table.uid, builder: (column) => ColumnOrderings(column));
 
@@ -11144,6 +11250,9 @@ class $$SalesTableAnnotationComposer
 
   GeneratedColumn<String> get syncError =>
       $composableBuilder(column: $table.syncError, builder: (column) => column);
+
+  GeneratedColumn<int> get tvaBp =>
+      $composableBuilder(column: $table.tvaBp, builder: (column) => column);
 
   GeneratedColumn<String> get uid =>
       $composableBuilder(column: $table.uid, builder: (column) => column);
@@ -11271,6 +11380,7 @@ class $$SalesTableTableManager extends RootTableManager<
             Value<DateTime?> syncedAt = const Value.absent(),
             Value<int> syncAttempts = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
+            Value<int?> tvaBp = const Value.absent(),
             Value<int?> stayId = const Value.absent(),
             Value<String?> uid = const Value.absent(),
           }) =>
@@ -11288,6 +11398,7 @@ class $$SalesTableTableManager extends RootTableManager<
             syncedAt: syncedAt,
             syncAttempts: syncAttempts,
             syncError: syncError,
+            tvaBp: tvaBp,
             stayId: stayId,
             uid: uid,
           ),
@@ -11305,6 +11416,7 @@ class $$SalesTableTableManager extends RootTableManager<
             Value<DateTime?> syncedAt = const Value.absent(),
             Value<int> syncAttempts = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
+            Value<int?> tvaBp = const Value.absent(),
             Value<int?> stayId = const Value.absent(),
             Value<String?> uid = const Value.absent(),
           }) =>
@@ -11322,6 +11434,7 @@ class $$SalesTableTableManager extends RootTableManager<
             syncedAt: syncedAt,
             syncAttempts: syncAttempts,
             syncError: syncError,
+            tvaBp: tvaBp,
             stayId: stayId,
             uid: uid,
           ),

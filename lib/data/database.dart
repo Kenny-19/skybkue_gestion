@@ -41,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -319,6 +319,15 @@ class AppDatabase extends _$AppDatabase {
           // v29 : chambre modifiée ici, pas encore confirmée par le serveur.
           if (from < 29 && await _tableExists('rooms')) {
             await _addColumnIfMissing(m, rooms, rooms.pendingSince);
+          }
+          // v30 : TVA figée sur chaque vente et chaque facture de séjour.
+          if (from < 30) {
+            if (await _tableExists('sales')) {
+              await _addColumnIfMissing(m, sales, sales.tvaBp);
+            }
+            if (await _tableExists('stays')) {
+              await _addColumnIfMissing(m, stays, stays.tvaBp);
+            }
           }
         },
         beforeOpen: (details) async {

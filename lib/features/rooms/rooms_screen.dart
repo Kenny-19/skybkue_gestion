@@ -626,8 +626,11 @@ class RoomsScreen extends ConsumerWidget {
       final receiptNumber = 'FCT$seq/${now.month}/${now.year}';
       final reservationNumber = 'RSV$seq/${now.month}/${now.year}';
       final me = ref.read(authProvider).user;
+      // Taux de TVA du jour : le même que celui figé sur le séjour.
+      final tvaBp = await ref.read(settingsRepoProvider).getTvaBp();
 
       final data = StayInvoiceData(
+        tvaBp: tvaBp,
         receiptNumber: receiptNumber,
         reservationNumber: reservationNumber,
         stayGroup: room.stayGroup,

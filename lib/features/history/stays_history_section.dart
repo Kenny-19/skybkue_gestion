@@ -12,6 +12,7 @@ import '../../core/format.dart';
 import '../../services/pdf_service.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../../widgets/liste_carte.dart';
 import '../../core/temps.dart';
 
 /// Section "Séjours facturés" dans l'historique — liste les check-out
@@ -22,51 +23,50 @@ class StaysHistorySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(recentStaysProvider);
+    // Un SLIVER : la section vit dans le défilement de l'historique, et
+    // seuls les séjours à l'écran sont construits.
     return async.when(
-      loading: () => const SizedBox.shrink(),
-      error: (e, _) => Padding(
-        padding: const EdgeInsets.all(BsSpace.xl),
-        child: Text('Erreur séjours : $e',
-            style: BsType.body(11, color: BsColors.danger)),
+      loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(BsSpace.xl),
+          child: Text('Erreur séjours : $e',
+              style: BsType.body(11, color: BsColors.danger)),
+        ),
       ),
       data: (stays) {
-        if (stays.isEmpty) return const SizedBox.shrink();
+        if (stays.isEmpty) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
         final total = stays.fold<int>(0, (s, e) => s + e.totalCents);
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
+        return SliverCarteListe(
+          marge: const EdgeInsets.fromLTRB(
               BsSpace.xl, BsSpace.md, BsSpace.xl, BsSpace.lg),
-          child: Container(
-            decoration: BoxDecoration(
-              color: BsColors.paper,
-              border: Border.all(color: BsColors.line),
-              borderRadius: BorderRadius.circular(BsRadius.md),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: BsSpace.lg, vertical: BsSpace.md),
-                  child: Row(children: [
-                    const Icon(Icons.hotel_outlined,
-                        size: 16, color: BsColors.sunrise),
-                    const SizedBox(width: 8),
-                    Text('SÉJOURS FACTURÉS',
-                        style: BsType.eyebrow(color: BsColors.sunrise)),
-                    const Spacer(),
-                    Text('${stays.length} séjour(s) · ${moneyCents(total)}',
-                        style: BsType.body(11,
-                            w: FontWeight.w600, color: BsColors.slate)),
-                  ]),
-                ),
-                const Divider(height: 1, color: BsColors.line),
-                for (int i = 0; i < stays.length; i++)
-                  _StayRow(
-                    stay: stays[i],
-                    last: i == stays.length - 1,
-                  ),
-              ],
-            ),
+          entete: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: BsSpace.lg, vertical: BsSpace.md),
+                child: Row(children: [
+                  const Icon(Icons.hotel_outlined,
+                      size: 16, color: BsColors.sunrise),
+                  const SizedBox(width: 8),
+                  Text('SÉJOURS FACTURÉS',
+                      style: BsType.eyebrow(color: BsColors.sunrise)),
+                  const Spacer(),
+                  Text('${stays.length} séjour(s) · ${moneyCents(total)}',
+                      style: BsType.body(11,
+                          w: FontWeight.w600, color: BsColors.slate)),
+                ]),
+              ),
+              const Divider(height: 1, color: BsColors.line),
+            ],
+          ),
+          itemCount: stays.length,
+          itemBuilder: (context, i) => _StayRow(
+            stay: stays[i],
+            last: i == stays.length - 1,
           ),
         );
       },

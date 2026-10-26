@@ -11,6 +11,7 @@ import '../../data/providers.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../../widgets/liste_carte.dart';
 import '../../core/temps.dart';
 
 /// Fichier client / fidélité.
@@ -18,6 +19,10 @@ import '../../core/temps.dart';
 /// - Liste triable par dernière visite, séjours, dépenses.
 /// - Filtre par nom / téléphone.
 /// - Fiche client détaillée en dialog (édition + suppression super admin).
+/// Colonne des actions, en-tête et lignes. Deux boutons d'icône de 48 :
+/// à 80, celui de suppression (super admin) débordait en rayures.
+const double _largeurActions = 96;
+
 class ClientsScreen extends ConsumerStatefulWidget {
   const ClientsScreen({super.key});
   @override
@@ -58,18 +63,20 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
         final loyal = list.where((c) => c.visitsCount >= 2).length;
         final totalSpent = list.fold<int>(0, (s, c) => s + c.totalSpentCents);
 
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PageHeader(
+        // Liste paresseuse : seuls les clients à l'écran sont construits.
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: PageHeader(
                 eyebrow: 'Fidélité',
                 title: 'Fichier client',
                 subtitle:
                     '${list.length} client(s) · $loyal fidèle(s) · dépensé total ${moneyCents(totalSpent)}',
                 actions: const [],
               ),
-              Padding(
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: BsSpace.xl),
                 child: Row(children: [
                   Expanded(
@@ -101,43 +108,31 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                   ),
                 ]),
               ),
-              const SizedBox(height: BsSpace.md),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: BsSpace.xl),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: BsColors.paper,
-                    borderRadius: BorderRadius.circular(BsRadius.md),
-                    border: Border.all(color: BsColors.line),
-                  ),
-                  child: Column(children: [
-                    _headerRow(),
-                    if (list.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Center(
-                          child: Text(
-                              q.isEmpty
-                                  ? 'Aucun client enregistré. Fais un check-in ou une vente POS pour créer le premier.'
-                                  : 'Aucun résultat pour « ${_search.text} ».',
-                              style: BsType.body(12, color: BsColors.slate)),
-                        ),
-                      )
-                    else
-                      for (int i = 0; i < list.length; i++)
-                        _ClientRow(
-                          client: list[i],
-                          last: i == list.length - 1,
-                          canDelete: perms.canDeleteAccounts,
-                          onOpen: () => _openDetail(list[i]),
-                          onDelete: () => _confirmDelete(list[i]),
-                        ),
-                  ]),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: BsSpace.md)),
+            SliverCarteListe(
+              entete: _headerRow(),
+              vide: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Text(
+                      q.isEmpty
+                          ? 'Aucun client enregistré. Fais un check-in ou une vente POS pour créer le premier.'
+                          : 'Aucun résultat pour « ${_search.text} ».',
+                      style: BsType.body(12, color: BsColors.slate)),
                 ),
               ),
-              const SizedBox(height: BsSpace.xxl),
-            ],
-          ),
+              itemCount: list.length,
+              itemBuilder: (context, i) => _ClientRow(
+                client: list[i],
+                last: i == list.length - 1,
+                canDelete: perms.canDeleteAccounts,
+                onOpen: () => _openDetail(list[i]),
+                onDelete: () => _confirmDelete(list[i]),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: BsSpace.xxl)),
+          ],
         );
       },
     );
@@ -174,7 +169,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
           Expanded(flex: 2, child: Text('DÉPENSÉ', style: BsType.eyebrow())),
           Expanded(
               flex: 3, child: Text('DERNIÈRE VISITE', style: BsType.eyebrow())),
-          const SizedBox(width: 80),
+          const SizedBox(width: _largeurActions),
         ]),
       );
 
@@ -309,7 +304,7 @@ class _ClientRow extends StatelessWidget {
                 style: BsType.body(12, color: BsColors.slate)),
           ),
           SizedBox(
-            width: 80,
+            width: _largeurActions,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [

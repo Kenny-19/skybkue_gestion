@@ -20,6 +20,7 @@ import '../../services/supply_requests_service.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../../widgets/liste_carte.dart';
 
 /// Largeur de la colonne des actions, partagée par l'en-tête et les
 /// lignes pour que tout reste aligné.
@@ -39,11 +40,11 @@ class StockScreen extends ConsumerWidget {
         final low = items
             .where((a) => a.trackStock && a.stockQty <= a.threshold)
             .length;
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PageHeader(
+        // Liste paresseuse : seuls les produits à l'écran sont construits.
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: PageHeader(
                 eyebrow: 'Stock & Produits',
                 title: 'Gestion des produits',
                 subtitle: items.isEmpty
@@ -57,44 +58,31 @@ class StockScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (items.isEmpty)
-                Padding(
+            ),
+            if (items.isEmpty)
+              SliverAGauche(
+                child: Padding(
                   padding: const EdgeInsets.all(BsSpace.xl),
                   child: _EmptyState(),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: BsSpace.xl),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: BsColors.paper,
-                      border: Border.all(color: BsColors.line),
-                      borderRadius: BorderRadius.circular(BsRadius.md),
-                    ),
-                    child: Column(
-                      children: [
-                        _headerRow(),
-                        for (int i = 0; i < items.length; i++)
-                          _Row(
-                            article: items[i],
-                            last: i == items.length - 1,
-                            onAdjust: (d) => ref
-                                .read(articlesRepoProvider)
-                                .adjustQty(items[i].id, d),
-                            onEdit: () =>
-                                _showProductDialog(context, ref, items[i]),
-                            onRestock: () =>
-                                _showRestockDialog(context, ref, items[i]),
-                            onRequestSupply: () => _showSupplyRequestDialog(
-                                context, ref, items[i]),
-                          ),
-                      ],
-                    ),
-                  ),
                 ),
-              const SizedBox(height: BsSpace.xxl),
-            ],
-          ),
+              )
+            else
+              SliverCarteListe(
+                entete: _headerRow(),
+                itemCount: items.length,
+                itemBuilder: (context, i) => _Row(
+                  article: items[i],
+                  last: i == items.length - 1,
+                  onAdjust: (d) =>
+                      ref.read(articlesRepoProvider).adjustQty(items[i].id, d),
+                  onEdit: () => _showProductDialog(context, ref, items[i]),
+                  onRestock: () => _showRestockDialog(context, ref, items[i]),
+                  onRequestSupply: () =>
+                      _showSupplyRequestDialog(context, ref, items[i]),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: BsSpace.xxl)),
+          ],
         );
       },
     );

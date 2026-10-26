@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/user_error.dart';
 import '../../widgets/bs_widgets.dart';
+import '../../widgets/liste_carte.dart';
 import '../../core/auth.dart';
 import '../../core/cat_ui.dart';
 import '../../core/format.dart';
@@ -72,11 +73,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
         return Row(children: [
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PageHeader(
+            // Liste paresseuse : seules les ventes à l'écran sont
+            // construites, quel que soit l'historique chargé.
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: PageHeader(
                     eyebrow: 'Historique',
                     title: vue == _Vue.hotel
                         ? 'Hôtel — séjours facturés'
@@ -95,72 +97,74 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         ),
                     ],
                   ),
-                  // Le choix n'existe que pour qui voit les deux. Les
-                  // autres n'ont même pas à savoir que l'autre historique
-                  // existe.
-                  if (voitHotel && voitVentes)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                          BsSpace.xl, 0, BsSpace.xl, BsSpace.md),
-                      child: SegmentedButton<_Vue>(
-                        segments: const [
-                          ButtonSegment(
-                            value: _Vue.ventes,
-                            icon: Icon(Icons.restaurant_outlined, size: 16),
-                            label: Text('Restaurant & terrasse'),
-                          ),
-                          ButtonSegment(
-                            value: _Vue.hotel,
-                            icon: Icon(Icons.hotel_outlined, size: 16),
-                            label: Text('Hôtel'),
-                          ),
-                        ],
-                        selected: {vue},
-                        onSelectionChanged: (s) => setState(() {
-                          _choix = s.first;
-                          // Le détail d'une vente n'a rien à faire ouvert
-                          // à côté des séjours.
-                          _selected = null;
-                        }),
-                      ),
-                    ),
-                  if (vue == _Vue.hotel) ...[
-                    const StaysHistorySection(),
-                    const SizedBox(height: BsSpace.xxl),
-                  ] else if (sales.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(BsSpace.xl),
-                      child: Container(
-                        padding: const EdgeInsets.all(BsSpace.xl),
-                        decoration: BoxDecoration(
-                          color: BsColors.paper,
-                          border: Border.all(color: BsColors.line),
-                          borderRadius: BorderRadius.circular(BsRadius.md),
+                ),
+                // Le choix n'existe que pour qui voit les deux. Les
+                // autres n'ont même pas à savoir que l'autre historique
+                // existe.
+                if (voitHotel && voitVentes)
+                  SliverAGauche(
+                      child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        BsSpace.xl, 0, BsSpace.xl, BsSpace.md),
+                    child: SegmentedButton<_Vue>(
+                      segments: const [
+                        ButtonSegment(
+                          value: _Vue.ventes,
+                          icon: Icon(Icons.restaurant_outlined, size: 16),
+                          label: Text('Restaurant & terrasse'),
                         ),
-                        child: Column(children: [
-                          const Icon(Icons.receipt_long_outlined,
-                              size: 40, color: BsColors.slateSoft),
-                          const SizedBox(height: 12),
-                          Text('Aucune vente enregistrée',
-                              style: BsType.body(14, w: FontWeight.w600)),
-                          const SizedBox(height: 4),
-                          Text(
-                              'Va au Point de vente pour enregistrer une vente.',
-                              style: BsType.body(12, color: BsColors.slate)),
-                        ]),
+                        ButtonSegment(
+                          value: _Vue.hotel,
+                          icon: Icon(Icons.hotel_outlined, size: 16),
+                          label: Text('Hôtel'),
+                        ),
+                      ],
+                      selected: {vue},
+                      onSelectionChanged: (s) => setState(() {
+                        _choix = s.first;
+                        // Le détail d'une vente n'a rien à faire ouvert
+                        // à côté des séjours.
+                        _selected = null;
+                      }),
+                    ),
+                  )),
+                if (vue == _Vue.hotel) ...[
+                  const StaysHistorySection(),
+                  const SliverToBoxAdapter(
+                      child: SizedBox(height: BsSpace.xxl)),
+                ] else if (sales.isEmpty)
+                  SliverAGauche(
+                      child: Padding(
+                    padding: const EdgeInsets.all(BsSpace.xl),
+                    child: Container(
+                      padding: const EdgeInsets.all(BsSpace.xl),
+                      decoration: BoxDecoration(
+                        color: BsColors.paper,
+                        border: Border.all(color: BsColors.line),
+                        borderRadius: BorderRadius.circular(BsRadius.md),
                       ),
-                    )
-                  else
-                    for (final d in days)
-                      _DaySection(
-                        day: d,
-                        sales: byDay[d]!,
-                        selectedId: _selected?.sale.id,
-                        onOpen: (s) => setState(() => _selected = s),
-                      ),
-                  const SizedBox(height: BsSpace.xxl),
-                ],
-              ),
+                      child: Column(children: [
+                        const Icon(Icons.receipt_long_outlined,
+                            size: 40, color: BsColors.slateSoft),
+                        const SizedBox(height: 12),
+                        Text('Aucune vente enregistrée',
+                            style: BsType.body(14, w: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text('Va au Point de vente pour enregistrer une vente.',
+                            style: BsType.body(12, color: BsColors.slate)),
+                      ]),
+                    ),
+                  ))
+                else
+                  for (final d in days)
+                    _DaySection(
+                      day: d,
+                      sales: byDay[d]!,
+                      selectedId: _selected?.sale.id,
+                      onOpen: (s) => setState(() => _selected = s),
+                    ),
+                const SliverToBoxAdapter(child: SizedBox(height: BsSpace.xxl)),
+              ],
             ),
           ),
           AnimatedContainer(
@@ -525,50 +529,37 @@ class _DaySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = sales.fold<int>(0, (s, e) => s + e.totalCents);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: BsSpace.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, BsSpace.md, 0, BsSpace.sm),
-            child: Row(children: [
-              Text(
-                  DateFormat("EEEE d MMMM", 'fr_FR')
-                      .format(aLubumbashi(day))
-                      .toUpperCase(),
-                  style: BsType.eyebrow()),
-              const SizedBox(width: 12),
-              Expanded(child: Container(height: 1, color: BsColors.line)),
-              const SizedBox(width: 12),
-              Text('${sales.length} ventes',
-                  style: BsType.body(11, color: BsColors.slate)),
-              const SizedBox(width: 8),
-              Text(moneyCents(total),
-                  style: BsType.mono(12, w: FontWeight.w700)),
-            ]),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: BsColors.paper,
-              borderRadius: BorderRadius.circular(BsRadius.md),
-              border: Border.all(color: BsColors.line),
-            ),
-            child: Column(
-              children: [
-                for (int i = 0; i < sales.length; i++)
-                  _SaleRow(
-                    sale: sales[i],
-                    selected: sales[i].sale.id == selectedId,
-                    last: i == sales.length - 1,
-                    onOpen: () => onOpen(sales[i]),
-                  ),
-              ],
-            ),
-          ),
-        ],
+    return SliverMainAxisGroup(slivers: [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+            BsSpace.xl, BsSpace.md, BsSpace.xl, BsSpace.sm),
+        sliver: SliverToBoxAdapter(
+          child: Row(children: [
+            Text(
+                DateFormat("EEEE d MMMM", 'fr_FR')
+                    .format(aLubumbashi(day))
+                    .toUpperCase(),
+                style: BsType.eyebrow()),
+            const SizedBox(width: 12),
+            Expanded(child: Container(height: 1, color: BsColors.line)),
+            const SizedBox(width: 12),
+            Text('${sales.length} ventes',
+                style: BsType.body(11, color: BsColors.slate)),
+            const SizedBox(width: 8),
+            Text(moneyCents(total), style: BsType.mono(12, w: FontWeight.w700)),
+          ]),
+        ),
       ),
-    );
+      SliverCarteListe(
+        itemCount: sales.length,
+        itemBuilder: (context, i) => _SaleRow(
+          sale: sales[i],
+          selected: sales[i].sale.id == selectedId,
+          last: i == sales.length - 1,
+          onOpen: () => onOpen(sales[i]),
+        ),
+      ),
+    ]);
   }
 }
 

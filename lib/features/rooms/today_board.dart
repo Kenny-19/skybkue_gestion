@@ -165,3 +165,20 @@ class TodayBoard {
   /// pas le droit de déplacer la frontière entre deux jours.
   static DateTime _day(DateTime d) => debutDeJourneeLubumbashi(d);
 }
+
+/// Une chambre est "en retard" si elle est occupée et sa date de départ
+/// est antérieure à aujourd'hui (dépassement à 00h le lendemain).
+bool isOverdue(Room r) {
+  if (r.status != DbRoomStatus.occupee || r.checkoutDate == null) return false;
+  final today = DateTime.now();
+  final tDay = debutDeJourneeLubumbashi(today);
+  final cDay = debutDeJourneeLubumbashi(r.checkoutDate!);
+  return cDay.isBefore(tDay);
+}
+
+int daysLate(Room r) {
+  final today = DateTime.now();
+  final tDay = debutDeJourneeLubumbashi(today);
+  final cDay = debutDeJourneeLubumbashi(r.checkoutDate!);
+  return tDay.difference(cDay).inDays;
+}

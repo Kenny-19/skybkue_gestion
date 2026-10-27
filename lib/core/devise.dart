@@ -74,3 +74,16 @@ String moneyUsdCourt(int usdCents) =>
 /// mangent la place dans un sous-titre.
 String montantHotelCourt(int usdCents, {double? taux}) =>
     '${moneyUsdCourt(usdCents)} · ${moneyCents(usdVersFc(usdCents, taux: taux))}';
+
+/// Une saisie en dollars vers des cents. « 45 » → 4500, « 12,5 » → 1250.
+///
+/// Accepte la virgule ET le point : le pavé numérique produit l'un ou
+/// l'autre selon la configuration du clavier, et la réception ne doit
+/// pas avoir à deviner lequel.
+int usdEnCents(String saisie) {
+  final t = saisie.trim().replaceAll(' ', '').replaceAll(',', '.');
+  if (t.isEmpty) return 0;
+  final v = double.tryParse(t);
+  if (v == null || v <= 0) return 0;
+  return (v * 100).round();
+}

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:drift/drift.dart';
 
+import '../core/numero_facture.dart';
 import '../core/auth.dart';
 import '../core/identite.dart';
 import '../core/tva.dart';
@@ -70,6 +71,35 @@ class SettingsRepo {
       'CAST(ROUND(price_usd_cents / 100.0 * ?) AS INTEGER) '
       'WHERE price_usd_cents > 0',
       [rate],
+    );
+  }
+
+  static const String kCodePoste = 'code_poste';
+  static const String kCompteurFactures = 'compteur_factures';
+
+  /// Code du poste imprimé dans les numéros de facture (cf.
+  /// core/numero_facture.dart). [nomMachine] sert au code par défaut.
+  Future<String> getCodePoste(String nomMachine) async =>
+      codePosteDepuisSaisie(await _get(kCodePoste) ?? '') ??
+      codePosteParDefaut(nomMachine);
+
+  Future<void> setCodePoste(String code) => _set(kCodePoste, code);
+
+  /// Réserve le numéro de la prochaine facture de séjour, une fois pour
+  /// toutes : le compteur est avancé dans la même transaction qu'il est
+  /// lu, deux départs simultanés ne peuvent pas obtenir le même.
+  Future<({String facture, String reservation})> prochainNumeroFacture(
+      {required String nomMachine, required DateTime le}) async {
+    final code = await getCodePoste(nomMachine);
+    final n = await _db.transaction(() async {
+      final suivant =
+          (int.tryParse(await _get(kCompteurFactures) ?? '') ?? 0) + 1;
+      await _set(kCompteurFactures, '$suivant');
+      return suivant;
+    });
+    return (
+      facture: numeroFacture(n, code, le),
+      reservation: numeroReservation(n, code, le),
     );
   }
 

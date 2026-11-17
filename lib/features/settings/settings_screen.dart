@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/cat_ui.dart';
+import '../../core/numero_facture.dart';
 import '../../core/tva.dart';
 import '../../core/user_error.dart';
 import '../../services/mirror_pull_service.dart';
@@ -20,6 +21,7 @@ import '../../services/mirror_service.dart';
 import '../../services/update_service.dart';
 import '../../shell/app_shell.dart';
 import '../../core/horloge.dart';
+import '../../services/heartbeat_service.dart';
 import '../../services/horloge_service.dart';
 import '../../services/ventes_outbox.dart';
 import '../../widgets/bs_widgets.dart';
@@ -80,6 +82,17 @@ class SettingsScreen extends ConsumerWidget {
                       'montant, la facture détaille le HT et la TVA. Les '
                       'factures déjà émises gardent leur taux.',
                   child: _TvaReglage(),
+                ),
+              // Code du poste dans les numéros de facture — gérant et super
+              // admin. Réglé une fois par poste.
+              if (perms.canManageServeurs)
+                const _Section(
+                  title: 'Numéros de facture',
+                  subtitle: 'Chaque poste numérote ses factures de séjour à '
+                      'la suite (FCT0001, FCT0002…), suivies du code du '
+                      "poste : FCT0042-R/11/2026. Deux postes ne doivent pas "
+                      'avoir le même code.',
+                  child: _CodePosteReglage(),
                 ),
               // Récupération ORDINAIRE — gérant et super admin.
               //
@@ -1438,6 +1451,95 @@ class _VerificationVentesState extends State<_VerificationVentes> {
           if (b.absentes.length > 50)
             Text('… et ${b.absentes.length - 50} autre(s)',
                 style: BsType.body(12, color: BsColors.slate)),
+        ],
+      ],
+    );
+  }
+}
+
+/// Code du poste imprimé dans les numéros de facture.
+class _CodePosteReglage extends ConsumerStatefulWidget {
+  const _CodePosteReglage();
+  @override
+  ConsumerState<_CodePosteReglage> createState() => _CodePosteReglageState();
+}
+
+class _CodePosteReglageState extends ConsumerState<_CodePosteReglage> {
+  final _saisie = TextEditingController();
+  String? _actuel;
+  String? _erreur;
+
+  @override
+  void initState() {
+    super.initState();
+    ref
+        .read(settingsRepoProvider)
+        .getCodePoste(HeartbeatService.nomDuPoste)
+        .then((code) {
+      if (!mounted) return;
+      setState(() {
+        _actuel = code;
+        _saisie.text = code;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _saisie.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enregistrer() async {
+    final code = codePosteDepuisSaisie(_saisie.text);
+    if (code == null) {
+      setState(() => _erreur = '1 à 3 lettres ou chiffres (ex. R, BAR, P2).');
+      return;
+    }
+    await ref.read(settingsRepoProvider).setCodePoste(code);
+    if (!mounted) return;
+    setState(() {
+      _actuel = code;
+      _saisie.text = code;
+      _erreur = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Prochaines factures de ce poste : '
+            '${numeroFacture(1, code, Horloge.maintenant()).replaceFirst('0001', '…')}')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 120,
+              child: TextField(
+                controller: _saisie,
+                maxLength: 3,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(counterText: ''),
+                onSubmitted: (_) => _enregistrer(),
+              ),
+            ),
+            FilledButton(
+                onPressed: _actuel == null ? null : _enregistrer,
+                child: const Text('Enregistrer')),
+            if (_actuel != null)
+              Text(
+                  'Exemple : ${numeroFacture(42, _actuel!, Horloge.maintenant())}',
+                  style: BsType.body(12, color: BsColors.slate)),
+          ],
+        ),
+        if (_erreur != null) ...[
+          const SizedBox(height: BsSpace.sm),
+          Text(_erreur!, style: BsType.body(12, color: BsColors.danger)),
         ],
       ],
     );

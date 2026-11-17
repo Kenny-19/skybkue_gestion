@@ -8,6 +8,7 @@ import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../core/temps.dart';
 import '../../data/schema.dart';
+import '../../services/heartbeat_service.dart';
 import '../../services/mirror_service.dart';
 import '../../services/pdf_service.dart';
 import '../../theme/tokens.dart';
@@ -183,12 +184,13 @@ Future<void> confirmCheckOutWithInvoice(
         ? extrasDisponibles
         : extrasDisponibles.sublist(0, 0);
 
-    // Numéros du reçu au format demandé — FCT{seq}/{mois}/{année}.
-    // Ici seq = compte des chiffres du timestamp pour un identifiant
-    // court, unique et lisible (à défaut d'un vrai séquenceur SQL).
-    final seq = (now.millisecondsSinceEpoch % 1000).toString();
-    final receiptNumber = 'FCT$seq/${now.month}/${now.year}';
-    final reservationNumber = 'RSV$seq/${now.month}/${now.year}';
+    // Numéro de facture : compteur du poste + code du poste
+    // (FCT0042-R/11/2026). Il était tiré de l'horloge, sur mille valeurs
+    // par mois, et se répétait (cf. core/numero_facture.dart).
+    final numeros = await ref.read(settingsRepoProvider).prochainNumeroFacture(
+        nomMachine: HeartbeatService.nomDuPoste, le: now);
+    final receiptNumber = numeros.facture;
+    final reservationNumber = numeros.reservation;
     final me = ref.read(authProvider).user;
     // Taux de TVA du jour : le même que celui figé sur le séjour.
     final tvaBp = await ref.read(settingsRepoProvider).getTvaBp();

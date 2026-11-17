@@ -371,6 +371,9 @@ async function fetchPeriod() {
         .from('mirror_stays')
         .select(
             'id, checkout_at, guest_full_name, subtotal_cents, remise_cents, payer_name')
+        // Un même séjour envoyé par plusieurs postes n'est compté qu'une
+        // fois (sql/2026_11_sejours_en_double.sql).
+        .is('doublon_de', null)
         .gte('checkout_at', depuisIsoAvecPrecedent)
         .order('checkout_at', { ascending: false })
         .order('id', { ascending: false })),

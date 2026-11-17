@@ -694,6 +694,9 @@ class MirrorService {
       final remote = await c
           .from('mirror_stays')
           .select()
+          // Les copies d'un même séjour envoyées par d'autres postes
+          // (sql/2026_11_sejours_en_double.sql) : seul l'original compte.
+          .isFilter('doublon_de', null)
           .order('checkout_at', ascending: false)
           .limit(limite);
       final rows = (remote as List).cast<Map<String, dynamic>>();
@@ -713,10 +716,15 @@ class MirrorService {
       // numéro du serveur : il pouvait écraser un séjour local de même
       // numéro — et depuis que les séjours existent dès l'arrivée, ce
       // pouvait être un client encore dans sa chambre.
+      final locaux = await _db.select(_db.stays).get();
       final dejaLa = {
-        for (final s in await _db.select(_db.stays).get())
+        for (final s in locaux)
           if (s.uid != null) s.uid!,
       };
+      // Ce poste peut détenir une vieille copie du séjour sous une autre
+      // identité (avant le 5 octobre) : on ne l'ajoute pas une deuxième
+      // fois, l'historique la montrerait en double.
+      final memesSejours = {for (final s in locaux) cleDeSejour(s)};
       final uidParServeur = {
         for (final r in rows) (r['id'] as num).toInt(): _uidDeSejour(r)
       };
@@ -728,6 +736,7 @@ class MirrorService {
           final idServeur = (r['id'] as num).toInt();
           final uid = uidParServeur[idServeur]!;
           if (dejaLa.contains(uid)) continue;
+          if (memesSejours.contains(cleDeSejourServeur(r))) continue;
           // Pas d'`id` : la copie prend un numéro de ce poste.
           localParServeur[idServeur] = await _db
               .into(_db.stays)
@@ -805,6 +814,25 @@ class MirrorService {
       return 0;
     }
   }
+
+  /// Ce qui fait qu'un séjour est le MÊME d'un poste à l'autre, quelle
+  /// que soit son identité : numéro de facture, client, dates, montant.
+  /// Même définition que le serveur (sql/2026_11_sejours_en_double.sql).
+  static String cleDeSejour(Stay s) => [
+        s.receiptNumber,
+        s.guestFullName,
+        s.checkinAt.millisecondsSinceEpoch ~/ 1000,
+        s.checkoutAt.millisecondsSinceEpoch ~/ 1000,
+        s.subtotalCents,
+      ].join('|');
+
+  static String cleDeSejourServeur(Map<String, dynamic> r) => [
+        r['receipt_number'],
+        r['guest_full_name'],
+        (_parseDate(r['checkin_at'])?.millisecondsSinceEpoch ?? 0) ~/ 1000,
+        (_parseDate(r['checkout_at'])?.millisecondsSinceEpoch ?? 0) ~/ 1000,
+        _entier(r['subtotal_cents']),
+      ].join('|');
 
   static int _entier(Object? v, {int defaut = 0}) =>
       v is num ? v.toInt() : defaut;

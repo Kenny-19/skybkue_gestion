@@ -92,6 +92,10 @@ class MirrorPullService {
         // sans que personne ne les relise : chaque poste ne voyait que
         // ses propres check-out, et rien ne signalait le manque.
         MirrorService.pullStaysIntoLocal(),
+        // Dettes de ce poste réglées ailleurs (consommation du bar
+        // facturée au départ par la réception) : elles ne doivent plus
+        // paraître dues ici. Hors ligne, on attend le tour suivant.
+        MirrorService.rapatrierReglements().catchError((_) => 0),
       ]);
 
       // La file des ventes est vidée à CHAQUE tour, pas seulement

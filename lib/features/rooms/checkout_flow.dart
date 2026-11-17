@@ -8,6 +8,7 @@ import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../core/temps.dart';
 import '../../data/schema.dart';
+import '../../services/mirror_service.dart';
 import '../../services/pdf_service.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -89,6 +90,37 @@ Future<void> confirmCheckOutWithInvoice(
     final earliest = targets
         .map((r) => r.checkinAt ?? DateTime.now())
         .reduce((a, b) => a.isBefore(b) ? a : b);
+    // Les consommations saisies sur un AUTRE poste (la caisse du bar)
+    // d'abord : sans ça, elles n'apparaissaient jamais sur la facture.
+    // Hors ligne, on ne facture pas en silence sans elles : la réception
+    // choisit, en connaissance de cause.
+    try {
+      await MirrorService.rapatrierConsommationsChambres(
+          chambres: targets.map((r) => r.number).toList(), depuis: earliest);
+    } catch (_) {
+      if (!ctx.mounted) return;
+      final continuer = await showDialog<bool>(
+        context: ctx,
+        builder: (dctx) => AlertDialog(
+          backgroundColor: BsColors.paper,
+          title: const Text('Consommations des autres postes'),
+          content: const Text(
+              "Le serveur ne répond pas : les consommations mises sur cette "
+              "chambre depuis un autre poste (le bar, par exemple) ne peuvent "
+              "pas être vérifiées. Elles ne figureront pas sur la facture, et "
+              "resteront dues.\n\nFacturer quand même ?"),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dctx, false),
+                child: const Text('Annuler')),
+            FilledButton(
+                onPressed: () => Navigator.pop(dctx, true),
+                child: const Text('Facturer quand même')),
+          ],
+        ),
+      );
+      if (continuer != true || !ctx.mounted) return;
+    }
     // Uniquement les consommations MISES SUR LA NOTE. Celles déjà
     // réglées au bar ne doivent pas réapparaître ici : le client les
     // paierait deux fois.

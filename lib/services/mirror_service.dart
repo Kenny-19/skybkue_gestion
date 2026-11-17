@@ -809,7 +809,106 @@ class MirrorService {
   static int _entier(Object? v, {int defaut = 0}) =>
       v is num ? v.toInt() : defaut;
 
-  /// Ventes du miroir absentes de ce poste : on les AJOUTE, rien d'autre.
+  /// Toutes les ventes du miroir absentes de ce poste, ajoutées sans rien
+  /// toucher d'autre (cf. [appliquerVentesDuServeur]).
+  ///
+  /// Pas appelée par la synchro des 15 secondes : relire toute la table
+  /// des ventes à chaque tour coûterait ce que la file a justement
+  /// supprimé. Seulement sur le bouton « Récupérer maintenant ».
+  static Future<int> pullSalesIntoLocal() async {
+    final c = _c;
+    if (c == null) return 0;
+
+    final distantes =
+        await toutesLesPages(() => c.from('mirror_sales').select().order('id'));
+    return _rapatrierVentes(c, distantes);
+  }
+
+  /// Rapatrie les consommations mises sur [chambres] depuis [depuis], et
+  /// pas encore réglées, quel que soit le poste qui les a saisies.
+  ///
+  /// Appelé au départ d'un client. La facture ne cherchait ses
+  /// consommations QUE dans la base du poste qui fait le départ : une
+  /// boisson mise sur la chambre depuis la caisse du bar, sur un autre
+  /// poste, n'y figurait jamais. Mesuré le 17 novembre 2026 : 16
+  /// consommations sur des chambres, 925 000 FC, jamais facturées.
+  ///
+  /// LÈVE en cas d'échec réseau : l'appelant doit le dire à la réception
+  /// au lieu de facturer en silence sans ces consommations.
+  static Future<int> rapatrierConsommationsChambres({
+    required List<String> chambres,
+    required DateTime depuis,
+    Duration delai = const Duration(seconds: 8),
+  }) async {
+    final c = _c;
+    if (c == null || chambres.isEmpty) return 0;
+    final distantes = await c
+        .from('mirror_sales')
+        .select()
+        .eq('on_credit', true)
+        .isFilter('settled_at', null)
+        .inFilter('room_number', chambres)
+        .gte('sold_at', isoServeur(depuis))
+        .order('id')
+        .timeout(delai);
+    return _rapatrierVentes(c, distantes.cast<Map<String, dynamic>>(),
+        delai: delai);
+  }
+
+  /// Ajoute à ce poste les ventes de [distantes] qu'il n'a pas, avec leurs
+  /// lignes. Partie réseau de [appliquerVentesDuServeur].
+  static Future<int> _rapatrierVentes(
+      SupabaseClient c, List<Map<String, dynamic>> distantes,
+      {Duration? delai}) async {
+    if (distantes.isEmpty) return 0;
+    final idsServeur = await _ventesARapatrier(_db, distantes);
+    if (idsServeur.isEmpty) return 0;
+    final lignes = await toutesLesPagesParIds(
+        idsServeur,
+        (paquet) => c
+            .from('mirror_sale_lines')
+            .select()
+            .inFilter('sale_id', paquet)
+            .order('id'));
+
+    // Le serveur de la vente : id miroir → login → compte local. Au mieux
+    // seulement — une vente sans serveur reste une vente.
+    final loginParIdMiroir = <int, String>{};
+    try {
+      Future<List<Map<String, dynamic>>> comptes = toutesLesPages(
+          () => c.from('mirror_users').select('id, login').order('id'));
+      if (delai != null) comptes = comptes.timeout(delai);
+      for (final u in await comptes) {
+        loginParIdMiroir[(u['id'] as num).toInt()] =
+            (u['login'] as String).toLowerCase();
+      }
+    } catch (_) {}
+    return appliquerVentesDuServeur(_db, distantes, lignes,
+        loginParIdMiroir: loginParIdMiroir);
+  }
+
+  /// Numéros SERVEUR des ventes de [distantes] à rapatrier : absentes de
+  /// [db], ou présentes sans aucune ligne.
+  static Future<List<int>> _ventesARapatrier(
+      AppDatabase db, List<Map<String, dynamic>> distantes) async {
+    final idLocalParUid = <String, int>{
+      for (final v in await db.select(db.sales).get())
+        if (v.uid != null) v.uid!: v.id,
+    };
+    final idsAvecLignes = (await (db.selectOnly(db.saleLines, distinct: true)
+              ..addColumns([db.saleLines.saleId]))
+            .get())
+        .map((r) => r.read(db.saleLines.saleId)!)
+        .toSet();
+    return [
+      for (final s in distantes)
+        if (idLocalParUid[_uidDeVente(s)] == null ||
+            !idsAvecLignes.contains(idLocalParUid[_uidDeVente(s)]))
+          (s['id'] as num).toInt(),
+    ];
+  }
+
+  /// Ventes du serveur absentes de [db] : on les AJOUTE, rien d'autre.
   ///
   /// C'est la moitié sûre de la récupération d'urgence. Celle-ci efface
   /// toutes les ventes locales avant de recopier le miroir ; ici :
@@ -824,26 +923,23 @@ class MirrorService {
   ///     repart pas dans la file, et ne peut donc pas écraser au serveur
   ///     le `paid_cents` qu'un autre poste y a mis.
   ///
-  /// Pas appelée par la synchro des 15 secondes : relire toute la table
-  /// des ventes à chaque tour coûterait ce que la file a justement
-  /// supprimé. Seulement sur le bouton « Récupérer maintenant ».
-  static Future<int> pullSalesIntoLocal() async {
-    final c = _c;
-    if (c == null) return 0;
-
-    final distantes =
-        await toutesLesPages(() => c.from('mirror_sales').select().order('id'));
+  /// [lignes] peut contenir des lignes d'autres ventes : elles sont
+  /// ignorées. Séparé du réseau pour pouvoir être testé.
+  static Future<int> appliquerVentesDuServeur(
+    AppDatabase db,
+    List<Map<String, dynamic>> distantes,
+    List<Map<String, dynamic>> lignes, {
+    Map<int, String> loginParIdMiroir = const {},
+  }) async {
     if (distantes.isEmpty) return 0;
-
-    // Ventes locales par uid, et celles qui n'ont AUCUNE ligne.
     final idLocalParUid = <String, int>{
-      for (final v in await _db.select(_db.sales).get())
+      for (final v in await db.select(db.sales).get())
         if (v.uid != null) v.uid!: v.id,
     };
-    final idsAvecLignes = (await (_db.selectOnly(_db.saleLines, distinct: true)
-              ..addColumns([_db.saleLines.saleId]))
+    final idsAvecLignes = (await (db.selectOnly(db.saleLines, distinct: true)
+              ..addColumns([db.saleLines.saleId]))
             .get())
-        .map((r) => r.read(_db.saleLines.saleId)!)
+        .map((r) => r.read(db.saleLines.saleId)!)
         .toSet();
 
     final manquantes = <Map<String, dynamic>>[];
@@ -861,37 +957,14 @@ class MirrorService {
     final aCompleter = localParServeur.length;
     if (manquantes.isEmpty && aCompleter == 0) return 0;
 
-    final idsServeur = [
-      ...manquantes.map((s) => (s['id'] as num).toInt()),
-      ...localParServeur.keys,
-    ];
-    final lignes = await toutesLesPagesParIds(
-        idsServeur,
-        (paquet) => c
-            .from('mirror_sale_lines')
-            .select()
-            .inFilter('sale_id', paquet)
-            .order('id'));
-
-    // Le serveur de la vente : id miroir → login → compte local. Au mieux
-    // seulement — une vente sans serveur reste une vente.
-    final loginParIdMiroir = <int, String>{};
-    try {
-      final res = await toutesLesPages(
-          () => c.from('mirror_users').select('id, login').order('id'));
-      for (final u in res) {
-        loginParIdMiroir[(u['id'] as num).toInt()] =
-            (u['login'] as String).toLowerCase();
-      }
-    } catch (_) {}
-    final comptes = await _db.select(_db.users).get();
+    final comptes = await db.select(db.users).get();
     final idLocalParLogin = {
       for (final u in comptes) u.login.toLowerCase(): u.id
     };
 
     // L'article de la ligne : rapproché par NOM, comme le catalogue. Le
     // nom figé sur la ligne suffit à la facture si l'article n'existe pas.
-    final articles = await _db.select(_db.articles).get();
+    final articles = await db.select(db.articles).get();
     final articleParNom = {
       for (final a in articles) a.name.trim().toLowerCase(): a.id
     };
@@ -900,14 +973,14 @@ class MirrorService {
       for (final s in distantes) (s['id'] as num).toInt(): _uidDeVente(s)
     };
 
-    await _db.transaction(() async {
+    await db.transaction(() async {
       for (final s in manquantes) {
         final idServeurMiroir = (s['server_user_id'] as num?)?.toInt();
         final login =
             idServeurMiroir == null ? null : loginParIdMiroir[idServeurMiroir];
         // Pas d'`id` : la copie prend un numéro de ce poste. Celui du
         // serveur pourrait déjà désigner une vente locale.
-        final idLocal = await _db.into(_db.sales).insert(
+        final idLocal = await db.into(db.sales).insert(
               SalesCompanion.insert(
                 uid: Value(_uidDeVente(s)),
                 soldAt: _parseDate(s['sold_at']) ?? Horloge.maintenant(),
@@ -931,7 +1004,7 @@ class MirrorService {
         final venteLocale = localParServeur[venteServeur];
         if (venteLocale == null) continue;
         final nom = l['article_name'] as String;
-        await _db.into(_db.saleLines).insert(
+        await db.into(db.saleLines).insert(
               SaleLinesCompanion.insert(
                 saleId: venteLocale,
                 articleId: Value(articleParNom[nom.trim().toLowerCase()]),
@@ -946,6 +1019,53 @@ class MirrorService {
       }
     });
     return manquantes.length + aCompleter;
+  }
+
+  /// Dettes de ce poste réglées sur un AUTRE poste : on les marque
+  /// réglées ici aussi.
+  ///
+  /// Une consommation mise sur une chambre au bar, puis facturée au
+  /// départ par la réception, restait « due » sur la caisse du bar :
+  /// encaissable une seconde fois. Seule la date de règlement est
+  /// reprise, pas le versement : l'argent est entré dans la caisse de
+  /// l'autre poste, il ne doit pas gonfler celle-ci.
+  static Future<int> rapatrierReglements() async {
+    final c = _c;
+    if (c == null) return 0;
+    final dues = await (_db.select(_db.sales)
+          ..where((s) =>
+              s.onCredit.equals(true) &
+              s.settledAt.isNull() &
+              s.uid.isNotNull() &
+              s.syncedAt.isNotNull()))
+        .get();
+    if (dues.isEmpty) return 0;
+    final reglees = await toutesLesPagesParIds(
+        [for (final v in dues) v.uid!],
+        (paquet) => c
+            .from('mirror_sales')
+            .select('uid, settled_at')
+            .inFilter('uid', paquet)
+            .not('settled_at', 'is', null)
+            .order('uid'));
+    return appliquerReglementsDuServeur(_db, reglees);
+  }
+
+  /// Partie base de [rapatrierReglements], testable.
+  static Future<int> appliquerReglementsDuServeur(
+      AppDatabase db, List<Map<String, dynamic>> reglees) async {
+    var n = 0;
+    await db.transaction(() async {
+      for (final r in reglees) {
+        final le = _parseDate(r['settled_at']);
+        final uid = r['uid'] as String?;
+        if (le == null || uid == null) continue;
+        n += await (db.update(db.sales)
+              ..where((s) => s.uid.equals(uid) & s.settledAt.isNull()))
+            .write(SalesCompanion(settledAt: Value(le)));
+      }
+    });
+    return n;
   }
 
   /// Compare les ventes de ce poste à celles du serveur, répare ce qui se

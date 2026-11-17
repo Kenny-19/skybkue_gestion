@@ -1,50 +1,56 @@
+import 'dart:io';
+
 import 'package:blue_sky/theme/typography.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // Les polices de l'interface et des factures sont EMBARQUÉES dans l'app
-// (assets/fonts). Avant, elles étaient téléchargées à l'usage : hors
-// ligne, l'app s'affichait dans une police système et une facture pouvait
-// échouer.
+// et déclarées au moteur (pubspec.yaml, section `fonts`). Hors ligne,
+// l'app s'affiche dans sa vraie police et les factures se génèrent.
 //
-// Ce test interdit tout téléchargement, puis demande chaque graisse que
-// l'interface utilise réellement. Si l'une manque dans assets/fonts, il
-// échoue — au lieu de le découvrir à l'hôtel, sans réseau.
+// Ce test vérifie que chaque graisse que l'interface demande a son
+// fichier déclaré ET présent. Une graisse manquante ne casse rien de
+// visible : le moteur prend la plus proche — on veut le savoir ici, pas
+// à l'hôtel.
+
+/// Fichier déclaré dans pubspec.yaml pour chaque famille (« Inter_600 »).
+Map<String, String> _declarees() {
+  final res = <String, String>{};
+  String? famille;
+  for (final l in File('pubspec.yaml').readAsLinesSync()) {
+    final t = l.trim();
+    if (t.startsWith('- family:')) famille = t.split(':').last.trim();
+    if (t.startsWith('- asset:') && famille != null) {
+      res[famille] = t.split(':').last.trim();
+    }
+  }
+  return res;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
-  tearDown(() => GoogleFonts.config.allowRuntimeFetching = true);
-
-  test('chaque graisse Inter utilisée est embarquée', () async {
-    for (final w in [
-      FontWeight.w400,
-      FontWeight.w500,
-      FontWeight.w600,
-      FontWeight.w700,
-      FontWeight.w800,
-    ]) {
-      BsType.body(13, w: w);
+  test('chaque graisse Inter utilisée est déclarée et présente', () {
+    final declarees = _declarees();
+    for (final w in FontWeight.values) {
+      final famille = familleTexte(w);
+      expect(declarees[famille], isNotNull, reason: famille);
+      expect(File(declarees[famille]!).existsSync(), isTrue, reason: famille);
     }
-    BsType.display(24);
-    BsType.heading(16);
-    BsType.eyebrow();
-    await expectLater(GoogleFonts.pendingFonts(), completes);
+    expect(BsType.body(13).fontFamily, 'Inter_400');
+    expect(BsType.body(13, w: FontWeight.w600).fontFamily, 'Inter_600');
+    expect(BsType.display(24).fontFamily, 'Inter_700');
+    expect(BsType.eyebrow().fontFamily, 'Inter_600');
   });
 
-  test('chaque graisse JetBrains Mono utilisée est embarquée', () async {
-    for (final w in [
-      FontWeight.w500,
-      FontWeight.w600,
-      FontWeight.w700,
-      FontWeight.w800,
-    ]) {
-      BsType.mono(12, w: w);
+  test('chaque graisse JetBrains Mono utilisée est déclarée et présente', () {
+    final declarees = _declarees();
+    for (final w in FontWeight.values) {
+      final famille = familleChiffres(w);
+      expect(declarees[famille], isNotNull, reason: famille);
+      expect(File(declarees[famille]!).existsSync(), isTrue, reason: famille);
     }
-    await expectLater(GoogleFonts.pendingFonts(), completes);
+    expect(BsType.mono(12, w: FontWeight.w600).fontFamily, 'JetBrainsMono_600');
   });
 
   test('les polices des factures se chargent sans réseau', () async {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'error_reporter.dart';
 import 'mirror_service.dart';
+import 'synchro_par_difference.dart';
 import 'ventes_outbox.dart';
 
 /// Poll Supabase toutes les [interval] secondes pour rapatrier les
@@ -42,6 +43,18 @@ class MirrorPullService {
   /// Synchronisations complètes ratées d'affilée, et le moment avant
   /// lequel on n'en retente pas d'autre.
   int _echecsSync = 0;
+
+  DateTime? _derniersReglements;
+  bool _reglementsDus() {
+    final now = DateTime.now();
+    if (_derniersReglements != null &&
+        now.difference(_derniersReglements!) < const Duration(minutes: 2)) {
+      return false;
+    }
+    _derniersReglements = now;
+    return true;
+  }
+
   DateTime? _prochainEssai;
 
   /// Attente avant de retenter une synchronisation complète ratée
@@ -81,21 +94,20 @@ class MirrorPullService {
       // et se rafraîchissent via UsersRepo.syncFromCloud(), qui remonte
       // ses erreurs à l'écran Comptes au lieu de les avaler.
       await Future.wait([
-        MirrorService.pullRoomsIntoLocal(),
-        MirrorService.pullClientsIntoLocal(),
-        MirrorService.pullPayersIntoLocal(),
-        // Catalogue et fiches produits : sans ça, le seul moyen de
-        // récupérer un article créé sur un autre poste était le bouton
-        // « Récupérer depuis les données miroir », qui rase la base.
-        MirrorService.pullArticlesIntoLocal(),
-        // Historique de l'hôtel. Les séjours partaient vers le serveur
-        // sans que personne ne les relise : chaque poste ne voyait que
-        // ses propres check-out, et rien ne signalait le manque.
-        MirrorService.pullStaysIntoLocal(),
+        // Chambres, clients, payeurs, catalogue, historique de l'hôtel :
+        // relus seulement s'ils ont changé, et seulement ce qui a changé
+        // (cf. synchro_par_difference.dart). Hors ligne, rien n'est perdu :
+        // le tour suivant reprend où celui-ci s'est arrêté.
+        SynchroParDifference.instance.tour().catchError((_) {
+          _etaitHorsLigne = true;
+        }),
         // Dettes de ce poste réglées ailleurs (consommation du bar
         // facturée au départ par la réception) : elles ne doivent plus
         // paraître dues ici. Hors ligne, on attend le tour suivant.
-        MirrorService.rapatrierReglements().catchError((_) => 0),
+        // Toutes les deux minutes suffisent : le règlement arrive au
+        // départ du client, pas à la seconde.
+        if (_reglementsDus())
+          MirrorService.rapatrierReglements().catchError((_) => 0),
       ]);
 
       // La file des ventes est vidée à CHAQUE tour, pas seulement

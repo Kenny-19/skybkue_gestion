@@ -688,18 +688,37 @@ class MirrorService {
   /// peuvent se permettre cette suppression — leur vérité est l'état
   /// courant. Un séjour, lui, est un fait comptable.
   static Future<int> pullStaysIntoLocal({int limite = 500}) async {
+    try {
+      return await _tirerSejours(limite: limite);
+    } catch (_) {
+      // Best-effort : un historique incomplet vaut mieux qu'un écran en
+      // erreur. La prochaine passe rattrapera.
+      return 0;
+    }
+  }
+
+  /// Les [limite] derniers séjours ; ou, avec [depuis], tous ceux modifiés
+  /// depuis cette date. LÈVE en cas d'échec.
+  static Future<int> _tirerSejours({int limite = 500, DateTime? depuis}) async {
     final c = _c;
     if (c == null) return 0;
-    try {
-      final remote = await c
-          .from('mirror_stays')
-          .select()
-          // Les copies d'un même séjour envoyées par d'autres postes
-          // (sql/2026_11_sejours_en_double.sql) : seul l'original compte.
-          .isFilter('doublon_de', null)
-          .order('checkout_at', ascending: false)
-          .limit(limite);
-      final rows = (remote as List).cast<Map<String, dynamic>>();
+    {
+      // Les copies d'un même séjour envoyées par d'autres postes
+      // (sql/2026_11_sejours_en_double.sql) : seul l'original compte.
+      final List<Map<String, dynamic>> rows = depuis == null
+          ? (await c
+                  .from('mirror_stays')
+                  .select()
+                  .isFilter('doublon_de', null)
+                  .order('checkout_at', ascending: false)
+                  .limit(limite))
+              .cast<Map<String, dynamic>>()
+          : await toutesLesPages(() => c
+              .from('mirror_stays')
+              .select()
+              .isFilter('doublon_de', null)
+              .gte('updated_at', isoServeur(depuis))
+              .order('id'));
       if (rows.isEmpty) return 0;
 
       final ids = rows.map((r) => (r['id'] as num).toInt()).toList();
@@ -808,10 +827,6 @@ class MirrorService {
         }
       });
       return ajoutes;
-    } catch (_) {
-      // Best-effort : un historique incomplet vaut mieux qu'un écran en
-      // erreur. La prochaine passe rattrapera.
-      return 0;
     }
   }
 
@@ -833,6 +848,68 @@ class MirrorService {
         (_parseDate(r['checkout_at'])?.millisecondsSinceEpoch ?? 0) ~/ 1000,
         _entier(r['subtotal_cents']),
       ].join('|');
+
+  // ─── Relecture par différence (cf. synchro_par_difference.dart) ─────
+
+  /// Dernière modification de chaque table, en une petite requête.
+  /// Null si le serveur n'a pas encore la fonction : le poste relit
+  /// alors tout, comme avant. LÈVE si le serveur ne répond pas.
+  static Future<Map<String, dynamic>?> lireVersions() async {
+    final c = _c;
+    if (c == null) return null;
+    try {
+      final r = await c.rpc('bs_versions');
+      return r is Map ? r.cast<String, dynamic>() : null;
+    } on PostgrestException catch (e) {
+      // Fonction inconnue : script sql/2026_11_synchro_par_difference.sql
+      // pas encore passé.
+      if (e.code == 'PGRST202' || e.code == '42883') return null;
+      rethrow;
+    }
+  }
+
+  /// Relit tout, comme avant la relecture par différence.
+  static Future<void> toutRelire() async {
+    await Future.wait([
+      pullRoomsIntoLocal(),
+      pullClientsIntoLocal(),
+      pullPayersIntoLocal(),
+      pullArticlesIntoLocal(),
+      pullStaysIntoLocal(),
+    ]);
+  }
+
+  /// Relit [table] — en entier, ou seulement les lignes modifiées depuis
+  /// [depuis]. LÈVE en cas d'échec, pour que l'appelant garde son curseur.
+  static Future<void> tirerChangements(String table, {DateTime? depuis}) async {
+    final c = _c;
+    if (c == null) return;
+    Future<List<Map<String, dynamic>>> lire(String nom, String ordre) =>
+        toutesLesPages(() {
+          final q = c.from(nom).select();
+          return (depuis == null ? q : q.gte('updated_at', isoServeur(depuis)))
+              .order(ordre);
+        });
+    switch (table) {
+      case 'rooms':
+        // Toujours en entier : une chambre supprimée ne laisse pas de date
+        // de modification, et la relecture des chambres supprime celles
+        // que le serveur n'a plus. Une vingtaine de lignes.
+        await appliquerChambresDuServeur(
+            _db, await lire('mirror_rooms', 'number'));
+      case 'clients':
+        await appliquerClientsDuServeur(
+            _db, await lire('mirror_clients', 'id'));
+      case 'payers':
+        await appliquerSocietesDuServeur(
+            _db, await lire('mirror_payers', 'id'));
+      case 'articles':
+        await appliquerArticlesDuServeur(
+            _db, await lire('mirror_articles', 'id'));
+      case 'stays':
+        await _tirerSejours(depuis: depuis);
+    }
+  }
 
   static int _entier(Object? v, {int defaut = 0}) =>
       v is num ? v.toInt() : defaut;
@@ -1609,7 +1686,11 @@ class MirrorService {
   /// partaient. Et l'échec était rendu comme un simple texte, sans lever :
   /// le service de synchronisation croyait que tout était passé et ne
   /// retentait pas avant dix minutes.
-  static Future<String> syncAll() async {
+  ///
+  /// [complet] : renvoie aussi les factures de séjour anciennes. Au
+  /// démarrage et sur le bouton ; la synchronisation périodique se limite
+  /// aux trois derniers jours.
+  static Future<String> syncAll({bool complet = false}) async {
     final c = _c;
     if (c == null) {
       dernierBilan = SyncResult(
@@ -1651,8 +1732,18 @@ class MirrorService {
     // Séjours facturés : renvoyés en bloc pour rattraper ceux qu'un départ
     // hors ligne n'a pas pu envoyer. Par uid, comme les ventes.
     await etape('séjours', () async {
+      // Seulement les factures récentes, sauf synchronisation complète
+      // (démarrage, bouton) : tout renvoyer toutes les dix minutes
+      // coûtait une charge qui grandissait avec l'historique, pour
+      // rattraper un départ fait hors ligne — qui, lui, date de quelques
+      // heures au plus.
+      final depuis = Horloge.maintenant().subtract(const Duration(days: 3));
       final factures = await (_db.select(_db.stays)
-            ..where((s) => s.statut.equals(DbStayStatus.facture.index)))
+            ..where((s) =>
+                s.statut.equals(DbStayStatus.facture.index) &
+                (complet
+                    ? const Constant(true)
+                    : s.generatedAt.isBiggerOrEqualValue(depuis))))
           .get();
       await _pousserSejours(factures);
       return factures.length;

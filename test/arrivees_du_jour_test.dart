@@ -1,3 +1,4 @@
+import 'package:blue_sky/core/temps.dart';
 import 'package:blue_sky/data/database.dart';
 import 'package:blue_sky/data/repos.dart';
 import 'package:blue_sky/data/schema.dart';
@@ -51,12 +52,12 @@ void main() {
     return id;
   }
 
-  DateTime aujourdhui() {
-    final n = DateTime.now();
-    // 14 h : au milieu de la journée, pour ne pas basculer sur un
-    // fuseau ou un passage de minuit pendant le test.
-    return DateTime(n.year, n.month, n.day, 14);
-  }
+  DateTime aujourdhui() =>
+      // 14 h À LUBUMBASHI, au milieu de SA journée. Construit sur l'horloge
+      // de la machine, « aujourd'hui 14 h » d'un poste réglé sur UTC−5
+      // tombait la veille à Lubumbashi entre minuit et deux heures — et ce
+      // test échouait la nuit, sans que l'application soit en cause.
+      debutDeJourneeLubumbashi().add(const Duration(hours: 14));
 
   group("Le compteur « Arrivées » du bandeau du jour", () {
     test('une réservation du jour est comptée', () async {

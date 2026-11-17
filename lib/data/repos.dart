@@ -1858,8 +1858,19 @@ class MetricsRepo {
   MetricsRepo(this._db);
   final AppDatabase _db;
 
-  Stream<List<DailyTotal>> watchLast7Days() {
-    return _db.select(_db.sales).watch().asyncMap((_) => _computeLast7Days());
+  /// Recalculé à chaque changement des ventes, de leurs lignes ou du
+  /// catalogue.
+  ///
+  /// Le déclencheur était `select(sales).watch()` : pour savoir qu'une
+  /// vente avait changé, il RELISAIT TOUTE LA TABLE — 40 000 ventes au
+  /// bout de deux ans, 800 ms à chaque encaissement — et jetait le
+  /// résultat. On écoute désormais la notification de changement seule.
+  Stream<List<DailyTotal>> watchLast7Days() async* {
+    yield await _computeLast7Days();
+    yield* _db
+        .tableUpdates(TableUpdateQuery.onAllTables(
+            [_db.sales, _db.saleLines, _db.articles]))
+        .asyncMap((_) => _computeLast7Days());
   }
 
   Future<List<DailyTotal>> _computeLast7Days() async {
@@ -1903,11 +1914,18 @@ class MetricsRepo {
       byDay.putIfAbsent(d, () => []).add(s);
     }
 
+    // Lignes rangées par vente une fois pour toutes : les chercher dans
+    // toute la liste pour chaque vente coûtait ventes × lignes.
+    final lignesParVente = <int, List<SaleLine>>{};
+    for (final l in lines) {
+      lignesParVente.putIfAbsent(l.saleId, () => []).add(l);
+    }
+
     for (final e in byDay.entries) {
       if (!buckets.containsKey(e.key)) continue;
       int b = 0, n = 0, c = 0;
       for (final sale in e.value) {
-        for (final line in lines.where((l) => l.saleId == sale.id)) {
+        for (final line in lignesParVente[sale.id] ?? const <SaleLine>[]) {
           final cat = line.articleId == null ? null : catById[line.articleId];
           final total = line.qty * line.unitPriceCents;
           switch (cat) {

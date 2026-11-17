@@ -64,7 +64,7 @@ Future<void> main() async {
         // Sauvegarde cloud auto quotidienne (00:00 + rattrapage au démarrage).
         unawaited(AutoBackup.start());
         // Miroir des données vers Supabase (push initial, offline-safe).
-        unawaited(MirrorService.syncAll());
+        unawaited(MirrorService.syncAll(complet: true));
         // Pull périodique (chambres + comptes) : synchronise les
         // ajouts/modifs faits sur les autres postes vers celui-ci.
         MirrorPullService.instance.start();

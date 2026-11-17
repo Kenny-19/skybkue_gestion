@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'tokens.dart';
+import 'typography.dart';
 
 ThemeData buildBlueSkyTheme() => _build(Brightness.light);
 ThemeData buildBlueSkyThemeDark() => _build(Brightness.dark);
@@ -26,9 +26,10 @@ ThemeData _build(Brightness brightness) {
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: dark ? BsColors.papyrusDark : BsColors.papyrus,
-    textTheme: GoogleFonts.interTextTheme(
-      dark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
-    ).apply(
+    fontFamily: familleTexte(FontWeight.w400),
+    textTheme: texteEnInter(
+            dark ? ThemeData.dark().textTheme : ThemeData.light().textTheme)
+        .apply(
       bodyColor: dark ? Colors.white : BsColors.ink,
       displayColor: dark ? Colors.white : BsColors.ink,
     ),
@@ -76,8 +77,11 @@ ThemeData _build(Brightness brightness) {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(BsRadius.sm)),
-        textStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.w600, fontSize: 14, letterSpacing: 0.2),
+        textStyle: TextStyle(
+            fontFamily: familleTexte(FontWeight.w600),
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            letterSpacing: 0.2),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -87,7 +91,10 @@ ThemeData _build(Brightness brightness) {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(BsRadius.sm)),
-        textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+        textStyle: TextStyle(
+            fontFamily: familleTexte(FontWeight.w600),
+            fontWeight: FontWeight.w600,
+            fontSize: 13),
       ),
     ),
   );

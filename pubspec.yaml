@@ -36,7 +36,6 @@ dependencies:
   intl: ^0.19.0
 
   # --- Typographie (Fraunces / Inter / JetBrains Mono) ---
-  google_fonts: ^6.2.1
 
   # --- Génération et impression PDF (factures + rapports) ---
   pdf: ^3.11.1
@@ -54,7 +53,6 @@ dependencies:
   # --- Stockage cloud (backup BDD + photos produits) ---
   supabase_flutter: ^2.5.6
   connectivity_plus: ^6.0.5
-  window_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:
@@ -82,7 +80,45 @@ flutter:
   assets:
     - assets/images/
     # Polices EMBARQUÉES (Inter, JetBrains Mono — licence SIL OFL 1.1).
-    # google_fonts les trouve ici par leur nom de fichier et ne les
-    # télécharge plus : l'app s'affiche dans sa vraie police hors ligne,
-    # et les factures PDF se génèrent sans réseau.
+    # Aussi lues par chemin pour les factures PDF (pdf_service.dart).
     - assets/fonts/
+
+  # Une famille PAR FICHIER (cf. theme/typography.dart) : réunies sous un
+  # même nom, le moteur prendrait le gras pour le demi-gras.
+  fonts:
+    - family: Inter_400
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+    - family: Inter_500
+      fonts:
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+    - family: Inter_600
+      fonts:
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+    - family: Inter_700
+      fonts:
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: Inter_800
+      fonts:
+        - asset: assets/fonts/Inter-ExtraBold.ttf
+          weight: 800
+    - family: JetBrainsMono_500
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Medium.ttf
+          weight: 500
+    - family: JetBrainsMono_600
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-SemiBold.ttf
+          weight: 600
+    - family: JetBrainsMono_700
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Bold.ttf
+          weight: 700
+    - family: JetBrainsMono_800
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-ExtraBold.ttf
+          weight: 800

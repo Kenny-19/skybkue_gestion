@@ -608,7 +608,7 @@ class _CloudSectionState extends State<_CloudSection> {
                     ? null
                     : () async {
                         setState(() => _busy = true);
-                        final msg = await MirrorService.syncAll();
+                        final msg = await MirrorService.syncAll(complet: true);
                         if (mounted) {
                           setState(() => _busy = false);
                           ScaffoldMessenger.of(context)

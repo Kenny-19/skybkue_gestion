@@ -49,13 +49,35 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     super.dispose();
   }
 
-  int _totalCents(List<Article> articles, Map<int, int> lines) {
+  /// Total du panier. Un article qui n'est plus au catalogue ne compte
+  /// pas : il est retiré du panier dans la foulée (cf. [_purgerPanier]).
+  int _totalCents(Map<int, Article> parId, Map<int, int> lines) {
     int t = 0;
     for (final e in lines.entries) {
-      final a = articles.firstWhere((x) => x.id == e.key);
-      t += a.priceCents * e.value;
+      final a = parId[e.key];
+      if (a != null) t += a.priceCents * e.value;
     }
     return t;
+  }
+
+  /// Retire du panier ce qui n'est plus en vente, et le dit.
+  ///
+  /// Appelé APRÈS l'affichage : on ne modifie pas un état pendant qu'on
+  /// le dessine.
+  void _purgerPanier(Map<int, Article> parId) {
+    final cart = ref.read(posCartProvider);
+    if (cart.lines.keys.every(parId.containsKey)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final n =
+          ref.read(posCartProvider.notifier).retirerAbsents(parId.keys.toSet());
+      if (n == 0) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(n == 1
+              ? "Un article du panier n'est plus en vente : il a été retiré."
+              : "$n articles du panier ne sont plus en vente : "
+                  'ils ont été retirés.')));
+    });
   }
 
   /// [onCredit] = true → la vente est enregistrée comme dette (impayée).
@@ -71,15 +93,31 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return;
     }
     final me = ref.read(authProvider).user;
-    final saleId = await ref.read(salesRepoProvider).createSale(
-          articleQuantities: Map.of(cart.lines),
-          payment: cart.payment,
-          location: cart.location,
-          serverUserId: me?.id,
-          customerName: cart.customerName,
-          roomNumber: cart.roomNumber,
-          onCredit: onCredit,
-        );
+    final int saleId;
+    try {
+      saleId = await ref.read(salesRepoProvider).createSale(
+            articleQuantities: Map.of(cart.lines),
+            payment: cart.payment,
+            location: cart.location,
+            serverUserId: me?.id,
+            customerName: cart.customerName,
+            roomNumber: cart.roomNumber,
+            onCredit: onCredit,
+          );
+    } catch (e, st) {
+      // La vente n'est PAS enregistrée (tout ou rien) : le panier reste
+      // tel quel, et la personne le sait au lieu de croire que c'est fait.
+      if (!mounted) return;
+      final pourquoi = e is StateError
+          ? e.message
+          : handleError(e, st, context: 'pos_checkout').message;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: BsColors.danger,
+          content: Text('Vente NON enregistrée : $pourquoi',
+              style:
+                  BsType.body(13, w: FontWeight.w600, color: Colors.white))));
+      return;
+    }
     unawaited(VentesOutbox.instance.pousser(saleId));
     if (!mounted) return;
     final loc = cart.location.label;
@@ -93,14 +131,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               : 'Facture #${saleId.toString().padLeft(4, "0")} · $loc · $now')),
     );
     // On imprime la facture uniquement pour un encaissement payé.
+    // Relue par son numéro : avant, elle était cherchée parmi les ventes
+    // du jour, et à défaut c'était la PREMIÈRE de la liste — le ticket
+    // d'une autre vente — qui sortait.
     if (!onCredit) {
-      final recent =
-          await ref.read(salesRepoProvider).watchRecent(days: 1).first;
-      final sale = recent.firstWhere(
-        (s) => s.sale.id == saleId,
-        orElse: () => recent.first,
-      );
-      await PdfService.previewInvoice(sale);
+      final sale = await ref.read(salesRepoProvider).venteParId(saleId);
+      if (sale != null) await PdfService.previewInvoice(sale);
     }
   }
 
@@ -111,14 +147,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     await PdfService.previewCartPreview(
       lines: [
         for (final e in cart.lines.entries)
-          () {
-            final a = articles.firstWhere((x) => x.id == e.key);
-            return CartPreviewLine(
+          for (final a in articles.where((x) => x.id == e.key))
+            CartPreviewLine(
               name: a.name,
               qty: e.value,
               unitPriceCents: a.priceCents,
-            );
-          }(),
+            ),
       ],
       payment: cart.payment,
       serverName: ref.read(authProvider).user?.fullName,
@@ -139,6 +173,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         final availableByArticle = <int, int?>{
           for (final a in articles) a.id: a.trackStock ? a.stockQty : null,
         };
+        final parId = {for (final a in articles) a.id: a};
+        _purgerPanier(parId);
         // Filtre : par catégorie ET par recherche. Quand une recherche
         // est active, on ignore la catégorie pour chercher partout — le
         // user attend "je tape 'coca', je le vois d'où qu'il vienne".
@@ -230,16 +266,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       child: _Ticket(
                         cart: cart,
                         articles: articles,
-                        totalCents: _totalCents(articles, cart.lines),
+                        totalCents: _totalCents(parId, cart.lines),
                         onPayment: (p) =>
                             ref.read(posCartProvider.notifier).setPayment(p),
                         onDec: (id) =>
                             ref.read(posCartProvider.notifier).remove(id),
                         onInc: (id) {
-                          final a = articles.firstWhere((x) => x.id == id);
+                          if (!parId.containsKey(id)) return;
                           ref.read(posCartProvider.notifier).add(
-                                a.id,
-                                available: availableByArticle[a.id],
+                                id,
+                                available: availableByArticle[id],
                               );
                         },
                         onClear: () =>
@@ -582,6 +618,21 @@ class _RoomPicker extends ConsumerWidget {
         .where((r) => r.status == DbRoomStatus.occupee)
         .toList()
       ..sort((a, b) => a.number.compareTo(b.number));
+    // Chambre du panier libérée entre-temps (départ fait à la réception) :
+    // on la détache, et on le dit. Sinon la consommation partait sur une
+    // chambre vide, que plus personne ne facturerait.
+    final chambre = cart.roomNumber;
+    if (chambre != null &&
+        asyncRooms.hasValue &&
+        !occupied.any((r) => r.number == chambre)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ref.read(posCartProvider).roomNumber != chambre) return;
+        ref.read(posCartProvider.notifier).setRoom(null);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+            content: Text("La chambre $chambre n'est plus occupée : "
+                "la vente n'y est plus rattachée.")));
+      });
+    }
     final payers = ref.watch(payersStreamProvider).asData?.value ?? const [];
     final payerById = {for (final p in payers) p.id: p};
     final pull = MirrorPullService.instance;
@@ -1018,15 +1069,16 @@ class _Ticket extends StatelessWidget {
                   )
                 : ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: cart.lines.entries.map((e) {
-                      final a = articles.firstWhere((x) => x.id == e.key);
-                      return _CartRow(
-                        article: a,
-                        qty: e.value,
-                        onDec: () => onDec(e.key),
-                        onInc: () => onInc(e.key),
-                      );
-                    }).toList(),
+                    children: [
+                      for (final e in cart.lines.entries)
+                        for (final a in articles.where((x) => x.id == e.key))
+                          _CartRow(
+                            article: a,
+                            qty: e.value,
+                            onDec: () => onDec(e.key),
+                            onInc: () => onInc(e.key),
+                          ),
+                    ],
                   ),
           ),
           const Divider(height: 1),

@@ -84,6 +84,23 @@ class PosCartNotifier extends StateNotifier<PosCartState> {
   }
 
   void clear() => state = PosCartState(location: state.location);
+
+  /// Retire du panier les articles absents de [enVente] (désactivés,
+  /// supprimés, ou fusionnés avec un doublon par la synchronisation).
+  /// Renvoie le nombre de lignes retirées.
+  ///
+  /// Le panier survit aux changements d'écran : un article qui disparaît
+  /// du catalogue pendant ce temps y restait, et l'écran de caisse, qui
+  /// cherchait son prix, plantait à chaque affichage — caisse bloquée
+  /// jusqu'au redémarrage (16 fois entre le 31 octobre et le 16
+  /// novembre 2026 sur DESKTOP-DPJ4R46).
+  int retirerAbsents(Set<int> enVente) {
+    final next = Map<int, int>.of(state.lines)
+      ..removeWhere((id, _) => !enVente.contains(id));
+    final retirees = state.lines.length - next.length;
+    if (retirees > 0) state = state.copyWith(lines: next);
+    return retirees;
+  }
 }
 
 final posCartProvider = StateNotifierProvider<PosCartNotifier, PosCartState>(

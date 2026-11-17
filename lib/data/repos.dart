@@ -1542,6 +1542,15 @@ class SalesRepo {
     return _hydrate(toutes);
   }
 
+  /// Une vente et ses lignes, par son numéro local. Null si elle n'existe
+  /// pas (ou plus).
+  Future<SaleWithLines?> venteParId(int id) async {
+    final v = await (_db.select(_db.sales)..where((s) => s.id.equals(id)))
+        .getSingleOrNull();
+    if (v == null) return null;
+    return (await _hydrate([v])).first;
+  }
+
   /// Solde une dette d'un seul coup.
   ///
   /// Conservée pour les appels qui règlent forcément la totalité — le
@@ -1754,7 +1763,14 @@ class SalesRepo {
       for (final entry in articleQuantities.entries) {
         final art = await (_db.select(_db.articles)
               ..where((a) => a.id.equals(entry.key)))
-            .getSingle();
+            .getSingleOrNull();
+        // Retiré du catalogue entre l'ajout au panier et l'encaissement.
+        // La transaction annule toute la vente : rien n'est à moitié
+        // enregistré.
+        if (art == null) {
+          throw StateError("Un article du panier n'existe plus au catalogue. "
+              'Retire-le du panier puis encaisse de nouveau.');
+        }
         await _db.into(_db.saleLines).insert(SaleLinesCompanion.insert(
               saleId: saleId,
               articleId: Value(art.id),

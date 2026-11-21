@@ -38,6 +38,10 @@ class SettingsRepo {
         SettingsCompanion(key: Value(key), value: Value(value)));
   }
 
+  /// Lecture / écriture d'un réglage technique (JSON, compteurs…).
+  Future<String?> lireBrut(String key) => _get(key);
+  Future<void> ecrireBrut(String key, String value) => _set(key, value);
+
   Future<String?> _get(String key) async {
     final row = await (_db.select(_db.settings)
           ..where((s) => s.key.equals(key)))

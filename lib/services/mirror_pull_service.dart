@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../core/cloud_config.dart';
+import 'connexion_service.dart';
 import 'error_reporter.dart';
 import 'mirror_service.dart';
 import 'stock_service.dart';
@@ -99,8 +101,16 @@ class MirrorPullService {
         // relus seulement s'ils ont changé, et seulement ce qui a changé
         // (cf. synchro_par_difference.dart). Hors ligne, rien n'est perdu :
         // le tour suivant reprend où celui-ci s'est arrêté.
-        SynchroParDifference.instance.tour().catchError((_) {
+        SynchroParDifference.instance.tour().then((_) {
+          if (CloudConfig.isConfigured) {
+            unawaited(ConnexionService.instance.signalerEnLigne());
+          }
+        }).catchError((Object e) {
           _etaitHorsLigne = true;
+          // Un refus du serveur n'est pas une coupure : il a répondu.
+          if (ConnexionService.estUneCoupure(e)) {
+            ConnexionService.instance.signalerHorsLigne();
+          }
         }),
         // Dettes de ce poste réglées ailleurs (consommation du bar
         // facturée au départ par la réception) : elles ne doivent plus

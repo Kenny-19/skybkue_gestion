@@ -14,6 +14,7 @@ import '../services/supply_requests_service.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import 'notifications_bell.dart';
+import 'bandeau_hors_ligne.dart';
 import 'update_banner.dart';
 import '../core/temps.dart';
 import '../core/horloge.dart';
@@ -149,6 +150,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             child: Column(
               children: [
                 // Banniere de mise a jour (auto-hide si aucune dispo).
+                const BandeauHorsLigne(),
                 const UpdateBanner(),
                 Expanded(child: widget.child),
               ],

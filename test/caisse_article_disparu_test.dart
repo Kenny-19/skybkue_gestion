@@ -22,7 +22,8 @@ import 'helpers.dart';
 void main() {
   setUpAll(() => initializeDateFormatting('fr_FR'));
 
-  testWidgets('un article qui quitte le catalogue sort du panier, '
+  testWidgets(
+      'un article qui quitte le catalogue sort du panier, '
       'sans planter la caisse', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
@@ -30,9 +31,9 @@ void main() {
 
     final db = newTestDb();
     await tester.runAsync(() => semerCatalogueDeTest(db));
-    final articles = (await tester.runAsync(
-        () => (db.select(db.articles)..orderBy([(a) => OrderingTerm.asc(a.id)]))
-            .get()))!;
+    final articles = (await tester.runAsync(() => (db.select(db.articles)
+          ..orderBy([(a) => OrderingTerm.asc(a.id)]))
+        .get()))!;
     final garde = articles[0];
     final retire = articles[1];
 
@@ -65,9 +66,9 @@ void main() {
     expect(conteneur.read(posCartProvider).lines.length, 2);
 
     // Désactivé ailleurs (ou fusionné par la synchronisation).
-    await tester.runAsync(() =>
-        (db.update(db.articles)..where((a) => a.id.equals(retire.id)))
-            .write(const ArticlesCompanion(active: Value(false))));
+    await tester.runAsync(() => (db.update(db.articles)
+          ..where((a) => a.id.equals(retire.id)))
+        .write(const ArticlesCompanion(active: Value(false))));
     await laisserVenir();
 
     expect(tester.takeException(), isNull, reason: "la caisse ne plante plus");

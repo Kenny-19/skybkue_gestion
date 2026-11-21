@@ -1392,6 +1392,19 @@ class MirrorService {
     }
   }
 
+  /// Somme des mouvements de stock de [db] pas encore confirmés par le
+  /// serveur, par article.
+  static Future<Map<int, int>> mouvementsEnAttente(AppDatabase db) async {
+    final m = db.stockMoves;
+    final somme = m.delta.sum();
+    final rows = await (db.selectOnly(m)
+          ..addColumns([m.articleId, somme])
+          ..where(m.sentAt.isNull())
+          ..groupBy([m.articleId]))
+        .get();
+    return {for (final r in rows) r.read(m.articleId)!: r.read(somme) ?? 0};
+  }
+
   /// Applique le catalogue du serveur à [db]. N'écrit QUE ce qui change :
   /// chaque écriture redessine la caisse, le catalogue et le stock, et ils
   /// se redessinaient en entier toutes les quinze secondes pour rien.
@@ -1405,14 +1418,8 @@ class MirrorService {
       if (a.uid != null) parUid.putIfAbsent(a.uid!, () => a);
       parNom.putIfAbsent(a.name.toLowerCase(), () => a);
     }
-    // Articles qui ont des mouvements pas encore confirmés : leur
-    // quantité locale prime (cf. plus bas).
-    final avecMouvements = (await (db.selectOnly(db.stockMoves, distinct: true)
-              ..addColumns([db.stockMoves.articleId])
-              ..where(db.stockMoves.sentAt.isNull()))
-            .get())
-        .map((r) => r.read(db.stockMoves.articleId)!)
-        .toSet();
+    // Mouvements de CE poste pas encore arrivés au serveur, par article.
+    final enAttente = await mouvementsEnAttente(db);
 
     var ecrits = 0;
     await db.transaction(() async {
@@ -1438,9 +1445,8 @@ class MirrorService {
                 imagePath: Value(r['image_path'] as String?),
                 trackStock: Value((r['track_stock'] as bool?) ?? false),
                 unit: Value((r['unit'] as String?) ?? 'unité'),
-                // Un article qui arrive d'ailleurs démarre à zéro ici :
-                // personne n'a encore compté ces bouteilles sur CE poste.
-                stockQty: const Value(0),
+                // Le stock du serveur : il est le même pour tous les postes.
+                stockQty: Value(((r['stock_qty'] as num?) ?? 0).toInt()),
                 threshold: Value(((r['threshold'] as num?) ?? 0).toInt()),
               ));
           final cree = await (db.select(db.articles)
@@ -1451,9 +1457,16 @@ class MirrorService {
           ecrits++;
           continue;
         }
-        // Le serveur fait foi sur la quantité — SAUF si ce poste a des
-        // mouvements non encore confirmés pour cet article : adopter la
-        // valeur serveur effacerait les ventes faites pendant la coupure.
+        // UN SEUL STOCK, celui du serveur, auquel s'ajoutent les
+        // mouvements de ce poste qui ne l'ont pas encore atteint.
+        //
+        // Avant : un article qui avait UN mouvement en attente gardait sa
+        // quantité locale tout entière. Un mouvement bloqué suffisait
+        // donc pour que le poste garde son propre stock, pour toujours —
+        // « chaque poste avec son stock » (21 novembre 2026). Désormais
+        // la quantité est toujours celle du serveur, plus ce qui n'est pas
+        // encore parti : ni les ventes faites pendant une coupure ne sont
+        // effacées, ni le stock ne diverge.
         final qteServeur = (r['stock_qty'] as num?)?.toInt();
         final maj = ArticlesCompanion(
           uid: Value(uid),
@@ -1464,8 +1477,8 @@ class MirrorService {
           trackStock: Value((r['track_stock'] as bool?) ?? ex.trackStock),
           unit: Value((r['unit'] as String?) ?? ex.unit),
           threshold: Value(((r['threshold'] as num?) ?? ex.threshold).toInt()),
-          stockQty: (!avecMouvements.contains(ex.id) && qteServeur != null)
-              ? Value(qteServeur)
+          stockQty: qteServeur != null
+              ? Value(qteServeur + (enAttente[ex.id] ?? 0))
               : const Value.absent(),
         );
         if (ex.copyWithCompanion(maj) == ex) continue;
@@ -1656,6 +1669,20 @@ class MirrorService {
   }
 
   // ─── Push incrémental d'un produit (création / édition) ──────────────
+
+  /// Comme [pushArticleById], mais LÈVE si l'envoi échoue : la file du
+  /// stock en a besoin pour savoir si elle peut retenter le mouvement.
+  static Future<void> pushArticleOrThrow(int articleId) async {
+    final c = _c;
+    if (c == null) throw StateError('Cloud non configuré');
+    final art = await (_db.select(_db.articles)
+          ..where((a) => a.id.equals(articleId)))
+        .getSingleOrNull();
+    if (art == null) return;
+    await c
+        .from('mirror_articles')
+        .upsert(_articleJson(art), onConflict: 'uid');
+  }
 
   static Future<void> pushArticleById(int articleId) async {
     final c = _c;

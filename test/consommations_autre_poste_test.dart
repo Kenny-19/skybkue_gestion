@@ -38,7 +38,8 @@ Map<String, dynamic> _ligneCommeLeServeur(SaleLine l, int idServeur) => {
     };
 
 void main() {
-  test('la consommation saisie au bar arrive sur la facture de la réception, '
+  test(
+      'la consommation saisie au bar arrive sur la facture de la réception, '
       'puis disparaît des dettes du bar', () async {
     final bar = newTestDb();
     final reception = newTestDb();

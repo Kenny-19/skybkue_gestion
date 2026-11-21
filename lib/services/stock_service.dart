@@ -8,6 +8,8 @@ import '../core/cloud_config.dart';
 import '../core/identite.dart';
 import '../data/database.dart';
 import 'error_reporter.dart';
+import 'heartbeat_service.dart';
+import 'mirror_service.dart';
 import '../core/horloge.dart';
 
 // Mouvements de stock en deltas.
@@ -22,11 +24,33 @@ import '../core/horloge.dart';
 //
 // Contrat serveur : sql/2026_09_stock_deltas.sql.
 
+/// Modification du stock refusée : le serveur n'est pas joignable.
+class StockHorsLigne implements Exception {
+  const StockHorsLigne();
+  @override
+  String toString() =>
+      "Pas de connexion au serveur : le stock se modifie en ligne "
+      "uniquement. Rien n'a été changé.";
+}
+
+/// Envoi d'un mouvement au serveur (remplaçable dans les tests).
+typedef EnvoiMouvement = Future<void> Function(StockMove m, String articleUid);
+
+/// Envoi d'une fiche article au serveur, en levant si ça échoue.
+typedef PousserArticle = Future<void> Function(int articleId);
+
 class StockService {
   /// La base est INJECTÉE plutôt que prise sur le singleton : sans ça,
   /// un test qui travaille sur une base en mémoire verrait ses
   /// mouvements partir dans la vraie base du poste.
-  StockService(this._db);
+  StockService(this._db,
+      {EnvoiMouvement? envoyer, PousserArticle? pousserArticle})
+      : _envoyerTest = envoyer,
+        _pousserArticleTest = pousserArticle;
+
+  /// Pour les tests : remplacent l'appel au serveur.
+  final EnvoiMouvement? _envoyerTest;
+  final PousserArticle? _pousserArticleTest;
 
   /// Instance de l'application. Les tests construisent la leur.
   static StockService get instance =>
@@ -97,6 +121,76 @@ class StockService {
     unawaited(viderLaFile());
   }
 
+  /// Modifie le stock EN LIGNE : le serveur l'applique tout de suite, ou
+  /// rien ne change.
+  ///
+  /// Pour la gestion du stock (ravitaillement, correction, stock initial)
+  /// faite par un gérant. Contrairement à une vente, elle n'est jamais
+  /// mise en file : une correction d'inventaire faite hors ligne sur un
+  /// poste, et envoyée des heures plus tard, est exactement ce qui donnait
+  /// « chaque poste avec son stock ». Sans connexion, elle est refusée et
+  /// la personne le sait.
+  ///
+  /// LÈVE [StockHorsLigne] si le serveur n'est pas joignable.
+  Future<void> ajusterEnLigne({
+    required int articleId,
+    required int delta,
+    required String reason,
+  }) async {
+    if (delta == 0) return;
+    final envoyer = _envoyerTest ?? _envoiServeur();
+    if (envoyer == null) throw const StockHorsLigne();
+    final article = await (_db.select(_db.articles)
+          ..where((a) => a.id.equals(articleId)))
+        .getSingleOrNull();
+    if (article == null) {
+      throw StateError('Article $articleId introuvable sur ce poste');
+    }
+    final uid = article.uid ?? uidArticle(article.name);
+    final opId = _nouvelOpId();
+    final mouvement = StockMove(
+      opId: opId,
+      articleId: articleId,
+      delta: delta,
+      reason: reason,
+      occurredAt: Horloge.maintenant(),
+      sentAt: null,
+      attempts: 0,
+      lastError: null,
+    );
+    try {
+      try {
+        await envoyer(mouvement, uid);
+      } catch (e) {
+        if (!e.toString().contains('ARTICLE_INCONNU')) rethrow;
+        // Produit encore inconnu du serveur (tout juste créé) : sa fiche
+        // d'abord, puis le mouvement.
+        await (_pousserArticleTest ??
+            MirrorService.pushArticleOrThrow)(articleId);
+        await envoyer(mouvement, uid);
+      }
+    } catch (e) {
+      if (_ressembleAUneCoupure(e) || e is StateError) {
+        throw const StockHorsLigne();
+      }
+      rethrow;
+    }
+    // Confirmé par le serveur : on l'applique ici, et on le garde au
+    // journal comme déjà envoyé.
+    await _db.transaction(() async {
+      await (_db.update(_db.articles)..where((a) => a.id.equals(articleId)))
+          .write(ArticlesCompanion(stockQty: Value(article.stockQty + delta)));
+      await _db.into(_db.stockMoves).insert(StockMovesCompanion.insert(
+            opId: opId,
+            articleId: articleId,
+            delta: delta,
+            reason: Value(reason),
+            occurredAt: Value(mouvement.occurredAt),
+            sentAt: Value(Horloge.maintenant()),
+          ));
+    });
+  }
+
   /// Nombre de mouvements qui n'ont pas encore atteint le serveur.
   Future<int> enAttente() async {
     final q = _db.selectOnly(_db.stockMoves)
@@ -108,59 +202,95 @@ class StockService {
 
   bool _occupe = false;
 
-  /// Envoie les mouvements en attente, du plus ancien au plus récent.
+  /// Prochain essai permis, par mouvement qui a déjà échoué plusieurs
+  /// fois. En mémoire : un redémarrage retente tout, et c'est voulu.
+  final Map<String, DateTime> _prochainEssai = {};
+
+  /// Après [kEchecsAvantEspacement] échecs, un mouvement n'est plus
+  /// retenté qu'une fois par [kEspacement].
+  static const kEchecsAvantEspacement = 5;
+  static const kEspacement = Duration(minutes: 10);
+
+  /// Envoie les mouvements en attente.
   ///
-  /// Un seul vidangeur à la fois, en série : deux envois concurrents
-  /// pourraient rejouer le même mouvement. L'ordre n'est pas
-  /// indispensable — des deltas s'additionnent dans n'importe quel ordre
-  /// — mais il rend le journal serveur lisible.
-  Future<void> viderLaFile() async {
+  /// Avant, un mouvement qui avait échoué six fois n'était PLUS JAMAIS
+  /// retenté, et la raison restait sur le poste. Or tant qu'un article a
+  /// un mouvement en attente, le poste garde sa propre quantité au lieu
+  /// de celle du serveur : le 21 novembre 2026, la caisse avait 41
+  /// mouvements bloqués, et donc son propre stock. Désormais :
+  ///   * aucun mouvement n'est abandonné : espacé, jamais oublié ;
+  ///   * les plus récents passent d'abord : un mouvement bloqué ne retarde
+  ///     plus les autres ;
+  ///   * « article inconnu » : la fiche est envoyée au serveur, puis le
+  ///     mouvement est retenté aussitôt ;
+  ///   * un blocage durable est SIGNALÉ, avec sa raison.
+  ///
+  /// Un seul vidangeur à la fois : deux envois concurrents pourraient
+  /// rejouer le même mouvement (sans effet grâce à l'op_id, mais inutile).
+  Future<void> viderLaFile({DateTime? maintenant}) async {
     if (_occupe) return;
-    final c = _client;
-    if (c == null) return;
+    final envoyer = _envoyerTest ?? _envoiServeur();
+    if (envoyer == null) return;
     _occupe = true;
+    final now = maintenant ?? Horloge.maintenant();
     try {
       final enAttente = await (_db.select(_db.stockMoves)
             ..where((m) => m.sentAt.isNull())
-            ..orderBy([(m) => OrderingTerm.asc(m.occurredAt)])
-            ..limit(50))
+            ..orderBy([
+              (m) => OrderingTerm.asc(m.attempts),
+              (m) => OrderingTerm.asc(m.occurredAt),
+            ])
+            ..limit(200))
           .get();
-
       for (final m in enAttente) {
-        // Un mouvement qui a déjà échoué plusieurs fois est espacé :
-        // inutile de marteler un serveur qui refuse.
-        if (m.attempts >= 5 && m.attempts % 5 != 0) continue;
+        if (m.attempts >= kEchecsAvantEspacement) {
+          final prochain = _prochainEssai[m.opId];
+          if (prochain != null && now.isBefore(prochain)) continue;
+        }
         try {
-          // Par IDENTITÉ de l'article (v28), plus par son numéro local :
-          // sur le serveur, ce numéro pouvait désigner un autre produit.
           final article = await (_db.select(_db.articles)
                 ..where((a) => a.id.equals(m.articleId)))
               .getSingleOrNull();
           if (article == null) {
             throw StateError('Article ${m.articleId} introuvable sur ce poste');
           }
-          await c.rpc('bs_adjust_stock_uid', params: {
-            'p_op_id': m.opId,
-            'p_article_uid': article.uid ?? uidArticle(article.name),
-            'p_delta': m.delta,
-            'p_reason': m.reason,
-          }).timeout(const Duration(seconds: 8));
-
+          final uid = article.uid ?? uidArticle(article.name);
+          try {
+            await envoyer(m, uid);
+          } catch (e) {
+            if (!e.toString().contains('ARTICLE_INCONNU')) rethrow;
+            // Le serveur ne connaît pas encore ce produit (créé ici hors
+            // ligne, ou renommé) : on lui envoie la fiche, puis on retente.
+            await (_pousserArticleTest ??
+                MirrorService.pushArticleOrThrow)(article.id);
+            await envoyer(m, uid);
+          }
+          _prochainEssai.remove(m.opId);
           await (_db.update(_db.stockMoves)
                 ..where((x) => x.opId.equals(m.opId)))
               .write(StockMovesCompanion(
                   sentAt: Value(Horloge.maintenant()),
                   lastError: const Value(null)));
-        } catch (e) {
+        } catch (e, st) {
           // Échec : on garde le mouvement et on note pourquoi. Il ne
           // disparaît jamais en silence — c'est du stock réel.
+          final tentatives = m.attempts + 1;
           await (_db.update(_db.stockMoves)
                 ..where((x) => x.opId.equals(m.opId)))
               .write(StockMovesCompanion(
-                  attempts: Value(m.attempts + 1),
-                  lastError: Value(e.toString())));
-          // Réseau coupé : inutile d'essayer les suivants maintenant.
+                  attempts: Value(tentatives), lastError: Value(e.toString())));
+          if (tentatives >= kEchecsAvantEspacement) {
+            _prochainEssai[m.opId] = now.add(kEspacement);
+          }
+          // Réseau coupé : rien d'anormal, et inutile d'essayer les
+          // suivants maintenant.
           if (_ressembleAUneCoupure(e)) break;
+          // Blocage durable : le signaler, avec sa raison. Avant, elle
+          // restait sur le poste et personne ne la voyait.
+          if (tentatives == kEchecsAvantEspacement || tentatives % 50 == 0) {
+            unawaited(ErrorReporter.report(e, st,
+                context: 'stock/mouvement bloqué ($tentatives essais)'));
+          }
         }
       }
     } catch (e, st) {
@@ -168,6 +298,21 @@ class StockService {
     } finally {
       _occupe = false;
     }
+  }
+
+  /// L'envoi réel d'un mouvement au serveur. Null hors cloud.
+  EnvoiMouvement? _envoiServeur() {
+    final c = _client;
+    if (c == null) return null;
+    return (m, uid) => c.rpc('bs_adjust_stock_uid', params: {
+          'p_op_id': m.opId,
+          'p_article_uid': uid,
+          'p_delta': m.delta,
+          'p_reason': m.reason,
+          // Le poste d'origine : le journal serveur ne le portait pas,
+          // impossible de savoir qui avait sorti quoi.
+          'p_poste': HeartbeatService.nomDuPoste,
+        }).timeout(const Duration(seconds: 8));
   }
 
   static bool _ressembleAUneCoupure(Object e) {

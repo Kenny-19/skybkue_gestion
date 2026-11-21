@@ -50,7 +50,8 @@ void main() {
     expect(s.lus, isEmpty, reason: '50 minutes de calme : zéro relecture');
   });
 
-  test('une table qui change : elle seule, depuis le dernier passage '
+  test(
+      'une table qui change : elle seule, depuis le dernier passage '
       '(moins deux minutes)', () async {
     final s = _Serveur();
     final sync = s.synchro();

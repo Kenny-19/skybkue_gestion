@@ -58,12 +58,14 @@ void main() {
 
     await laisserVenir();
     Widget carte(String n) => tester.widget(find.byKey(ValueKey(n)));
-    final avant = {for (final n in ['101', '102', '103']) n: carte(n)};
+    final avant = {
+      for (final n in ['101', '102', '103']) n: carte(n)
+    };
 
     // La 102 passe en nettoyage.
-    await tester.runAsync(() =>
-        (db.update(db.rooms)..where((r) => r.number.equals('102')))
-            .write(const RoomsCompanion(status: Value(DbRoomStatus.nettoyage))));
+    await tester.runAsync(() => (db.update(db.rooms)
+          ..where((r) => r.number.equals('102')))
+        .write(const RoomsCompanion(status: Value(DbRoomStatus.nettoyage))));
     await laisserVenir();
 
     expect(find.text('Nettoyage'), findsWidgets, reason: 'la carte a suivi');

@@ -26,7 +26,11 @@ import 'mirror_service.dart';
 /// Ici, chaque vente porte son accusé de réception. On n'envoie que ce
 /// qui manque, et ce qui manque se compte.
 class VentesOutbox {
-  VentesOutbox(this._db);
+  VentesOutbox(this._db, {Future<void> Function(int saleId)? envoyer})
+      : _envoyer = envoyer;
+
+  /// Pour les tests : remplace l'envoi au serveur.
+  final Future<void> Function(int saleId)? _envoyer;
 
   static VentesOutbox get instance =>
       _instance ??= VentesOutbox(AppDatabase.instance);
@@ -110,30 +114,58 @@ class VentesOutbox {
   /// [lot] borne le travail d'un passage : après une longue coupure, la
   /// file peut contenir des centaines de ventes, et il ne faut pas que
   /// le rattrapage fasse ramer la caisse pendant le service.
-  Future<int> vider({int lot = 40}) async {
+  /// Prochain essai permis, par vente qui a déjà échoué plusieurs fois.
+  /// En mémoire : un redémarrage retente tout, et c'est voulu.
+  final Map<int, DateTime> _prochainEssai = {};
+
+  static const kEchecsAvantEspacement = 5;
+  static const kEspacement = Duration(minutes: 10);
+
+  /// Envoie les ventes en attente.
+  ///
+  /// Avant, une vente qui avait échoué six fois n'était PLUS JAMAIS
+  /// retentée, la raison restait sur le poste, et quarante ventes
+  /// bloquées occupaient tout le lot : plus rien ne partait. Le 21
+  /// novembre 2026, la caisse en avait 46. Désormais :
+  ///   * aucune vente n'est abandonnée : espacée, jamais oubliée ;
+  ///   * les plus récentes passent d'abord ;
+  ///   * un blocage durable est SIGNALÉ, avec sa raison.
+  Future<int> vider({int lot = 40, DateTime? maintenant}) async {
     if (_occupe) return 0;
     _occupe = true;
     var envoyees = 0;
+    final now = maintenant ?? DateTime.now();
     try {
       final enAttente = await (_db.select(_db.sales)
             ..where((s) => s.syncedAt.isNull())
-            ..orderBy([(s) => OrderingTerm.asc(s.soldAt)])
+            ..orderBy([
+              (s) => OrderingTerm.asc(s.syncAttempts),
+              (s) => OrderingTerm.asc(s.soldAt),
+            ])
             ..limit(lot))
           .get();
 
       for (final v in enAttente) {
-        // Une vente qui a déjà échoué cinq fois est espacée : inutile de
-        // marteler un serveur qui refuse. Elle reste dans la file.
-        if (v.syncAttempts >= 5 && v.syncAttempts % 5 != 0) continue;
+        if (v.syncAttempts >= kEchecsAvantEspacement) {
+          final prochain = _prochainEssai[v.id];
+          if (prochain != null && now.isBefore(prochain)) continue;
+        }
         try {
-          await MirrorService.pushSaleOrThrow(v.id);
+          await (_envoyer ?? MirrorService.pushSaleOrThrow)(v.id);
           await marquerEnvoyee(v.id);
+          _prochainEssai.remove(v.id);
           envoyees++;
-        } catch (e) {
+        } catch (e, st) {
+          final tentatives = v.syncAttempts + 1;
           await marquerEchec(v.id, e, v.syncAttempts);
-          // Réseau coupé : les suivantes échoueront pareil. On s'arrête
-          // là plutôt que d'incrémenter inutilement tous les compteurs.
+          if (tentatives >= kEchecsAvantEspacement) {
+            _prochainEssai[v.id] = now.add(kEspacement);
+          }
           if (_ressembleAUneCoupure(e)) break;
+          if (tentatives == kEchecsAvantEspacement || tentatives % 50 == 0) {
+            unawaited(ErrorReporter.report(e, st,
+                context: 'ventes/vente bloquée ($tentatives essais)'));
+          }
         }
       }
     } catch (e, st) {

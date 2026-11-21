@@ -19,8 +19,8 @@ import 'helpers.dart';
 
 Future<void> main() async {
   final dossier = await Directory.systemTemp.createTemp('bench');
-  final db = AppDatabase.forTesting(
-      NativeDatabase(File('${dossier.path}/b.db')));
+  final db =
+      AppDatabase.forTesting(NativeDatabase(File('${dossier.path}/b.db')));
   await semerCatalogueDeTest(db);
   final arts = await db.select(db.articles).get();
   final maintenant = DateTime.now();
@@ -99,7 +99,8 @@ Future<void> main() async {
       await f();
     }
     // ignore: avoid_print
-    print('${nom.padRight(52)} ${(s.elapsedMicroseconds / fois / 1000).toStringAsFixed(1).padLeft(8)} ms');
+    print(
+        '${nom.padRight(52)} ${(s.elapsedMicroseconds / fois / 1000).toStringAsFixed(1).padLeft(8)} ms');
   }
 
   final ventes = SalesRepo(db);
@@ -119,7 +120,8 @@ Future<void> main() async {
         ..where(s.syncedAt.isNull());
       return q.getSingle();
     });
-    await mesure('file des ventes : 40 plus anciennes en attente (15 s)',
+    await mesure(
+        'file des ventes : 40 plus anciennes en attente (15 s)',
         () => (db.select(db.sales)
               ..where((s) => s.syncedAt.isNull())
               ..orderBy([(s) => OrderingTerm.asc(s.soldAt)])
@@ -140,7 +142,8 @@ Future<void> main() async {
       ];
       return MirrorService.appliquerClientsDuServeur(db, rows);
     });
-    await mesure('consommations à facturer (départ)',
+    await mesure(
+        'consommations à facturer (départ)',
         () => ventes.unpaidForStay(
             sejourId: null,
             roomNumbers: ['3'],

@@ -141,7 +141,6 @@ void main() {
         category: coca.category,
         trackStock: coca.trackStock,
         unit: coca.unit,
-        stockQty: coca.stockQty,
         threshold: coca.threshold,
       );
       final recent = await sales.watchRecent(days: 1).first;
@@ -152,10 +151,81 @@ void main() {
   });
 
   group('Ravitaillement & ajustement', () {
+    // Le stock se gère EN LIGNE : ces tests simulent un serveur joignable.
+    late ArticlesRepo enLigne;
+    final recus = <int>[];
+    setUp(() {
+      recus.clear();
+      enLigne = ArticlesRepo(db,
+          stock: StockService(db,
+              envoyer: (m, uid) async => recus.add(m.delta),
+              pousserArticle: (_) async {}));
+    });
+
     test('adjustQty ajoute au stock', () async {
       final coca = await byName('Coca Cola 33cl'); // 18
-      await articles.adjustQty(coca.id, 24);
+      await enLigne.adjustQty(coca.id, 24);
       expect((await byName('Coca Cola 33cl')).stockQty, 42);
+      expect(recus, [24], reason: 'appliqué par le serveur');
+      final m = await db.select(db.stockMoves).getSingle();
+      expect(m.sentAt, isNotNull, reason: 'déjà confirmé, rien en file');
+    });
+
+    test('hors ligne : refusé, et rien ne change', () async {
+      final coca = await byName('Coca Cola 33cl'); // 18
+      await expectLater(
+          articles.adjustQty(coca.id, 24), throwsA(isA<StockHorsLigne>()));
+      expect((await byName('Coca Cola 33cl')).stockQty, 18);
+      expect(await db.select(db.stockMoves).get(), isEmpty,
+          reason: 'pas de correction mise en file pour plus tard');
+    });
+
+    test('serveur qui refuse : rien ne change non plus', () async {
+      final coca = await byName('Coca Cola 33cl');
+      final refus = ArticlesRepo(db,
+          stock: StockService(db,
+              envoyer: (m, uid) async => throw Exception('timeout')));
+      await expectLater(
+          refus.adjustQty(coca.id, 5), throwsA(isA<StockHorsLigne>()));
+      expect((await byName('Coca Cola 33cl')).stockQty, 18);
+    });
+
+    test('correction dans la fiche : l\'écart part au serveur', () async {
+      final coca = await byName('Coca Cola 33cl'); // 18
+      await enLigne.update(
+        id: coca.id,
+        name: coca.name,
+        priceCents: coca.priceCents,
+        category: coca.category,
+        trackStock: true,
+        unit: coca.unit,
+        stockQty: 24,
+        threshold: coca.threshold,
+      );
+      expect(recus, [6]);
+      expect((await byName('Coca Cola 33cl')).stockQty, 24);
+    });
+
+    test('fiche enregistrée sans toucher au stock : la vente reste', () async {
+      final coca = await byName('Coca Cola 33cl'); // 18
+      await sales.createSale(
+        articleQuantities: {coca.id: 2},
+        payment: DbPayment.cash,
+        location: DbLocation.restaurant,
+        serverUserId: null,
+      );
+      // Fiche ouverte AVANT la vente, enregistrée après : stock non touché.
+      await enLigne.update(
+        id: coca.id,
+        name: 'Coca',
+        priceCents: coca.priceCents,
+        category: coca.category,
+        trackStock: true,
+        unit: coca.unit,
+        threshold: coca.threshold,
+      );
+      expect(recus, isEmpty);
+      expect((await byName('Coca')).stockQty, 16);
     });
 
     test("adjustQty peut descendre en négatif : l'écart est une information",
@@ -164,14 +234,17 @@ void main() {
       // en retire 100, c'est que l'inventaire était faux : le montrer
       // vaut mieux que le masquer derrière un zéro rassurant.
       final coca = await byName('Coca Cola 33cl'); // 18
-      await articles.adjustQty(coca.id, -100);
+      await enLigne.adjustQty(coca.id, -100);
       expect((await byName('Coca Cola 33cl')).stockQty, 18 - 100);
     });
   });
 
   group('Création / désactivation de produit', () {
     test('un nouveau produit apparaît dans la liste active', () async {
-      await articles.create(
+      final enLigne = ArticlesRepo(db,
+          stock: StockService(db,
+              envoyer: (m, uid) async {}, pousserArticle: (_) async {}));
+      await enLigne.create(
         name: 'Thé vert',
         priceCents: 180,
         category: DbCategory.boissons,
@@ -182,6 +255,22 @@ void main() {
       );
       final list = await articles.allActive();
       expect(list.any((a) => a.name == 'Thé vert'), true);
+      expect(list.firstWhere((a) => a.name == 'Thé vert').stockQty, 50);
+    });
+
+    test('hors ligne, un produit avec stock initial n\'est pas créé', () async {
+      await expectLater(
+          articles.create(
+            name: 'Thé noir',
+            priceCents: 180,
+            category: DbCategory.boissons,
+            trackStock: true,
+            stockQty: 50,
+          ),
+          throwsA(isA<StockHorsLigne>()));
+      final list = await articles.allActive();
+      expect(list.any((a) => a.name == 'Thé noir'), false,
+          reason: 'tout ou rien');
     });
 
     test('un produit désactivé disparaît de la liste active', () async {

@@ -43,8 +43,8 @@ void main() {
       await reglages.setCodePoste('R');
       final vus = <String>{};
       for (var i = 1; i <= 1000; i++) {
-        final n = await reglages.prochainNumeroFacture(
-            nomMachine: 'POSTE', le: le);
+        final n =
+            await reglages.prochainNumeroFacture(nomMachine: 'POSTE', le: le);
         expect(n.facture, numeroFacture(i, 'R', le));
         vus.add(n.facture);
       }
@@ -59,8 +59,8 @@ void main() {
       await SettingsRepo(bar).setCodePoste('B');
       final a = await SettingsRepo(reception)
           .prochainNumeroFacture(nomMachine: 'X', le: le);
-      final b =
-          await SettingsRepo(bar).prochainNumeroFacture(nomMachine: 'Y', le: le);
+      final b = await SettingsRepo(bar)
+          .prochainNumeroFacture(nomMachine: 'Y', le: le);
       expect(a.facture, 'FCT0001-R/11/2026');
       expect(b.facture, 'FCT0001-B/11/2026');
       await reception.close();
@@ -92,8 +92,8 @@ void main() {
           subtotalCents: 299000,
           statut: const Value(DbStayStatus.facture),
         ));
-    final local = await (db.select(db.stays)..where((s) => s.id.equals(id)))
-        .getSingle();
+    final local =
+        await (db.select(db.stays)..where((s) => s.id.equals(id))).getSingle();
 
     // Tel que le serveur le rend, envoyé par un autre poste.
     Map<String, dynamic> serveur({int montant = 299000, String? client}) => {

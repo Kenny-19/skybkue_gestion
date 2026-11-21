@@ -87,9 +87,8 @@ void main() {
   });
 
   test('articles : une fois à jour, plus aucune écriture', () async {
-    // 1er passage : l'article arrive, stock à zéro sur ce poste.
-    // 2e passage : il adopte le stock du serveur (comportement voulu).
-    expect(await MirrorService.appliquerArticlesDuServeur(db, articles), 1);
+    // L'article arrive directement avec le stock du serveur : il n'y a
+    // qu'un stock, le même pour tous les postes.
     expect(await MirrorService.appliquerArticlesDuServeur(db, articles), 1);
     expect((await db.select(db.articles).getSingle()).stockQty, 39);
     // Ensuite, rien ne bouge : rien n'est écrit.

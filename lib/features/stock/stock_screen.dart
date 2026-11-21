@@ -19,6 +19,7 @@ import '../../services/mirror_service.dart';
 import '../../services/supply_requests_service.dart';
 import '../../shell/app_shell.dart';
 import '../../theme/tokens.dart';
+import '../../services/stock_service.dart';
 import '../../theme/typography.dart';
 import '../../widgets/liste_carte.dart';
 
@@ -73,8 +74,11 @@ class StockScreen extends ConsumerWidget {
                 itemBuilder: (context, i) => _Row(
                   article: items[i],
                   last: i == items.length - 1,
-                  onAdjust: (d) =>
-                      ref.read(articlesRepoProvider).adjustQty(items[i].id, d),
+                  onAdjust: (d) => _ajuster(
+                      context,
+                      () => ref
+                          .read(articlesRepoProvider)
+                          .adjustQty(items[i].id, d)),
                   onEdit: () => _showProductDialog(context, ref, items[i]),
                   onRestock: () => _showRestockDialog(context, ref, items[i]),
                   onRequestSupply: () =>
@@ -86,6 +90,24 @@ class StockScreen extends ConsumerWidget {
         );
       },
     );
+  }
+
+  /// Le stock se modifie EN LIGNE uniquement : un refus doit se voir.
+  static String _pourquoi(Object e) =>
+      e is StockHorsLigne ? e.toString() : 'Stock non modifié : $e';
+
+  static Future<void> _ajuster(
+      BuildContext context, Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: BsColors.danger,
+          content: Text(_pourquoi(e),
+              style:
+                  BsType.body(13, w: FontWeight.w600, color: Colors.white))));
+    }
   }
 
   Widget _headerRow() => Container(
@@ -400,35 +422,44 @@ class StockScreen extends ConsumerWidget {
                         final q = int.tryParse(qty.text) ?? 0;
                         final t = int.tryParse(threshold.text) ?? 0;
                         int articleId;
-                        if (existing == null) {
-                          articleId =
-                              await ref.read(articlesRepoProvider).create(
-                                    name: name.text.trim(),
-                                    priceCents: cents,
-                                    category: cat,
-                                    imagePath: savedImage,
-                                    trackStock: trackStock,
-                                    unit: unit.text.trim().isEmpty
-                                        ? 'unité'
-                                        : unit.text.trim(),
-                                    stockQty: trackStock ? q : 0,
-                                    threshold: trackStock ? t : 0,
-                                  );
-                        } else {
-                          articleId = existing.id;
-                          await ref.read(articlesRepoProvider).update(
-                                id: existing.id,
-                                name: name.text.trim(),
-                                priceCents: cents,
-                                category: cat,
-                                imagePath: savedImage,
-                                trackStock: trackStock,
-                                unit: unit.text.trim().isEmpty
-                                    ? 'unité'
-                                    : unit.text.trim(),
-                                stockQty: trackStock ? q : 0,
-                                threshold: trackStock ? t : 0,
-                              );
+                        try {
+                          if (existing == null) {
+                            articleId =
+                                await ref.read(articlesRepoProvider).create(
+                                      name: name.text.trim(),
+                                      priceCents: cents,
+                                      category: cat,
+                                      imagePath: savedImage,
+                                      trackStock: trackStock,
+                                      unit: unit.text.trim().isEmpty
+                                          ? 'unité'
+                                          : unit.text.trim(),
+                                      stockQty: trackStock ? q : 0,
+                                      threshold: trackStock ? t : 0,
+                                    );
+                          } else {
+                            articleId = existing.id;
+                            await ref.read(articlesRepoProvider).update(
+                                  id: existing.id,
+                                  name: name.text.trim(),
+                                  priceCents: cents,
+                                  category: cat,
+                                  imagePath: savedImage,
+                                  trackStock: trackStock,
+                                  unit: unit.text.trim().isEmpty
+                                      ? 'unité'
+                                      : unit.text.trim(),
+                                  // Seulement si la quantité a été modifiée
+                                  // dans la fiche (cf. ArticlesRepo.update).
+                                  stockQty: trackStock && q != existing.stockQty
+                                      ? q
+                                      : null,
+                                  threshold: trackStock ? t : 0,
+                                );
+                          }
+                        } catch (e) {
+                          setSt(() => err = _pourquoi(e));
+                          return;
                         }
                         // Miroir cloud immédiat (offline-safe, non bloquant) :
                         // le produit + l'URL de l'image partent vers Supabase.
@@ -505,9 +536,14 @@ class StockScreen extends ConsumerWidget {
                           setSt(() => err = 'Entrer un nombre positif');
                           return;
                         }
-                        await ref
-                            .read(articlesRepoProvider)
-                            .adjustQty(item.id, n);
+                        try {
+                          await ref
+                              .read(articlesRepoProvider)
+                              .adjustQty(item.id, n, reason: 'ravitaillement');
+                        } catch (e) {
+                          setSt(() => err = _pourquoi(e));
+                          return;
+                        }
                         if (context.mounted) {
                           Navigator.of(context).pop();
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(

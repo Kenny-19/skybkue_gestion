@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'error_reporter.dart';
 import 'mirror_service.dart';
+import 'stock_service.dart';
 import 'synchro_par_difference.dart';
 import 'ventes_outbox.dart';
 
@@ -115,6 +116,10 @@ class MirrorPullService {
       // encaissée pendant une micro-coupure part donc dans les quinze
       // secondes qui suivent le retour du réseau, au lieu d'attendre.
       unawaited(VentesOutbox.instance.vider());
+      // Mouvements de stock : retentés à chaque tour. Avant, la file ne se
+      // vidait qu'au mouvement SUIVANT — une sortie faite pendant une
+      // coupure attendait la prochaine vente d'un article suivi.
+      unawaited(StockService.instance.viderLaFile());
       _lastPull = DateTime.now();
       _lastError = null;
 

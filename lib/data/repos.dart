@@ -402,8 +402,11 @@ class UsersRepo {
 // ─── Articles ───────────────────────────────────────────────────────────
 
 class ArticlesRepo {
-  ArticlesRepo(this._db);
+  /// [stock] : pour les tests, un service de stock qui simule le serveur.
+  ArticlesRepo(this._db, {StockService? stock}) : _stockTest = stock;
   final AppDatabase _db;
+  final StockService? _stockTest;
+  StockService get _stock => _stockTest ?? StockService(_db);
 
   Stream<List<Article>> watchActive() =>
       (_db.select(_db.articles)..where((a) => a.active.equals(true))).watch();
@@ -420,8 +423,8 @@ class ArticlesRepo {
     String unit = 'unité',
     int stockQty = 0,
     int threshold = 0,
-  }) {
-    return _db.into(_db.articles).insert(ArticlesCompanion.insert(
+  }) async {
+    final id = await _db.into(_db.articles).insert(ArticlesCompanion.insert(
           // Identité sur tous les postes, fixée maintenant : un renommage
           // ultérieur ne la change pas.
           uid: Value(uidArticle(name)),
@@ -431,9 +434,22 @@ class ArticlesRepo {
           imagePath: Value(imagePath),
           trackStock: Value(trackStock),
           unit: Value(unit),
-          stockQty: Value(stockQty),
+          // Zéro, puis le stock initial comme MOUVEMENT : posé en dur, il
+          // n'existait que sur ce poste, et le serveur annonçait 0.
+          stockQty: const Value(0),
           threshold: Value(threshold),
         ));
+    if (trackStock && stockQty != 0) {
+      try {
+        await _stock.ajusterEnLigne(
+            articleId: id, delta: stockQty, reason: 'stock initial');
+      } catch (_) {
+        // Tout ou rien : sans le stock initial au serveur, pas de produit.
+        await (_db.delete(_db.articles)..where((a) => a.id.equals(id))).go();
+        rethrow;
+      }
+    }
+    return id;
   }
 
   Future<void> update({
@@ -444,9 +460,26 @@ class ArticlesRepo {
     String? imagePath,
     required bool trackStock,
     required String unit,
-    required int stockQty,
+    int? stockQty,
     required int threshold,
   }) async {
+    final avant = await (_db.select(_db.articles)
+          ..where((a) => a.id.equals(id)))
+        .getSingleOrNull();
+    // La quantité corrigée dans la fiche devient un MOUVEMENT (l'écart),
+    // appliqué EN LIGNE d'abord. Écrite en dur, elle restait sur ce poste :
+    // le serveur ne la voyait jamais, et la relecture suivante la remettait
+    // à l'ancienne valeur. Hors ligne, rien n'est modifié.
+    //
+    // [stockQty] null : la quantité n'a pas été touchée dans la fiche. Elle
+    // n'est surtout pas renvoyée telle qu'affichée à l'ouverture : une
+    // vente faite entre-temps serait « corrigée » et annulée.
+    if (avant != null && stockQty != null && stockQty != avant.stockQty) {
+      await _stock.ajusterEnLigne(
+          articleId: id,
+          delta: stockQty - avant.stockQty,
+          reason: 'correction inventaire');
+    }
     await (_db.update(_db.articles)..where((a) => a.id.equals(id))).write(
       ArticlesCompanion(
         name: Value(name),
@@ -455,7 +488,6 @@ class ArticlesRepo {
         imagePath: Value(imagePath),
         trackStock: Value(trackStock),
         unit: Value(unit),
-        stockQty: Value(stockQty),
         threshold: Value(threshold),
       ),
     );
@@ -476,8 +508,11 @@ class ArticlesRepo {
   /// voit le mouvement dans les secondes qui suivent, même à distance.
   /// Sans ça, un ravitaillement n'atteignait le miroir qu'au prochain
   /// démarrage de l'application.
+  ///
+  /// EN LIGNE uniquement (cf. [StockService.ajusterEnLigne]) : lève
+  /// [StockHorsLigne] sans connexion, et rien ne change.
   Future<void> adjustQty(int id, int delta, {String? reason}) =>
-      StockService(_db).declarer(
+      _stock.ajusterEnLigne(
         articleId: id,
         delta: delta,
         reason: reason ?? 'ajustement',
@@ -1733,6 +1768,7 @@ class SalesRepo {
   /// (miroir exact de [createSale], qui l'avait décrémenté). Le tout dans une
   /// transaction pour rester cohérent.
   Future<void> deleteSale(int saleId) async {
+    final retours = <int, int>{};
     await _db.transaction(() async {
       final lines = await (_db.select(_db.saleLines)
             ..where((l) => l.saleId.equals(saleId)))
@@ -1744,13 +1780,19 @@ class SalesRepo {
               ..where((a) => a.id.equals(articleId)))
             .getSingleOrNull();
         if (art == null || !art.trackStock) continue;
-        await (_db.update(_db.articles)..where((a) => a.id.equals(art.id)))
-            .write(ArticlesCompanion(stockQty: Value(art.stockQty + line.qty)));
+        retours[art.id] = (retours[art.id] ?? 0) + line.qty;
       }
       await (_db.delete(_db.saleLines)..where((l) => l.saleId.equals(saleId)))
           .go();
       await (_db.delete(_db.sales)..where((s) => s.id.equals(saleId))).go();
     });
+    // Les bouteilles reviennent en stock par un MOUVEMENT : écrites en dur,
+    // elles ne revenaient que sur ce poste, et le serveur gardait la
+    // sortie d'une vente qui n'existait plus.
+    for (final e in retours.entries) {
+      await StockService(_db).declarer(
+          articleId: e.key, delta: e.value, reason: 'vente supprimée');
+    }
   }
 
   Future<int> createSale({

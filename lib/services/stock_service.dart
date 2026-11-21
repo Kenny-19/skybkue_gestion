@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 import '../core/cloud_config.dart';
 import '../core/identite.dart';
+import '../core/session_serveur.dart';
 import '../data/database.dart';
 import 'error_reporter.dart';
 import 'heartbeat_service.dart';
@@ -31,6 +32,20 @@ class StockHorsLigne implements Exception {
   String toString() =>
       "Pas de connexion au serveur : le stock se modifie en ligne "
       "uniquement. Rien n'a été changé.";
+}
+
+/// Modification du stock refusée par le serveur : session ou droits.
+class StockRefus implements Exception {
+  final String message;
+  const StockRefus(this.message);
+  factory StockRefus.sessionAbsente() => const StockRefus(
+      "Ta session serveur n'est pas ouverte sur ce poste : déconnecte-toi "
+      "puis reconnecte-toi avec internet pour gérer le stock. Rien n'a été "
+      'changé.');
+  factory StockRefus.droits() => const StockRefus(
+      "Seuls les gérants peuvent modifier le stock. Rien n'a été changé.");
+  @override
+  String toString() => message;
 }
 
 /// Envoi d'un mouvement au serveur (remplaçable dans les tests).
@@ -138,7 +153,7 @@ class StockService {
     required String reason,
   }) async {
     if (delta == 0) return;
-    final envoyer = _envoyerTest ?? _envoiServeur();
+    final envoyer = _envoyerTest ?? _gestionServeur();
     if (envoyer == null) throw const StockHorsLigne();
     final article = await (_db.select(_db.articles)
           ..where((a) => a.id.equals(articleId)))
@@ -170,6 +185,13 @@ class StockService {
         await envoyer(mouvement, uid);
       }
     } catch (e) {
+      if (e is StockRefus) rethrow;
+      final t = e.toString();
+      if (t.contains('SESSION_INVALIDE')) {
+        await SessionServeur.oublier(_db);
+        throw StockRefus.sessionAbsente();
+      }
+      if (t.contains('DROITS_INSUFFISANTS')) throw StockRefus.droits();
       if (_ressembleAUneCoupure(e) || e is StateError) {
         throw const StockHorsLigne();
       }
@@ -298,6 +320,25 @@ class StockService {
     } finally {
       _occupe = false;
     }
+  }
+
+  /// L'envoi d'un mouvement de GESTION : il présente la session de la
+  /// personne connectée, et le serveur vérifie qu'elle est gérant.
+  EnvoiMouvement? _gestionServeur() {
+    final c = _client;
+    if (c == null) return null;
+    return (m, uid) async {
+      final jeton = SessionServeur.jeton;
+      if (jeton == null) throw StockRefus.sessionAbsente();
+      await c.rpc('bs_stock_gerer', params: {
+        'p_session': jeton,
+        'p_op_id': m.opId,
+        'p_article_uid': uid,
+        'p_delta': m.delta,
+        'p_reason': m.reason,
+        'p_poste': HeartbeatService.nomDuPoste,
+      }).timeout(const Duration(seconds: 8));
+    };
   }
 
   /// L'envoi réel d'un mouvement au serveur. Null hors cloud.

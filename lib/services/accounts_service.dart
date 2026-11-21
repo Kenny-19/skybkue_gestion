@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/cloud_config.dart';
 import 'error_reporter.dart';
+import 'heartbeat_service.dart';
 import 'supabase_pages.dart';
 
 // Accès aux comptes utilisateurs — Supabase est la SOURCE DE VÉRITÉ.
@@ -93,8 +94,11 @@ class RemoteLoginResult {
   final RemoteLoginStatus status;
   final RemoteAccount? account;
   final int retryAfterSeconds;
+
+  /// Session serveur remise à la connexion (cf. core/session_serveur.dart).
+  final String? session;
   const RemoteLoginResult(this.status,
-      {this.account, this.retryAfterSeconds = 0});
+      {this.account, this.retryAfterSeconds = 0, this.session});
 }
 
 /// Diagnostic du serveur de comptes, affiché en bandeau.
@@ -133,13 +137,28 @@ class AccountsService {
   /// l'appelant décide alors de tenter le chemin hors-ligne.
   static Future<RemoteLoginResult> verifyLogin(
       String login, String password) async {
-    final res = await _rpc(
-        'bs_verify_login',
-        {
-          'p_login': login.trim(),
-          'p_password': password,
-        },
-        context: 'verifyLogin');
+    // La connexion qui ouvre aussi une session serveur ; à défaut (script
+    // sql/2026_11_en_ligne_d_abord.sql pas encore passé), l'ancienne.
+    Map<String, dynamic> res;
+    try {
+      res = await _rpc(
+          'bs_app_connexion',
+          {
+            'p_login': login.trim(),
+            'p_password': password,
+            'p_poste': HeartbeatService.nomDuPoste,
+          },
+          context: 'verifyLogin');
+    } on AccountException catch (e) {
+      if (e.kind != AccountErrorKind.unexpected) rethrow;
+      res = await _rpc(
+          'bs_verify_login',
+          {
+            'p_login': login.trim(),
+            'p_password': password,
+          },
+          context: 'verifyLogin');
+    }
 
     final status = res['status'] as String?;
     switch (status) {
@@ -150,7 +169,8 @@ class AccountsService {
               'Réponse inattendue du serveur de comptes.');
         }
         return RemoteLoginResult(RemoteLoginStatus.ok,
-            account: RemoteAccount.fromJson(Map<String, dynamic>.from(u)));
+            account: RemoteAccount.fromJson(Map<String, dynamic>.from(u)),
+            session: res['session'] as String?);
       case 'unknown_user':
         return const RemoteLoginResult(RemoteLoginStatus.unknownUser);
       case 'bad_password':

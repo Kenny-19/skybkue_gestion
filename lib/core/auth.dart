@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../data/schema.dart';
 import '../services/accounts_service.dart';
+import 'session_serveur.dart';
 import 'horloge.dart';
 
 final dbProvider = Provider<AppDatabase>((ref) {
@@ -96,7 +97,18 @@ class SuperAdminAttempt {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._db) : super(const AuthState(null));
+  AuthNotifier(this._db) : super(const AuthState(null)) {
+    // Connexion sans passer par le serveur (hors ligne, compte de secours) :
+    // on reprend la session serveur gardée pour ce compte, s'il en a une.
+    addListener((s) {
+      final u = s.user;
+      if (u == null) {
+        SessionServeur.quitter();
+      } else if (SessionServeur.login?.toLowerCase() != u.login.toLowerCase()) {
+        SessionServeur.reprendre(_db, u.login);
+      }
+    }, fireImmediately: false);
+  }
   final AppDatabase _db;
 
   // Rate-limit pour la passphrase super admin (mémoire process — reset
@@ -165,6 +177,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             final account = res.account!;
             final user = await _cacheAccount(account, password);
             _sessionPassword = password;
+            await SessionServeur.ouvrir(_db, user.login, res.session);
             state = AuthState(user);
             return const LoginOutcome(LoginResult.ok);
           case RemoteLoginStatus.badPassword:

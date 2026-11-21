@@ -93,8 +93,9 @@ class StockScreen extends ConsumerWidget {
   }
 
   /// Le stock se modifie EN LIGNE uniquement : un refus doit se voir.
-  static String _pourquoi(Object e) =>
-      e is StockHorsLigne ? e.toString() : 'Stock non modifié : $e';
+  static String _pourquoi(Object e) => (e is StockHorsLigne || e is StockRefus)
+      ? e.toString()
+      : 'Stock non modifié : $e';
 
   static Future<void> _ajuster(
       BuildContext context, Future<void> Function() action) async {

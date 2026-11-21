@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../widgets/refus.dart';
+import '../../services/operations_service.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/user_error.dart';
@@ -397,22 +399,27 @@ class _ReservationCard extends ConsumerWidget {
     // Check-in de chaque chambre — groupé si >1. Le séjour est créé ICI,
     // à l'arrivée : la réservation peut enfin pointer dessus.
     final int sejour;
-    if (rooms.length > 1) {
-      sejour = await roomsRepo.groupCheckIn(
-        numbers: rooms.map((x) => x.roomNumber).toList(),
-        guest: r.guestFullName,
-        checkout: r.checkoutDate,
-        note: r.note,
-        payerId: r.payerId,
-      );
-    } else {
-      sejour = await roomsRepo.checkIn(
-        rooms.first.roomNumber,
-        r.guestFullName,
-        r.checkoutDate,
-        note: r.note,
-        payerId: r.payerId,
-      );
+    try {
+      if (rooms.length > 1) {
+        sejour = await roomsRepo.groupCheckIn(
+          numbers: rooms.map((x) => x.roomNumber).toList(),
+          guest: r.guestFullName,
+          checkout: r.checkoutDate,
+          note: r.note,
+          payerId: r.payerId,
+        );
+      } else {
+        sejour = await roomsRepo.checkIn(
+          rooms.first.roomNumber,
+          r.guestFullName,
+          r.checkoutDate,
+          note: r.note,
+          payerId: r.payerId,
+        );
+      }
+    } on OperationRefusee catch (e) {
+      if (ctx.mounted) signalerRefus(ctx, e);
+      return;
     }
     await ref
         .read(reservationsRepoProvider)

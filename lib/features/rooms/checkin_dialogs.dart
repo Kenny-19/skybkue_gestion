@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../widgets/refus.dart';
+import '../../services/operations_service.dart';
 
 import '../../core/discount.dart';
 import '../../data/database.dart';
@@ -103,7 +105,26 @@ void showCheckIn(BuildContext ctx, WidgetRef ref, Room room) {
                       onPressed: guest.text.trim().isEmpty
                           ? null
                           : () async {
-                              // 1. Fidélité : trouve ou crée le client,
+                              // 1. L'arrivée D'ABORD : le serveur peut la
+                              //    refuser (chambre prise sur un autre
+                              //    poste), et alors rien d'autre ne doit
+                              //    être compté.
+                              try {
+                                await ref.read(roomsRepoProvider).checkIn(
+                                      room.number,
+                                      guest.text.trim(),
+                                      checkout,
+                                      note: note.text.trim().isEmpty
+                                          ? null
+                                          : note.text.trim(),
+                                      payerId: payer?.id,
+                                      negotiatedPriceCents: negotiated,
+                                    );
+                              } on OperationRefusee catch (e) {
+                                if (context.mounted) signalerRefus(context, e);
+                                return;
+                              }
+                              // 2. Fidélité : trouve ou crée le client,
                               //    puis compte cette visite.
                               final clients = ref.read(clientsRepoProvider);
                               final c = await clients.findOrCreate(
@@ -111,18 +132,6 @@ void showCheckIn(BuildContext ctx, WidgetRef ref, Room room) {
                                 phone: phone.text.trim(),
                               );
                               await clients.recordVisit(c.id);
-                              // 2. Check-in de la chambre avec payerId
-                              //    optionnel.
-                              await ref.read(roomsRepoProvider).checkIn(
-                                    room.number,
-                                    guest.text.trim(),
-                                    checkout,
-                                    note: note.text.trim().isEmpty
-                                        ? null
-                                        : note.text.trim(),
-                                    payerId: payer?.id,
-                                    negotiatedPriceCents: negotiated,
-                                  );
                               if (context.mounted) {
                                 Navigator.of(context).pop();
                               }
@@ -361,6 +370,30 @@ void showGroupCheckIn(BuildContext ctx, WidgetRef ref, List<Room> allRooms) {
                               try {
                                 // 1. Fidélité : trouve ou crée le client
                                 //    du groupe, compte 1 visite par chambre.
+                                try {
+                                  // 1. L'arrivée groupée D'ABORD (cf. arrivée simple).
+                                  await ref
+                                      .read(roomsRepoProvider)
+                                      .groupCheckIn(
+                                        numbers: picked.toList(),
+                                        guest: guest.text.trim(),
+                                        checkout: checkout,
+                                        note: note.text.trim().isEmpty
+                                            ? null
+                                            : note.text.trim(),
+                                        payerId: payer?.id,
+                                        negotiatedPrices: groupDiscount == 0
+                                            ? const {}
+                                            : {
+                                                for (final r in selected)
+                                                  r.number: negotiatedFor(r),
+                                              },
+                                      );
+                                } on OperationRefusee catch (e) {
+                                  if (context.mounted)
+                                    signalerRefus(context, e);
+                                  return;
+                                }
                                 final clients = ref.read(clientsRepoProvider);
                                 final c = await clients.findOrCreate(
                                   fullName: guest.text.trim(),
@@ -369,22 +402,6 @@ void showGroupCheckIn(BuildContext ctx, WidgetRef ref, List<Room> allRooms) {
                                 for (var i = 0; i < picked.length; i++) {
                                   await clients.recordVisit(c.id);
                                 }
-                                // 2. Check-in groupé avec payerId optionnel.
-                                await ref.read(roomsRepoProvider).groupCheckIn(
-                                      numbers: picked.toList(),
-                                      guest: guest.text.trim(),
-                                      checkout: checkout,
-                                      note: note.text.trim().isEmpty
-                                          ? null
-                                          : note.text.trim(),
-                                      payerId: payer?.id,
-                                      negotiatedPrices: groupDiscount == 0
-                                          ? const {}
-                                          : {
-                                              for (final r in selected)
-                                                r.number: negotiatedFor(r),
-                                            },
-                                    );
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
                                   ScaffoldMessenger.of(context).showSnackBar(

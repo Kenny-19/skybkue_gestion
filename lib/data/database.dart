@@ -31,6 +31,7 @@ part 'database.g.dart';
   StayRooms,
   Reservations,
   ReservationRooms,
+  Operations,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -42,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 31;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -329,6 +330,10 @@ class AppDatabase extends _$AppDatabase {
             if (await _tableExists('stays')) {
               await _addColumnIfMissing(m, stays, stays.tvaBp);
             }
+          }
+          // v31 : journal des opérations faites hors ligne.
+          if (from < 31 && !await _tableExists('operations')) {
+            await m.createTable(operations);
           }
         },
         beforeOpen: (details) async {

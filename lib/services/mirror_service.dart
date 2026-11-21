@@ -1818,10 +1818,18 @@ class MirrorService {
   static Future<int> _envoyerChambres(SupabaseClient c, DateTime debut) async {
     final rooms = await _db.select(_db.rooms).get();
     if (rooms.isEmpty) return 0;
-    await c
-        .from('mirror_rooms')
-        .upsert(rooms.map(_roomJson).toList(), onConflict: 'number');
-    await _confirmerChambres(rooms.map((r) => r.number).toList(), debut);
+    // Le CATALOGUE seulement (type, tarifs, photo). L'état des chambres
+    // (occupée, client, départ prévu) appartient au serveur : il change par
+    // les opérations validées (bs_chambres_operer). Le renvoyer toutes les
+    // dix minutes depuis la copie d'un poste écraserait une arrivée faite
+    // entre-temps sur un autre.
+    //
+    // La marque « en attente » des chambres n'est plus levée ici : elle
+    // protège désormais les chambres qui ont une opération au journal, et
+    // c'est le journal qui la lève une fois l'opération acceptée.
+    await c.from('mirror_rooms').upsert(
+        [for (final r in rooms) _roomCatalogueJson(r)],
+        onConflict: 'number');
     return rooms.length;
   }
 
@@ -1932,6 +1940,33 @@ class MirrorService {
         'threshold': a.threshold,
         'image_path': a.imagePath,
       };
+
+  /// Une chambre du catalogue, sans son état (cf. [_envoyerChambres]).
+  static Map<String, dynamic> _roomCatalogueJson(Room r) => {
+        'number': r.number,
+        'type': r.type,
+        'price_usd_cents': r.priceUsdCents,
+        'price_per_night_cents': r.pricePerNightCents,
+        'image_path': r.imagePath,
+      };
+
+  /// Envoie la fiche d'une chambre (création, modification par le gérant),
+  /// sans toucher à son état sur le serveur.
+  static Future<void> pushRoomCatalogue(String number) async {
+    final c = _c;
+    if (c == null) return;
+    try {
+      final r = await (_db.select(_db.rooms)
+            ..where((x) => x.number.equals(number)))
+          .getSingleOrNull();
+      if (r == null) return;
+      await c
+          .from('mirror_rooms')
+          .upsert(_roomCatalogueJson(r), onConflict: 'number');
+    } catch (e, st) {
+      unawaited(ErrorReporter.report(e, st, context: 'pushRoomCatalogue'));
+    }
+  }
 
   static Map<String, dynamic> _roomJson(Room r) => {
         'number': r.number,

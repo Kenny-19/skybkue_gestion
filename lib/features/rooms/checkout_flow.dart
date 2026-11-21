@@ -2,6 +2,8 @@ import 'dart:convert' show jsonEncode;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../widgets/refus.dart';
+import '../../services/operations_service.dart';
 
 import '../../core/auth.dart';
 import '../../data/database.dart';
@@ -328,9 +330,16 @@ Future<void> confirmCheckOutWithInvoice(
         .libererSansFacture(sejourId: room.currentStayId, chambres: targets);
   }
 
-  // Libère les chambres facturées.
+  // Libère les chambres facturées. Un refus du serveur (départ déjà fait
+  // sur un autre poste, chambre reprise depuis) n'annule pas la facture,
+  // déjà remise : il est signalé, et la chambre prend l'état du serveur.
   for (final r in targets) {
-    await rooms.checkOut(r.number);
+    try {
+      await rooms.checkOut(r.number);
+    } on OperationRefusee catch (e) {
+      if (ctx.mounted) signalerRefus(ctx, e);
+      return;
+    }
   }
   if (ctx.mounted) {
     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(

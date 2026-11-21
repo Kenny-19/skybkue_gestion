@@ -8213,6 +8213,597 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
   }
 }
 
+class $OperationsTable extends Operations
+    with TableInfo<$OperationsTable, Operation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OperationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _opIdMeta = const VerificationMeta('opId');
+  @override
+  late final GeneratedColumn<String> opId = GeneratedColumn<String>(
+      'op_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+      'type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _payloadMeta =
+      const VerificationMeta('payload');
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+      'payload', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _libelleMeta =
+      const VerificationMeta('libelle');
+  @override
+  late final GeneratedColumn<String> libelle = GeneratedColumn<String>(
+      'libelle', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _auteurMeta = const VerificationMeta('auteur');
+  @override
+  late final GeneratedColumn<String> auteur = GeneratedColumn<String>(
+      'auteur', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _creeLeMeta = const VerificationMeta('creeLe');
+  @override
+  late final GeneratedColumn<DateTime> creeLe = GeneratedColumn<DateTime>(
+      'cree_le', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _attemptsMeta =
+      const VerificationMeta('attempts');
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+      'attempts', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lastErrorMeta =
+      const VerificationMeta('lastError');
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+      'last_error', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _envoyeeLeMeta =
+      const VerificationMeta('envoyeeLe');
+  @override
+  late final GeneratedColumn<DateTime> envoyeeLe = GeneratedColumn<DateTime>(
+      'envoyee_le', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _refuseeLeMeta =
+      const VerificationMeta('refuseeLe');
+  @override
+  late final GeneratedColumn<DateTime> refuseeLe = GeneratedColumn<DateTime>(
+      'refusee_le', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _motifMeta = const VerificationMeta('motif');
+  @override
+  late final GeneratedColumn<String> motif = GeneratedColumn<String>(
+      'motif', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _regleeLeMeta =
+      const VerificationMeta('regleeLe');
+  @override
+  late final GeneratedColumn<DateTime> regleeLe = GeneratedColumn<DateTime>(
+      'reglee_le', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        opId,
+        type,
+        payload,
+        libelle,
+        auteur,
+        creeLe,
+        attempts,
+        lastError,
+        envoyeeLe,
+        refuseeLe,
+        motif,
+        regleeLe
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'operations';
+  @override
+  VerificationContext validateIntegrity(Insertable<Operation> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('op_id')) {
+      context.handle(
+          _opIdMeta, opId.isAcceptableOrUnknown(data['op_id']!, _opIdMeta));
+    } else if (isInserting) {
+      context.missing(_opIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+          _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(_payloadMeta,
+          payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta));
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('libelle')) {
+      context.handle(_libelleMeta,
+          libelle.isAcceptableOrUnknown(data['libelle']!, _libelleMeta));
+    } else if (isInserting) {
+      context.missing(_libelleMeta);
+    }
+    if (data.containsKey('auteur')) {
+      context.handle(_auteurMeta,
+          auteur.isAcceptableOrUnknown(data['auteur']!, _auteurMeta));
+    }
+    if (data.containsKey('cree_le')) {
+      context.handle(_creeLeMeta,
+          creeLe.isAcceptableOrUnknown(data['cree_le']!, _creeLeMeta));
+    } else if (isInserting) {
+      context.missing(_creeLeMeta);
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(_attemptsMeta,
+          attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta));
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(_lastErrorMeta,
+          lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta));
+    }
+    if (data.containsKey('envoyee_le')) {
+      context.handle(_envoyeeLeMeta,
+          envoyeeLe.isAcceptableOrUnknown(data['envoyee_le']!, _envoyeeLeMeta));
+    }
+    if (data.containsKey('refusee_le')) {
+      context.handle(_refuseeLeMeta,
+          refuseeLe.isAcceptableOrUnknown(data['refusee_le']!, _refuseeLeMeta));
+    }
+    if (data.containsKey('motif')) {
+      context.handle(
+          _motifMeta, motif.isAcceptableOrUnknown(data['motif']!, _motifMeta));
+    }
+    if (data.containsKey('reglee_le')) {
+      context.handle(_regleeLeMeta,
+          regleeLe.isAcceptableOrUnknown(data['reglee_le']!, _regleeLeMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {opId};
+  @override
+  Operation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Operation(
+      opId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}op_id'])!,
+      type: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
+      payload: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload'])!,
+      libelle: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}libelle'])!,
+      auteur: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}auteur']),
+      creeLe: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}cree_le'])!,
+      attempts: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}attempts'])!,
+      lastError: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}last_error']),
+      envoyeeLe: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}envoyee_le']),
+      refuseeLe: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}refusee_le']),
+      motif: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}motif']),
+      regleeLe: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}reglee_le']),
+    );
+  }
+
+  @override
+  $OperationsTable createAlias(String alias) {
+    return $OperationsTable(attachedDatabase, alias);
+  }
+}
+
+class Operation extends DataClass implements Insertable<Operation> {
+  /// Identifiant créé ici : rejouée deux fois, l'opération ne s'applique
+  /// qu'une fois au serveur.
+  final String opId;
+
+  /// « chambres:arrivee », « chambres:depart », « chambres:statut »…
+  final String type;
+
+  /// Ce que le serveur doit appliquer (JSON).
+  final String payload;
+
+  /// Ce que la personne voit dans la liste « À régler ».
+  final String libelle;
+  final String? auteur;
+  final DateTime creeLe;
+  final int attempts;
+  final String? lastError;
+  final DateTime? envoyeeLe;
+  final DateTime? refuseeLe;
+  final String? motif;
+
+  /// Refus vu et réglé par un gérant.
+  final DateTime? regleeLe;
+  const Operation(
+      {required this.opId,
+      required this.type,
+      required this.payload,
+      required this.libelle,
+      this.auteur,
+      required this.creeLe,
+      required this.attempts,
+      this.lastError,
+      this.envoyeeLe,
+      this.refuseeLe,
+      this.motif,
+      this.regleeLe});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['op_id'] = Variable<String>(opId);
+    map['type'] = Variable<String>(type);
+    map['payload'] = Variable<String>(payload);
+    map['libelle'] = Variable<String>(libelle);
+    if (!nullToAbsent || auteur != null) {
+      map['auteur'] = Variable<String>(auteur);
+    }
+    map['cree_le'] = Variable<DateTime>(creeLe);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    if (!nullToAbsent || envoyeeLe != null) {
+      map['envoyee_le'] = Variable<DateTime>(envoyeeLe);
+    }
+    if (!nullToAbsent || refuseeLe != null) {
+      map['refusee_le'] = Variable<DateTime>(refuseeLe);
+    }
+    if (!nullToAbsent || motif != null) {
+      map['motif'] = Variable<String>(motif);
+    }
+    if (!nullToAbsent || regleeLe != null) {
+      map['reglee_le'] = Variable<DateTime>(regleeLe);
+    }
+    return map;
+  }
+
+  OperationsCompanion toCompanion(bool nullToAbsent) {
+    return OperationsCompanion(
+      opId: Value(opId),
+      type: Value(type),
+      payload: Value(payload),
+      libelle: Value(libelle),
+      auteur:
+          auteur == null && nullToAbsent ? const Value.absent() : Value(auteur),
+      creeLe: Value(creeLe),
+      attempts: Value(attempts),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      envoyeeLe: envoyeeLe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(envoyeeLe),
+      refuseeLe: refuseeLe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refuseeLe),
+      motif:
+          motif == null && nullToAbsent ? const Value.absent() : Value(motif),
+      regleeLe: regleeLe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(regleeLe),
+    );
+  }
+
+  factory Operation.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Operation(
+      opId: serializer.fromJson<String>(json['opId']),
+      type: serializer.fromJson<String>(json['type']),
+      payload: serializer.fromJson<String>(json['payload']),
+      libelle: serializer.fromJson<String>(json['libelle']),
+      auteur: serializer.fromJson<String?>(json['auteur']),
+      creeLe: serializer.fromJson<DateTime>(json['creeLe']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      envoyeeLe: serializer.fromJson<DateTime?>(json['envoyeeLe']),
+      refuseeLe: serializer.fromJson<DateTime?>(json['refuseeLe']),
+      motif: serializer.fromJson<String?>(json['motif']),
+      regleeLe: serializer.fromJson<DateTime?>(json['regleeLe']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'opId': serializer.toJson<String>(opId),
+      'type': serializer.toJson<String>(type),
+      'payload': serializer.toJson<String>(payload),
+      'libelle': serializer.toJson<String>(libelle),
+      'auteur': serializer.toJson<String?>(auteur),
+      'creeLe': serializer.toJson<DateTime>(creeLe),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String?>(lastError),
+      'envoyeeLe': serializer.toJson<DateTime?>(envoyeeLe),
+      'refuseeLe': serializer.toJson<DateTime?>(refuseeLe),
+      'motif': serializer.toJson<String?>(motif),
+      'regleeLe': serializer.toJson<DateTime?>(regleeLe),
+    };
+  }
+
+  Operation copyWith(
+          {String? opId,
+          String? type,
+          String? payload,
+          String? libelle,
+          Value<String?> auteur = const Value.absent(),
+          DateTime? creeLe,
+          int? attempts,
+          Value<String?> lastError = const Value.absent(),
+          Value<DateTime?> envoyeeLe = const Value.absent(),
+          Value<DateTime?> refuseeLe = const Value.absent(),
+          Value<String?> motif = const Value.absent(),
+          Value<DateTime?> regleeLe = const Value.absent()}) =>
+      Operation(
+        opId: opId ?? this.opId,
+        type: type ?? this.type,
+        payload: payload ?? this.payload,
+        libelle: libelle ?? this.libelle,
+        auteur: auteur.present ? auteur.value : this.auteur,
+        creeLe: creeLe ?? this.creeLe,
+        attempts: attempts ?? this.attempts,
+        lastError: lastError.present ? lastError.value : this.lastError,
+        envoyeeLe: envoyeeLe.present ? envoyeeLe.value : this.envoyeeLe,
+        refuseeLe: refuseeLe.present ? refuseeLe.value : this.refuseeLe,
+        motif: motif.present ? motif.value : this.motif,
+        regleeLe: regleeLe.present ? regleeLe.value : this.regleeLe,
+      );
+  Operation copyWithCompanion(OperationsCompanion data) {
+    return Operation(
+      opId: data.opId.present ? data.opId.value : this.opId,
+      type: data.type.present ? data.type.value : this.type,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      libelle: data.libelle.present ? data.libelle.value : this.libelle,
+      auteur: data.auteur.present ? data.auteur.value : this.auteur,
+      creeLe: data.creeLe.present ? data.creeLe.value : this.creeLe,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      envoyeeLe: data.envoyeeLe.present ? data.envoyeeLe.value : this.envoyeeLe,
+      refuseeLe: data.refuseeLe.present ? data.refuseeLe.value : this.refuseeLe,
+      motif: data.motif.present ? data.motif.value : this.motif,
+      regleeLe: data.regleeLe.present ? data.regleeLe.value : this.regleeLe,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Operation(')
+          ..write('opId: $opId, ')
+          ..write('type: $type, ')
+          ..write('payload: $payload, ')
+          ..write('libelle: $libelle, ')
+          ..write('auteur: $auteur, ')
+          ..write('creeLe: $creeLe, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('envoyeeLe: $envoyeeLe, ')
+          ..write('refuseeLe: $refuseeLe, ')
+          ..write('motif: $motif, ')
+          ..write('regleeLe: $regleeLe')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(opId, type, payload, libelle, auteur, creeLe,
+      attempts, lastError, envoyeeLe, refuseeLe, motif, regleeLe);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Operation &&
+          other.opId == this.opId &&
+          other.type == this.type &&
+          other.payload == this.payload &&
+          other.libelle == this.libelle &&
+          other.auteur == this.auteur &&
+          other.creeLe == this.creeLe &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError &&
+          other.envoyeeLe == this.envoyeeLe &&
+          other.refuseeLe == this.refuseeLe &&
+          other.motif == this.motif &&
+          other.regleeLe == this.regleeLe);
+}
+
+class OperationsCompanion extends UpdateCompanion<Operation> {
+  final Value<String> opId;
+  final Value<String> type;
+  final Value<String> payload;
+  final Value<String> libelle;
+  final Value<String?> auteur;
+  final Value<DateTime> creeLe;
+  final Value<int> attempts;
+  final Value<String?> lastError;
+  final Value<DateTime?> envoyeeLe;
+  final Value<DateTime?> refuseeLe;
+  final Value<String?> motif;
+  final Value<DateTime?> regleeLe;
+  final Value<int> rowid;
+  const OperationsCompanion({
+    this.opId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.libelle = const Value.absent(),
+    this.auteur = const Value.absent(),
+    this.creeLe = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.envoyeeLe = const Value.absent(),
+    this.refuseeLe = const Value.absent(),
+    this.motif = const Value.absent(),
+    this.regleeLe = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OperationsCompanion.insert({
+    required String opId,
+    required String type,
+    required String payload,
+    required String libelle,
+    this.auteur = const Value.absent(),
+    required DateTime creeLe,
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.envoyeeLe = const Value.absent(),
+    this.refuseeLe = const Value.absent(),
+    this.motif = const Value.absent(),
+    this.regleeLe = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : opId = Value(opId),
+        type = Value(type),
+        payload = Value(payload),
+        libelle = Value(libelle),
+        creeLe = Value(creeLe);
+  static Insertable<Operation> custom({
+    Expression<String>? opId,
+    Expression<String>? type,
+    Expression<String>? payload,
+    Expression<String>? libelle,
+    Expression<String>? auteur,
+    Expression<DateTime>? creeLe,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<DateTime>? envoyeeLe,
+    Expression<DateTime>? refuseeLe,
+    Expression<String>? motif,
+    Expression<DateTime>? regleeLe,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (opId != null) 'op_id': opId,
+      if (type != null) 'type': type,
+      if (payload != null) 'payload': payload,
+      if (libelle != null) 'libelle': libelle,
+      if (auteur != null) 'auteur': auteur,
+      if (creeLe != null) 'cree_le': creeLe,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (envoyeeLe != null) 'envoyee_le': envoyeeLe,
+      if (refuseeLe != null) 'refusee_le': refuseeLe,
+      if (motif != null) 'motif': motif,
+      if (regleeLe != null) 'reglee_le': regleeLe,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OperationsCompanion copyWith(
+      {Value<String>? opId,
+      Value<String>? type,
+      Value<String>? payload,
+      Value<String>? libelle,
+      Value<String?>? auteur,
+      Value<DateTime>? creeLe,
+      Value<int>? attempts,
+      Value<String?>? lastError,
+      Value<DateTime?>? envoyeeLe,
+      Value<DateTime?>? refuseeLe,
+      Value<String?>? motif,
+      Value<DateTime?>? regleeLe,
+      Value<int>? rowid}) {
+    return OperationsCompanion(
+      opId: opId ?? this.opId,
+      type: type ?? this.type,
+      payload: payload ?? this.payload,
+      libelle: libelle ?? this.libelle,
+      auteur: auteur ?? this.auteur,
+      creeLe: creeLe ?? this.creeLe,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      envoyeeLe: envoyeeLe ?? this.envoyeeLe,
+      refuseeLe: refuseeLe ?? this.refuseeLe,
+      motif: motif ?? this.motif,
+      regleeLe: regleeLe ?? this.regleeLe,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (opId.present) {
+      map['op_id'] = Variable<String>(opId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (libelle.present) {
+      map['libelle'] = Variable<String>(libelle.value);
+    }
+    if (auteur.present) {
+      map['auteur'] = Variable<String>(auteur.value);
+    }
+    if (creeLe.present) {
+      map['cree_le'] = Variable<DateTime>(creeLe.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (envoyeeLe.present) {
+      map['envoyee_le'] = Variable<DateTime>(envoyeeLe.value);
+    }
+    if (refuseeLe.present) {
+      map['refusee_le'] = Variable<DateTime>(refuseeLe.value);
+    }
+    if (motif.present) {
+      map['motif'] = Variable<String>(motif.value);
+    }
+    if (regleeLe.present) {
+      map['reglee_le'] = Variable<DateTime>(regleeLe.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OperationsCompanion(')
+          ..write('opId: $opId, ')
+          ..write('type: $type, ')
+          ..write('payload: $payload, ')
+          ..write('libelle: $libelle, ')
+          ..write('auteur: $auteur, ')
+          ..write('creeLe: $creeLe, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('envoyeeLe: $envoyeeLe, ')
+          ..write('refuseeLe: $refuseeLe, ')
+          ..write('motif: $motif, ')
+          ..write('regleeLe: $regleeLe, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8231,6 +8822,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReservationsTable reservations = $ReservationsTable(this);
   late final $ReservationRoomsTable reservationRooms =
       $ReservationRoomsTable(this);
+  late final $OperationsTable operations = $OperationsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8249,7 +8841,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         clients,
         stayRooms,
         reservations,
-        reservationRooms
+        reservationRooms,
+        operations
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -13873,6 +14466,276 @@ typedef $$ReservationRoomsTableProcessedTableManager = ProcessedTableManager<
     (ReservationRoom, $$ReservationRoomsTableReferences),
     ReservationRoom,
     PrefetchHooks Function({bool reservationId})>;
+typedef $$OperationsTableCreateCompanionBuilder = OperationsCompanion Function({
+  required String opId,
+  required String type,
+  required String payload,
+  required String libelle,
+  Value<String?> auteur,
+  required DateTime creeLe,
+  Value<int> attempts,
+  Value<String?> lastError,
+  Value<DateTime?> envoyeeLe,
+  Value<DateTime?> refuseeLe,
+  Value<String?> motif,
+  Value<DateTime?> regleeLe,
+  Value<int> rowid,
+});
+typedef $$OperationsTableUpdateCompanionBuilder = OperationsCompanion Function({
+  Value<String> opId,
+  Value<String> type,
+  Value<String> payload,
+  Value<String> libelle,
+  Value<String?> auteur,
+  Value<DateTime> creeLe,
+  Value<int> attempts,
+  Value<String?> lastError,
+  Value<DateTime?> envoyeeLe,
+  Value<DateTime?> refuseeLe,
+  Value<String?> motif,
+  Value<DateTime?> regleeLe,
+  Value<int> rowid,
+});
+
+class $$OperationsTableFilterComposer
+    extends Composer<_$AppDatabase, $OperationsTable> {
+  $$OperationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get opId => $composableBuilder(
+      column: $table.opId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get libelle => $composableBuilder(
+      column: $table.libelle, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get auteur => $composableBuilder(
+      column: $table.auteur, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get creeLe => $composableBuilder(
+      column: $table.creeLe, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+      column: $table.attempts, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+      column: $table.lastError, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get envoyeeLe => $composableBuilder(
+      column: $table.envoyeeLe, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get refuseeLe => $composableBuilder(
+      column: $table.refuseeLe, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get motif => $composableBuilder(
+      column: $table.motif, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get regleeLe => $composableBuilder(
+      column: $table.regleeLe, builder: (column) => ColumnFilters(column));
+}
+
+class $$OperationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OperationsTable> {
+  $$OperationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get opId => $composableBuilder(
+      column: $table.opId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get libelle => $composableBuilder(
+      column: $table.libelle, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get auteur => $composableBuilder(
+      column: $table.auteur, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get creeLe => $composableBuilder(
+      column: $table.creeLe, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+      column: $table.attempts, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+      column: $table.lastError, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get envoyeeLe => $composableBuilder(
+      column: $table.envoyeeLe, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get refuseeLe => $composableBuilder(
+      column: $table.refuseeLe, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get motif => $composableBuilder(
+      column: $table.motif, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get regleeLe => $composableBuilder(
+      column: $table.regleeLe, builder: (column) => ColumnOrderings(column));
+}
+
+class $$OperationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OperationsTable> {
+  $$OperationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get opId =>
+      $composableBuilder(column: $table.opId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get libelle =>
+      $composableBuilder(column: $table.libelle, builder: (column) => column);
+
+  GeneratedColumn<String> get auteur =>
+      $composableBuilder(column: $table.auteur, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get creeLe =>
+      $composableBuilder(column: $table.creeLe, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get envoyeeLe =>
+      $composableBuilder(column: $table.envoyeeLe, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get refuseeLe =>
+      $composableBuilder(column: $table.refuseeLe, builder: (column) => column);
+
+  GeneratedColumn<String> get motif =>
+      $composableBuilder(column: $table.motif, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get regleeLe =>
+      $composableBuilder(column: $table.regleeLe, builder: (column) => column);
+}
+
+class $$OperationsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $OperationsTable,
+    Operation,
+    $$OperationsTableFilterComposer,
+    $$OperationsTableOrderingComposer,
+    $$OperationsTableAnnotationComposer,
+    $$OperationsTableCreateCompanionBuilder,
+    $$OperationsTableUpdateCompanionBuilder,
+    (Operation, BaseReferences<_$AppDatabase, $OperationsTable, Operation>),
+    Operation,
+    PrefetchHooks Function()> {
+  $$OperationsTableTableManager(_$AppDatabase db, $OperationsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OperationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OperationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OperationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> opId = const Value.absent(),
+            Value<String> type = const Value.absent(),
+            Value<String> payload = const Value.absent(),
+            Value<String> libelle = const Value.absent(),
+            Value<String?> auteur = const Value.absent(),
+            Value<DateTime> creeLe = const Value.absent(),
+            Value<int> attempts = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            Value<DateTime?> envoyeeLe = const Value.absent(),
+            Value<DateTime?> refuseeLe = const Value.absent(),
+            Value<String?> motif = const Value.absent(),
+            Value<DateTime?> regleeLe = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              OperationsCompanion(
+            opId: opId,
+            type: type,
+            payload: payload,
+            libelle: libelle,
+            auteur: auteur,
+            creeLe: creeLe,
+            attempts: attempts,
+            lastError: lastError,
+            envoyeeLe: envoyeeLe,
+            refuseeLe: refuseeLe,
+            motif: motif,
+            regleeLe: regleeLe,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String opId,
+            required String type,
+            required String payload,
+            required String libelle,
+            Value<String?> auteur = const Value.absent(),
+            required DateTime creeLe,
+            Value<int> attempts = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            Value<DateTime?> envoyeeLe = const Value.absent(),
+            Value<DateTime?> refuseeLe = const Value.absent(),
+            Value<String?> motif = const Value.absent(),
+            Value<DateTime?> regleeLe = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              OperationsCompanion.insert(
+            opId: opId,
+            type: type,
+            payload: payload,
+            libelle: libelle,
+            auteur: auteur,
+            creeLe: creeLe,
+            attempts: attempts,
+            lastError: lastError,
+            envoyeeLe: envoyeeLe,
+            refuseeLe: refuseeLe,
+            motif: motif,
+            regleeLe: regleeLe,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$OperationsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $OperationsTable,
+    Operation,
+    $$OperationsTableFilterComposer,
+    $$OperationsTableOrderingComposer,
+    $$OperationsTableAnnotationComposer,
+    $$OperationsTableCreateCompanionBuilder,
+    $$OperationsTableUpdateCompanionBuilder,
+    (Operation, BaseReferences<_$AppDatabase, $OperationsTable, Operation>),
+    Operation,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13905,4 +14768,6 @@ class $AppDatabaseManager {
       $$ReservationsTableTableManager(_db, _db.reservations);
   $$ReservationRoomsTableTableManager get reservationRooms =>
       $$ReservationRoomsTableTableManager(_db, _db.reservationRooms);
+  $$OperationsTableTableManager get operations =>
+      $$OperationsTableTableManager(_db, _db.operations);
 }

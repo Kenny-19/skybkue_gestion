@@ -4,6 +4,7 @@ import '../core/cloud_config.dart';
 import 'connexion_service.dart';
 import 'error_reporter.dart';
 import 'mirror_service.dart';
+import 'operations_service.dart';
 import 'stock_service.dart';
 import 'synchro_par_difference.dart';
 import 'ventes_outbox.dart';
@@ -130,6 +131,9 @@ class MirrorPullService {
       // vidait qu'au mouvement SUIVANT — une sortie faite pendant une
       // coupure attendait la prochaine vente d'un article suivi.
       unawaited(StockService.instance.viderLaFile());
+      // Opérations faites hors ligne (arrivées, départs…) : renvoyées au
+      // serveur, dans l'ordre, dès qu'il répond.
+      unawaited(OperationsService.instance.rejouer());
       _lastPull = DateTime.now();
       _lastError = null;
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../widgets/refus.dart';
+import '../../services/operations_service.dart';
 
 import '../../core/user_error.dart';
 import '../../widgets/bs_widgets.dart';
@@ -157,8 +159,15 @@ class RoomsScreen extends ConsumerWidget {
                   onCheckIn: () => showCheckIn(context, ref, room),
                   onCheckOut: () =>
                       confirmCheckOutWithInvoice(context, ref, room),
-                  onSetStatus: (s) =>
-                      ref.read(roomsRepoProvider).setStatus(room.number, s),
+                  onSetStatus: (s) async {
+                    try {
+                      await ref
+                          .read(roomsRepoProvider)
+                          .setStatus(room.number, s);
+                    } on OperationRefusee catch (e) {
+                      if (context.mounted) signalerRefus(context, e);
+                    }
+                  },
                   onEdit: () => showRoomDialog(context, ref, existing: room),
                   onDelete: () => confirmDeleteRoom(context, ref, room),
                 ),

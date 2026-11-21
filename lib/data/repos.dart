@@ -12,6 +12,7 @@ import '../core/discount.dart';
 import '../core/format.dart';
 import '../services/accounts_service.dart';
 import '../services/mirror_service.dart';
+import '../services/operations_service.dart';
 import '../services/stock_service.dart';
 import '../core/temps.dart';
 import 'database.dart';
@@ -1325,8 +1326,49 @@ const Object _unset = Object();
 // ─── Rooms ──────────────────────────────────────────────────────────────
 
 class RoomsRepo {
-  RoomsRepo(this._db);
+  /// [operations] : pour les tests, un service qui simule le serveur.
+  RoomsRepo(this._db, {OperationsService? operations})
+      : _operationsTest = operations;
   final AppDatabase _db;
+  final OperationsService? _operationsTest;
+  OperationsService get _ops => _operationsTest ?? OperationsService(_db);
+
+  /// À la seconde : c'est ainsi que la base et le serveur gardent l'heure
+  /// d'arrivée. Le départ la présente au serveur pour prouver qu'il s'agit
+  /// bien du MÊME client ; une milliseconde d'écart la ferait refuser.
+  static DateTime _aLaSeconde(DateTime d) =>
+      DateTime.fromMillisecondsSinceEpoch(
+          d.millisecondsSinceEpoch ~/ 1000 * 1000);
+
+  /// La chambre telle que l'arrivée doit la poser, côté serveur.
+  static Map<String, dynamic> _arriveeJson({
+    required String number,
+    required String guest,
+    required DateTime checkout,
+    required DateTime checkinAt,
+    String? note,
+    String? stayGroup,
+    int? payerId,
+    int? negotiatedPriceCents,
+  }) =>
+      {
+        'number': number,
+        'current_guest': guest,
+        'checkout_date': isoServeur(checkout),
+        'checkin_note': note,
+        'checkin_at': isoServeur(checkinAt),
+        'stay_group': stayGroup,
+        'payer_id': payerId,
+        'negotiated_price_cents': negotiatedPriceCents,
+      };
+
+  /// Après une opération passée par l'ancien chemin (serveur pas à jour).
+  void _ancienEnvoi(Passage p, List<String> numeros) {
+    if (p != Passage.ancienServeur) return;
+    for (final n in numeros) {
+      unawaited(MirrorService.pushRoomByNumber(n));
+    }
+  }
 
   Stream<List<Room>> watchAll() {
     final query = _db.select(_db.rooms)
@@ -1340,32 +1382,55 @@ class RoomsRepo {
   ///
   /// Ouvre le séjour (v27) et renvoie son id : le séjour existe dès
   /// l'arrivée, plus seulement au départ.
+  ///
+  /// EN LIGNE D'ABORD : le serveur vérifie que la chambre est libre sur
+  /// TOUS les postes ; s'il refuse, [OperationRefusee] est levée et rien ne
+  /// change. Hors ligne, l'arrivée est faite ici et envoyée au retour.
   Future<int> checkIn(String number, String guest, DateTime checkout,
       {String? note, int? payerId, int? negotiatedPriceCents}) async {
-    final sejour = await _db.transaction(() async {
-      await (_db.update(_db.rooms)..where((r) => r.number.equals(number)))
-          .write(
-        RoomsCompanion(
-          status: const Value(DbRoomStatus.occupee),
-          currentGuest: Value(guest),
-          checkoutDate: Value(checkout),
-          checkinNote: Value(
-              (note != null && note.trim().isNotEmpty) ? note.trim() : null),
-          checkinAt: Value(Horloge.maintenant()),
-          stayGroup: const Value(null),
-          payerId: Value(payerId),
-          negotiatedPriceCents: Value(
-              (negotiatedPriceCents != null && negotiatedPriceCents > 0)
-                  ? negotiatedPriceCents
-                  : null),
-        ),
-      );
-      final chambre = await (_db.select(_db.rooms)
-            ..where((r) => r.number.equals(number)))
-          .getSingle();
-      return _db.ouvrirSejour([chambre]);
-    });
-    unawaited(MirrorService.pushRoomByNumber(number));
+    final ts = _aLaSeconde(Horloge.maintenant());
+    final noteNette =
+        (note != null && note.trim().isNotEmpty) ? note.trim() : null;
+    final negocie = (negotiatedPriceCents != null && negotiatedPriceCents > 0)
+        ? negotiatedPriceCents
+        : null;
+    final (sejour, passage) = await _ops.executer(
+      type: 'chambres:arrivee',
+      libelle: 'Arrivée de $guest, chambre $number',
+      chambres: [number],
+      payload: {
+        'chambres': [
+          _arriveeJson(
+              number: number,
+              guest: guest,
+              checkout: checkout,
+              checkinAt: ts,
+              note: noteNette,
+              payerId: payerId,
+              negotiatedPriceCents: negocie),
+        ],
+      },
+      appliquer: () => _db.transaction(() async {
+        await (_db.update(_db.rooms)..where((r) => r.number.equals(number)))
+            .write(
+          RoomsCompanion(
+            status: const Value(DbRoomStatus.occupee),
+            currentGuest: Value(guest),
+            checkoutDate: Value(checkout),
+            checkinNote: Value(noteNette),
+            checkinAt: Value(ts),
+            stayGroup: const Value(null),
+            payerId: Value(payerId),
+            negotiatedPriceCents: Value(negocie),
+          ),
+        );
+        final chambre = await (_db.select(_db.rooms)
+              ..where((r) => r.number.equals(number)))
+            .getSingle();
+        return _db.ouvrirSejour([chambre]);
+      }),
+    );
+    _ancienEnvoi(passage, [number]);
     return sejour;
   }
 
@@ -1389,39 +1454,59 @@ class RoomsRepo {
     /// absente de la map garde son tarif catalogue.
     Map<String, int> negotiatedPrices = const {},
   }) async {
-    final ts = Horloge.maintenant();
+    final ts = _aLaSeconde(Horloge.maintenant());
     final ref =
         'GRP-${ts.year}${ts.month.toString().padLeft(2, '0')}${ts.day.toString().padLeft(2, '0')}'
         '-${ts.hour.toString().padLeft(2, '0')}${ts.minute.toString().padLeft(2, '0')}'
         '-${(ts.millisecond % 100).toString().padLeft(2, '0')}';
-    final sejour = await _db.transaction(() async {
-      for (final n in numbers) {
-        await (_db.update(_db.rooms)..where((r) => r.number.equals(n))).write(
-          RoomsCompanion(
-            status: const Value(DbRoomStatus.occupee),
-            currentGuest: Value(guest),
-            checkoutDate: Value(checkout),
-            checkinNote: Value(
-                (note != null && note.trim().isNotEmpty) ? note.trim() : null),
-            checkinAt: Value(ts),
-            stayGroup: Value(ref),
-            payerId: Value(payerId),
-            negotiatedPriceCents: Value(
-                (negotiatedPrices[n] != null && negotiatedPrices[n]! > 0)
-                    ? negotiatedPrices[n]
-                    : null),
-          ),
-        );
-      }
-      final chambres = await (_db.select(_db.rooms)
-            ..where((r) => r.number.isIn(numbers)))
-          .get();
-      return _db.ouvrirSejour(chambres);
-    });
-    // Push miroir en parallèle (best-effort).
-    for (final n in numbers) {
-      unawaited(MirrorService.pushRoomByNumber(n));
-    }
+    final noteNette =
+        (note != null && note.trim().isNotEmpty) ? note.trim() : null;
+    int? negocie(String n) =>
+        (negotiatedPrices[n] != null && negotiatedPrices[n]! > 0)
+            ? negotiatedPrices[n]
+            : null;
+    // UNE opération pour tout le groupe : le serveur prend toutes les
+    // chambres ou aucune.
+    final (sejour, passage) = await _ops.executer(
+      type: 'chambres:arrivee',
+      libelle: 'Arrivée groupée de $guest, chambres ${numbers.join(', ')}',
+      chambres: numbers,
+      payload: {
+        'chambres': [
+          for (final n in numbers)
+            _arriveeJson(
+                number: n,
+                guest: guest,
+                checkout: checkout,
+                checkinAt: ts,
+                note: noteNette,
+                stayGroup: ref,
+                payerId: payerId,
+                negotiatedPriceCents: negocie(n)),
+        ],
+      },
+      appliquer: () => _db.transaction(() async {
+        for (final n in numbers) {
+          await (_db.update(_db.rooms)..where((r) => r.number.equals(n))).write(
+            RoomsCompanion(
+              status: const Value(DbRoomStatus.occupee),
+              currentGuest: Value(guest),
+              checkoutDate: Value(checkout),
+              checkinNote: Value(noteNette),
+              checkinAt: Value(ts),
+              stayGroup: Value(ref),
+              payerId: Value(payerId),
+              negotiatedPriceCents: Value(negocie(n)),
+            ),
+          );
+        }
+        final chambres = await (_db.select(_db.rooms)
+              ..where((r) => r.number.isIn(numbers)))
+            .get();
+        return _db.ouvrirSejour(chambres);
+      }),
+    );
+    _ancienEnvoi(passage, numbers);
     return sejour;
   }
 
@@ -1435,27 +1520,62 @@ class RoomsRepo {
   /// Libère la chambre. Le séjour, lui, est clôturé par
   /// [StaysRepo.cloturer] ou [StaysRepo.libererSansFacture] : ici on ne
   /// fait que détacher la chambre de son séjour.
+  ///
+  /// EN LIGNE D'ABORD : le serveur vérifie que c'est bien ce client qui
+  /// part (même heure d'arrivée) ; s'il refuse, [OperationRefusee] est
+  /// levée et la chambre n'est pas libérée ici.
   Future<void> checkOut(String number) async {
-    await (_db.update(_db.rooms)..where((r) => r.number.equals(number))).write(
-      const RoomsCompanion(
-        status: Value(DbRoomStatus.nettoyage),
-        currentGuest: Value(null),
-        checkoutDate: Value(null),
-        checkinNote: Value(null),
-        checkinAt: Value(null),
-        stayGroup: Value(null),
-        payerId: Value(null),
-        negotiatedPriceCents: Value(null),
-        currentStayId: Value(null),
+    final chambre = await (_db.select(_db.rooms)
+          ..where((r) => r.number.equals(number)))
+        .getSingleOrNull();
+    if (chambre == null) return;
+    final (_, passage) = await _ops.executer(
+      type: 'chambres:depart',
+      libelle: 'Départ de ${chambre.currentGuest ?? 'client'}, chambre $number',
+      chambres: [number],
+      payload: {
+        'chambres': [
+          {
+            'number': number,
+            'checkin_at': isoServeurOuNull(chambre.checkinAt),
+          }
+        ],
+      },
+      appliquer: () =>
+          (_db.update(_db.rooms)..where((r) => r.number.equals(number))).write(
+        const RoomsCompanion(
+          status: Value(DbRoomStatus.nettoyage),
+          currentGuest: Value(null),
+          checkoutDate: Value(null),
+          checkinNote: Value(null),
+          checkinAt: Value(null),
+          stayGroup: Value(null),
+          payerId: Value(null),
+          negotiatedPriceCents: Value(null),
+          currentStayId: Value(null),
+        ),
       ),
     );
-    unawaited(MirrorService.pushRoomByNumber(number));
+    _ancienEnvoi(passage, [number]);
   }
 
+  /// Nettoyage terminé, maintenance… Une chambre OCCUPÉE ne change pas
+  /// de statut par ce chemin : c'est le départ qui la libère.
   Future<void> setStatus(String number, DbRoomStatus status) async {
-    await (_db.update(_db.rooms)..where((r) => r.number.equals(number)))
-        .write(RoomsCompanion(status: Value(status)));
-    unawaited(MirrorService.pushRoomByNumber(number));
+    final (_, passage) = await _ops.executer(
+      type: 'chambres:statut',
+      libelle: 'Chambre $number : ${status.name}',
+      chambres: [number],
+      payload: {
+        'chambres': [
+          {'number': number, 'status': status.index}
+        ],
+      },
+      appliquer: () => (_db.update(_db.rooms)
+            ..where((r) => r.number.equals(number)))
+          .write(RoomsCompanion(status: Value(status))),
+    );
+    _ancienEnvoi(passage, [number]);
   }
 
   Future<void> create({
@@ -1482,7 +1602,7 @@ class RoomsRepo {
               ? const Value.absent()
               : Value(imagePath),
         ));
-    unawaited(MirrorService.pushRoomByNumber(number));
+    unawaited(MirrorService.pushRoomCatalogue(number));
   }
 
   Future<void> updateInfo({
@@ -1505,7 +1625,7 @@ class RoomsRepo {
             : Value(imagePath as String?),
       ),
     );
-    unawaited(MirrorService.pushRoomByNumber(number));
+    unawaited(MirrorService.pushRoomCatalogue(number));
   }
 
   Future<void> delete(String number) async {

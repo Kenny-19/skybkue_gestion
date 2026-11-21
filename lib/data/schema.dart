@@ -513,3 +513,40 @@ class SaleLines extends Table {
   /// [Sales.uid] : les numéros de ligne aussi se chevauchaient).
   TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
 }
+
+/// Journal des opérations faites HORS LIGNE (v31), rejouées au serveur au
+/// retour du réseau, dans l'ordre.
+///
+/// L'application travaille en ligne d'abord : une arrivée, un départ, un
+/// changement de statut sont validés par le serveur avant d'être appliqués
+/// ici. Pendant une coupure, ils sont appliqués ici tout de suite, et notés
+/// dans ce journal. Le serveur peut alors les refuser (la chambre a été
+/// prise sur un autre poste pendant la coupure) : le refus est gardé, avec
+/// son motif, pour que le gérant le règle — rien ne disparaît en silence.
+class Operations extends Table {
+  /// Identifiant créé ici : rejouée deux fois, l'opération ne s'applique
+  /// qu'une fois au serveur.
+  TextColumn get opId => text()();
+
+  /// « chambres:arrivee », « chambres:depart », « chambres:statut »…
+  TextColumn get type => text()();
+
+  /// Ce que le serveur doit appliquer (JSON).
+  TextColumn get payload => text()();
+
+  /// Ce que la personne voit dans la liste « À régler ».
+  TextColumn get libelle => text()();
+  TextColumn get auteur => text().nullable()();
+  DateTimeColumn get creeLe => dateTime()();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  DateTimeColumn get envoyeeLe => dateTime().nullable()();
+  DateTimeColumn get refuseeLe => dateTime().nullable()();
+  TextColumn get motif => text().nullable()();
+
+  /// Refus vu et réglé par un gérant.
+  DateTimeColumn get regleeLe => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {opId};
+}

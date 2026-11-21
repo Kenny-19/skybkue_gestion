@@ -163,6 +163,134 @@ grant execute on function public.bs_app_connexion(text, text, text) to anon, aut
 grant execute on function public.bs_app_deconnexion(text) to anon, authenticated;
 grant execute on function public.bs_stock_gerer(text, text, uuid, int, text, text) to anon, authenticated;
 
+-- ── Étape 3 : les chambres, validées par le serveur ───────────────────
+--
+-- Arrivées, départs et changements de statut passent par UNE fonction,
+-- qui verrouille les chambres concernées et applique l'opération à toutes
+-- d'un coup — ou à aucune. Deux postes ne peuvent plus mettre deux clients
+-- dans la même chambre : le second est refusé, avec le nom de l'occupant.
+--
+-- Chaque opération porte un identifiant créé par le poste : rejouée après
+-- une coupure (ou deux fois parce que la réponse s'est perdue), elle ne
+-- s'applique qu'une fois.
+create table if not exists public.app_operations (
+  op_id      text        primary key,
+  type       text        not null,
+  login      text,
+  poste      text,
+  resultat   jsonb       not null,
+  recu_le    timestamptz not null default now()
+);
+alter table public.app_operations enable row level security;
+revoke all on public.app_operations from anon, authenticated;
+
+-- Statuts : 0 libre, 1 occupée, 2 nettoyage, 3 maintenance.
+create or replace function public.bs_chambres_operer(
+  p_session  text,
+  p_op_id    text,
+  p_type     text,      -- 'arrivee' | 'depart' | 'statut'
+  p_chambres jsonb,     -- [{number, ...champs}]
+  p_poste    text default null
+) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  u       public.app_users;
+  deja    public.app_operations;
+  c       jsonb;
+  r       public.mirror_rooms;
+  numeros text[];
+  res     jsonb;
+begin
+  -- Réception, gérant, super admin.
+  u := public.bs_app_exiger(p_session, array[0, 1, 3]::smallint[]);
+
+  if p_op_id is null or length(trim(p_op_id)) = 0 then
+    raise exception 'OP_ID_MANQUANT';
+  end if;
+  select * into deja from public.app_operations where op_id = p_op_id;
+  if deja.op_id is not null then
+    return deja.resultat::json;
+  end if;
+  if p_type not in ('arrivee', 'depart', 'statut') then
+    raise exception 'OPERATION_INCONNUE';
+  end if;
+
+  select array_agg(x->>'number') into numeros
+    from jsonb_array_elements(p_chambres) x;
+  if numeros is null then
+    raise exception 'CHAMBRES_MANQUANTES';
+  end if;
+
+  -- Verrou : deux opérations simultanées sur la même chambre se suivent.
+  perform 1 from public.mirror_rooms
+   where number = any (numeros) order by number for update;
+
+  -- 1. Vérifier TOUTES les chambres avant d'en toucher une.
+  for c in select * from jsonb_array_elements(p_chambres) loop
+    select * into r from public.mirror_rooms where number = c->>'number';
+    if r.number is null then
+      res := jsonb_build_object('status', 'refuse', 'motif', 'CHAMBRE_INCONNUE',
+                                'chambre', c->>'number');
+      exit;
+    end if;
+    if p_type = 'arrivee' and r.status = 1 then
+      res := jsonb_build_object('status', 'refuse', 'motif', 'CHAMBRE_OCCUPEE',
+                                'chambre', r.number, 'occupant', r.current_guest);
+      exit;
+    end if;
+    -- Départ : la chambre doit être occupée par CE client (même heure
+    -- d'arrivée). Déjà libérée : rien à faire, ce n'est pas une erreur.
+    if p_type = 'depart' and r.status = 1
+       and r.checkin_at is distinct from (c->>'checkin_at')::timestamptz then
+      res := jsonb_build_object('status', 'refuse', 'motif', 'AUTRE_OCCUPANT',
+                                'chambre', r.number, 'occupant', r.current_guest);
+      exit;
+    end if;
+    if p_type = 'statut' and r.status = 1 then
+      res := jsonb_build_object('status', 'refuse', 'motif', 'CHAMBRE_OCCUPEE',
+                                'chambre', r.number, 'occupant', r.current_guest);
+      exit;
+    end if;
+  end loop;
+
+  -- 2. Appliquer, si rien n'a été refusé.
+  if res is null then
+    for c in select * from jsonb_array_elements(p_chambres) loop
+      if p_type = 'arrivee' then
+        update public.mirror_rooms set
+          status                 = 1,
+          current_guest          = c->>'current_guest',
+          checkout_date          = (c->>'checkout_date')::timestamptz,
+          checkin_note           = c->>'checkin_note',
+          checkin_at             = (c->>'checkin_at')::timestamptz,
+          stay_group             = c->>'stay_group',
+          payer_id               = (c->>'payer_id')::bigint,
+          negotiated_price_cents = (c->>'negotiated_price_cents')::bigint
+         where number = c->>'number';
+      elsif p_type = 'depart' then
+        update public.mirror_rooms set
+          status = 2, current_guest = null, checkout_date = null,
+          checkin_note = null, checkin_at = null, stay_group = null,
+          payer_id = null, negotiated_price_cents = null
+         where number = c->>'number' and status = 1;
+      else
+        update public.mirror_rooms set status = (c->>'status')::smallint
+         where number = c->>'number';
+      end if;
+    end loop;
+    res := jsonb_build_object('status', 'ok');
+  end if;
+
+  -- Un refus aussi est mémorisé : rejoué, il donne la même réponse.
+  insert into public.app_operations (op_id, type, login, poste, resultat)
+  values (p_op_id, p_type, u.login, p_poste, res);
+  return res::json;
+end;
+$$;
+
+revoke execute on function public.bs_chambres_operer(text, text, text, jsonb, text) from public;
+grant execute on function public.bs_chambres_operer(text, text, text, jsonb, text) to anon, authenticated;
+
 notify pgrst, 'reload schema';
 
 commit;

@@ -173,6 +173,10 @@ grant execute on function public.bs_stock_gerer(text, text, uuid, int, text, tex
 -- Chaque opération porte un identifiant créé par le poste : rejouée après
 -- une coupure (ou deux fois parce que la réponse s'est perdue), elle ne
 -- s'applique qu'une fois.
+-- Le payeur d'une chambre, par son identité
+-- (cf. sql/2026_11_identite_clients_payeurs.sql).
+alter table public.mirror_rooms add column if not exists payer_uid uuid;
+
 create table if not exists public.app_operations (
   op_id      text        primary key,
   type       text        not null,
@@ -265,13 +269,14 @@ begin
           checkin_at             = (c->>'checkin_at')::timestamptz,
           stay_group             = c->>'stay_group',
           payer_id               = (c->>'payer_id')::bigint,
+          payer_uid              = (c->>'payer_uid')::uuid,
           negotiated_price_cents = (c->>'negotiated_price_cents')::bigint
          where number = c->>'number';
       elsif p_type = 'depart' then
         update public.mirror_rooms set
           status = 2, current_guest = null, checkout_date = null,
           checkin_note = null, checkin_at = null, stay_group = null,
-          payer_id = null, negotiated_price_cents = null
+          payer_id = null, payer_uid = null, negotiated_price_cents = null
          where number = c->>'number' and status = 1;
       else
         update public.mirror_rooms set status = (c->>'status')::smallint
@@ -290,6 +295,197 @@ $$;
 
 revoke execute on function public.bs_chambres_operer(text, text, text, jsonb, text) from public;
 grant execute on function public.bs_chambres_operer(text, text, text, jsonb, text) to anon, authenticated;
+
+-- ── Étape 4 : les réservations, partagées et validées ─────────────────
+--
+-- Les réservations ne quittaient pas le poste qui les avait prises : la
+-- réception d'un autre poste ne les voyait pas, et rien n'empêchait de
+-- réserver deux fois la même chambre aux mêmes dates. Chaque
+-- enregistrement passe désormais par le serveur, qui refuse un
+-- chevauchement avec une autre réservation active, quel que soit le poste.
+--
+-- À exécuter APRÈS sql/2026_11_identite_clients_payeurs.sql.
+
+-- Le numéro de réservation vient d'un compteur propre au poste : deux
+-- postes peuvent produire le même. C'est l'uid qui identifie.
+alter table public.mirror_reservations
+  drop constraint if exists mirror_reservations_reservation_number_key;
+alter table public.mirror_reservations
+  add column if not exists uid uuid,
+  add column if not exists payer_uid uuid,
+  add column if not exists poste text,
+  add column if not exists rev integer not null default 0,
+  -- Une réservation supprimée reste, marquée : les autres postes doivent
+  -- la retirer de leur copie, et ne pas la renvoyer comme « manquante ».
+  add column if not exists supprimee_le timestamptz,
+  add column if not exists updated_at timestamptz not null default clock_timestamp();
+alter table public.mirror_reservation_rooms
+  add column if not exists uid uuid,
+  add column if not exists reservation_uid uuid;
+create unique index if not exists mirror_reservations_uid_key
+  on public.mirror_reservations (uid);
+create index if not exists mirror_reservations_updated_at_idx
+  on public.mirror_reservations (updated_at);
+
+create sequence if not exists public.mirror_reservations_id_seq start with 1000000;
+alter sequence public.mirror_reservations_id_seq owned by public.mirror_reservations.id;
+alter table public.mirror_reservations
+  alter column id set default nextval('public.mirror_reservations_id_seq');
+create sequence if not exists public.mirror_reservation_rooms_id_seq start with 1000000;
+alter sequence public.mirror_reservation_rooms_id_seq owned by public.mirror_reservation_rooms.id;
+alter table public.mirror_reservation_rooms
+  alter column id set default nextval('public.mirror_reservation_rooms_id_seq');
+
+drop trigger if exists mirror_reservations_modification on public.mirror_reservations;
+create trigger mirror_reservations_modification
+  before insert or update on public.mirror_reservations
+  for each row execute function public.bs_marquer_modification();
+
+-- Statuts : 0 en attente, 1 confirmée, 2 arrivée faite, 3 annulée,
+-- 4 non venue. Seules 0 et 1 bloquent une chambre.
+create or replace function public.bs_reservation_enregistrer(
+  p_session     text,
+  p_op_id       text,
+  p_reservation jsonb,
+  p_poste       text default null
+) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  u      public.app_users;
+  deja   public.app_operations;
+  v_uid  uuid := (p_reservation->>'uid')::uuid;
+  v_id   bigint;
+  v_stat smallint := coalesce((p_reservation->>'status')::smallint, 1);
+  v_in   timestamptz := (p_reservation->>'checkin_date')::timestamptz;
+  v_out  timestamptz := (p_reservation->>'checkout_date')::timestamptz;
+  c_chambre text;
+  c_nom     text;
+  c_du      timestamptz;
+  c_au      timestamptz;
+  res    jsonb;
+begin
+  u := public.bs_app_exiger(p_session, array[0, 1, 3]::smallint[]);
+  if p_op_id is null or length(trim(p_op_id)) = 0 then
+    raise exception 'OP_ID_MANQUANT';
+  end if;
+  select * into deja from public.app_operations where op_id = p_op_id;
+  if deja.op_id is not null then
+    return deja.resultat::json;
+  end if;
+  if v_uid is null then
+    raise exception 'UID_MANQUANT';
+  end if;
+
+  -- Verrou sur les chambres demandées : deux réservations simultanées de
+  -- la même chambre se suivent au lieu de passer toutes les deux.
+  perform 1 from public.mirror_rooms
+   where number in (select x->>'number'
+                      from jsonb_array_elements(p_reservation->'rooms') x)
+   order by number for update;
+
+  if coalesce((p_reservation->>'supprimee')::boolean, false) then
+    update public.mirror_reservations
+       set supprimee_le = coalesce(supprimee_le, now()), status = 3,
+           rev = rev + 1
+     where uid = v_uid;
+    res := jsonb_build_object('status', 'ok');
+  else
+    -- Chevauchement avec une AUTRE réservation active, sur une des chambres.
+    if v_stat in (0, 1) then
+      select r.guest_full_name, r.checkin_date, r.checkout_date, rr.room_number
+        into c_nom, c_du, c_au, c_chambre
+        from public.mirror_reservations r
+        join public.mirror_reservation_rooms rr on rr.reservation_uid = r.uid
+       where r.uid <> v_uid
+         and r.status in (0, 1)
+         and r.supprimee_le is null
+         and rr.room_number in (select x->>'number'
+                                  from jsonb_array_elements(p_reservation->'rooms') x)
+         and r.checkin_date < v_out
+         and r.checkout_date > v_in
+       limit 1;
+    end if;
+
+    if c_chambre is not null then
+      res := jsonb_build_object(
+        'status', 'refuse', 'motif', 'CHAMBRE_RESERVEE',
+        'chambre', c_chambre, 'occupant', c_nom, 'du', c_du, 'au', c_au);
+    else
+      insert into public.mirror_reservations (
+        uid, reservation_number, created_at, checkin_date, checkout_date,
+        guest_full_name, guest_phone, guest_email, payer_id, payer_uid,
+        status, deposit_cents, note, created_by_login, cancelled_at,
+        cancel_reason, poste)
+      values (
+        v_uid, p_reservation->>'reservation_number',
+        coalesce((p_reservation->>'created_at')::timestamptz, now()),
+        v_in, v_out, p_reservation->>'guest_full_name',
+        p_reservation->>'guest_phone', p_reservation->>'guest_email',
+        (p_reservation->>'payer_id')::bigint,
+        (p_reservation->>'payer_uid')::uuid, v_stat,
+        coalesce((p_reservation->>'deposit_cents')::bigint, 0),
+        p_reservation->>'note', p_reservation->>'created_by_login',
+        (p_reservation->>'cancelled_at')::timestamptz,
+        p_reservation->>'cancel_reason', p_poste)
+      on conflict (uid) do update set
+        checkin_date = excluded.checkin_date,
+        checkout_date = excluded.checkout_date,
+        guest_full_name = excluded.guest_full_name,
+        guest_phone = excluded.guest_phone,
+        guest_email = excluded.guest_email,
+        payer_id = excluded.payer_id,
+        payer_uid = excluded.payer_uid,
+        status = excluded.status,
+        deposit_cents = excluded.deposit_cents,
+        note = excluded.note,
+        cancelled_at = excluded.cancelled_at,
+        cancel_reason = excluded.cancel_reason,
+        -- Les chambres changent sans que la ligne change : la révision
+        -- fait bouger la date de modification, et les autres postes relisent.
+        rev = public.mirror_reservations.rev + 1
+      returning id into v_id;
+
+      delete from public.mirror_reservation_rooms where reservation_uid = v_uid;
+      insert into public.mirror_reservation_rooms
+        (uid, reservation_id, reservation_uid, room_number, price_per_night_cents)
+      select coalesce((x->>'uid')::uuid, gen_random_uuid()), v_id, v_uid,
+             x->>'number', coalesce((x->>'price_per_night_cents')::bigint, 0)
+        from jsonb_array_elements(p_reservation->'rooms') x;
+      res := jsonb_build_object('status', 'ok');
+    end if;
+  end if;
+
+  insert into public.app_operations (op_id, type, login, poste, resultat)
+  values (p_op_id, 'reservation', u.login, p_poste, res);
+  return res::json;
+end;
+$$;
+
+revoke execute on function public.bs_reservation_enregistrer(text, text, jsonb, text) from public;
+grant execute on function public.bs_reservation_enregistrer(text, text, jsonb, text) to anon, authenticated;
+
+-- Les postes lisent les réservations (comme les autres tables partagées).
+grant select on public.mirror_reservations, public.mirror_reservation_rooms
+  to anon, authenticated;
+
+-- La relecture par différence voit aussi les réservations.
+create or replace function public.bs_versions()
+returns json language sql stable set search_path = public as $$
+  select json_build_object(
+    'rooms', json_build_object(
+       'max', (select max(updated_at) from public.mirror_rooms),
+       'nb',  (select count(*)        from public.mirror_rooms)),
+    'clients',  (select max(updated_at) from public.mirror_clients),
+    'payers',   (select max(updated_at) from public.mirror_payers),
+    'articles', (select max(updated_at) from public.mirror_articles),
+    'stays',    (select max(updated_at) from public.mirror_stays),
+    'reservations', json_build_object(
+       'max', (select max(updated_at) from public.mirror_reservations),
+       'nb',  (select count(*)        from public.mirror_reservations))
+  )
+$$;
+revoke execute on function public.bs_versions() from public;
+grant execute on function public.bs_versions() to anon, authenticated;
 
 notify pgrst, 'reload schema';
 

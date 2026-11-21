@@ -1370,9 +1370,14 @@ class $PayersTable extends Payers with TableInfo<$PayersTable, Payer> {
       type: DriftSqlType.dateTime,
       requiredDuringInsert: false,
       defaultValue: currentDateAndTime);
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, name, type, taxId, address, contact, notes, createdAt];
+      [id, name, type, taxId, address, contact, notes, createdAt, uid];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1412,6 +1417,10 @@ class $PayersTable extends Payers with TableInfo<$PayersTable, Payer> {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -1437,6 +1446,8 @@ class $PayersTable extends Payers with TableInfo<$PayersTable, Payer> {
           .read(DriftSqlType.string, data['${effectivePrefix}notes']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -1458,6 +1469,9 @@ class Payer extends DataClass implements Insertable<Payer> {
   final String? contact;
   final String? notes;
   final DateTime createdAt;
+
+  /// Identité sur tous les postes (v32), déduite du nom (uidPayeur).
+  final String? uid;
   const Payer(
       {required this.id,
       required this.name,
@@ -1466,7 +1480,8 @@ class Payer extends DataClass implements Insertable<Payer> {
       this.address,
       this.contact,
       this.notes,
-      required this.createdAt});
+      required this.createdAt,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1488,6 +1503,9 @@ class Payer extends DataClass implements Insertable<Payer> {
       map['notes'] = Variable<String>(notes);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -1507,6 +1525,7 @@ class Payer extends DataClass implements Insertable<Payer> {
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
       createdAt: Value(createdAt),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -1523,6 +1542,7 @@ class Payer extends DataClass implements Insertable<Payer> {
       contact: serializer.fromJson<String?>(json['contact']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -1537,6 +1557,7 @@ class Payer extends DataClass implements Insertable<Payer> {
       'contact': serializer.toJson<String?>(contact),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -1548,7 +1569,8 @@ class Payer extends DataClass implements Insertable<Payer> {
           Value<String?> address = const Value.absent(),
           Value<String?> contact = const Value.absent(),
           Value<String?> notes = const Value.absent(),
-          DateTime? createdAt}) =>
+          DateTime? createdAt,
+          Value<String?> uid = const Value.absent()}) =>
       Payer(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -1558,6 +1580,7 @@ class Payer extends DataClass implements Insertable<Payer> {
         contact: contact.present ? contact.value : this.contact,
         notes: notes.present ? notes.value : this.notes,
         createdAt: createdAt ?? this.createdAt,
+        uid: uid.present ? uid.value : this.uid,
       );
   Payer copyWithCompanion(PayersCompanion data) {
     return Payer(
@@ -1569,6 +1592,7 @@ class Payer extends DataClass implements Insertable<Payer> {
       contact: data.contact.present ? data.contact.value : this.contact,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -1582,14 +1606,15 @@ class Payer extends DataClass implements Insertable<Payer> {
           ..write('address: $address, ')
           ..write('contact: $contact, ')
           ..write('notes: $notes, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, type, taxId, address, contact, notes, createdAt);
+  int get hashCode => Object.hash(
+      id, name, type, taxId, address, contact, notes, createdAt, uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1601,7 +1626,8 @@ class Payer extends DataClass implements Insertable<Payer> {
           other.address == this.address &&
           other.contact == this.contact &&
           other.notes == this.notes &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.uid == this.uid);
 }
 
 class PayersCompanion extends UpdateCompanion<Payer> {
@@ -1613,6 +1639,7 @@ class PayersCompanion extends UpdateCompanion<Payer> {
   final Value<String?> contact;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
+  final Value<String?> uid;
   const PayersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1622,6 +1649,7 @@ class PayersCompanion extends UpdateCompanion<Payer> {
     this.contact = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   PayersCompanion.insert({
     this.id = const Value.absent(),
@@ -1632,6 +1660,7 @@ class PayersCompanion extends UpdateCompanion<Payer> {
     this.contact = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.uid = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Payer> custom({
     Expression<int>? id,
@@ -1642,6 +1671,7 @@ class PayersCompanion extends UpdateCompanion<Payer> {
     Expression<String>? contact,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1652,6 +1682,7 @@ class PayersCompanion extends UpdateCompanion<Payer> {
       if (contact != null) 'contact': contact,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -1663,7 +1694,8 @@ class PayersCompanion extends UpdateCompanion<Payer> {
       Value<String?>? address,
       Value<String?>? contact,
       Value<String?>? notes,
-      Value<DateTime>? createdAt}) {
+      Value<DateTime>? createdAt,
+      Value<String?>? uid}) {
     return PayersCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -1673,6 +1705,7 @@ class PayersCompanion extends UpdateCompanion<Payer> {
       contact: contact ?? this.contact,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -1704,6 +1737,9 @@ class PayersCompanion extends UpdateCompanion<Payer> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -1717,7 +1753,8 @@ class PayersCompanion extends UpdateCompanion<Payer> {
           ..write('address: $address, ')
           ..write('contact: $contact, ')
           ..write('notes: $notes, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -6122,6 +6159,11 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -6132,7 +6174,8 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
         firstSeenAt,
         lastSeenAt,
         visitsCount,
-        totalSpentCents
+        totalSpentCents,
+        uid
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6189,6 +6232,10 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
           totalSpentCents.isAcceptableOrUnknown(
               data['total_spent_cents']!, _totalSpentCentsMeta));
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -6216,6 +6263,8 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
           .read(DriftSqlType.int, data['${effectivePrefix}visits_count'])!,
       totalSpentCents: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}total_spent_cents'])!,
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -6235,6 +6284,11 @@ class Client extends DataClass implements Insertable<Client> {
   final DateTime lastSeenAt;
   final int visitsCount;
   final int totalSpentCents;
+
+  /// Identité de la fiche sur TOUS les postes (v32), déduite du téléphone
+  /// ou du nom à la création (cf. core/identite.dart, uidClient). Le
+  /// numéro local, lui, désignait une autre personne sur un autre poste.
+  final String? uid;
   const Client(
       {required this.id,
       required this.fullName,
@@ -6244,7 +6298,8 @@ class Client extends DataClass implements Insertable<Client> {
       required this.firstSeenAt,
       required this.lastSeenAt,
       required this.visitsCount,
-      required this.totalSpentCents});
+      required this.totalSpentCents,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -6263,6 +6318,9 @@ class Client extends DataClass implements Insertable<Client> {
     map['last_seen_at'] = Variable<DateTime>(lastSeenAt);
     map['visits_count'] = Variable<int>(visitsCount);
     map['total_spent_cents'] = Variable<int>(totalSpentCents);
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -6280,6 +6338,7 @@ class Client extends DataClass implements Insertable<Client> {
       lastSeenAt: Value(lastSeenAt),
       visitsCount: Value(visitsCount),
       totalSpentCents: Value(totalSpentCents),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -6296,6 +6355,7 @@ class Client extends DataClass implements Insertable<Client> {
       lastSeenAt: serializer.fromJson<DateTime>(json['lastSeenAt']),
       visitsCount: serializer.fromJson<int>(json['visitsCount']),
       totalSpentCents: serializer.fromJson<int>(json['totalSpentCents']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -6311,6 +6371,7 @@ class Client extends DataClass implements Insertable<Client> {
       'lastSeenAt': serializer.toJson<DateTime>(lastSeenAt),
       'visitsCount': serializer.toJson<int>(visitsCount),
       'totalSpentCents': serializer.toJson<int>(totalSpentCents),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -6323,7 +6384,8 @@ class Client extends DataClass implements Insertable<Client> {
           DateTime? firstSeenAt,
           DateTime? lastSeenAt,
           int? visitsCount,
-          int? totalSpentCents}) =>
+          int? totalSpentCents,
+          Value<String?> uid = const Value.absent()}) =>
       Client(
         id: id ?? this.id,
         fullName: fullName ?? this.fullName,
@@ -6334,6 +6396,7 @@ class Client extends DataClass implements Insertable<Client> {
         lastSeenAt: lastSeenAt ?? this.lastSeenAt,
         visitsCount: visitsCount ?? this.visitsCount,
         totalSpentCents: totalSpentCents ?? this.totalSpentCents,
+        uid: uid.present ? uid.value : this.uid,
       );
   Client copyWithCompanion(ClientsCompanion data) {
     return Client(
@@ -6351,6 +6414,7 @@ class Client extends DataClass implements Insertable<Client> {
       totalSpentCents: data.totalSpentCents.present
           ? data.totalSpentCents.value
           : this.totalSpentCents,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -6365,14 +6429,15 @@ class Client extends DataClass implements Insertable<Client> {
           ..write('firstSeenAt: $firstSeenAt, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('visitsCount: $visitsCount, ')
-          ..write('totalSpentCents: $totalSpentCents')
+          ..write('totalSpentCents: $totalSpentCents, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, fullName, phone, email, notes,
-      firstSeenAt, lastSeenAt, visitsCount, totalSpentCents);
+      firstSeenAt, lastSeenAt, visitsCount, totalSpentCents, uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6385,7 +6450,8 @@ class Client extends DataClass implements Insertable<Client> {
           other.firstSeenAt == this.firstSeenAt &&
           other.lastSeenAt == this.lastSeenAt &&
           other.visitsCount == this.visitsCount &&
-          other.totalSpentCents == this.totalSpentCents);
+          other.totalSpentCents == this.totalSpentCents &&
+          other.uid == this.uid);
 }
 
 class ClientsCompanion extends UpdateCompanion<Client> {
@@ -6398,6 +6464,7 @@ class ClientsCompanion extends UpdateCompanion<Client> {
   final Value<DateTime> lastSeenAt;
   final Value<int> visitsCount;
   final Value<int> totalSpentCents;
+  final Value<String?> uid;
   const ClientsCompanion({
     this.id = const Value.absent(),
     this.fullName = const Value.absent(),
@@ -6408,6 +6475,7 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     this.lastSeenAt = const Value.absent(),
     this.visitsCount = const Value.absent(),
     this.totalSpentCents = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   ClientsCompanion.insert({
     this.id = const Value.absent(),
@@ -6419,6 +6487,7 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     this.lastSeenAt = const Value.absent(),
     this.visitsCount = const Value.absent(),
     this.totalSpentCents = const Value.absent(),
+    this.uid = const Value.absent(),
   }) : fullName = Value(fullName);
   static Insertable<Client> custom({
     Expression<int>? id,
@@ -6430,6 +6499,7 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     Expression<DateTime>? lastSeenAt,
     Expression<int>? visitsCount,
     Expression<int>? totalSpentCents,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6441,6 +6511,7 @@ class ClientsCompanion extends UpdateCompanion<Client> {
       if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
       if (visitsCount != null) 'visits_count': visitsCount,
       if (totalSpentCents != null) 'total_spent_cents': totalSpentCents,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -6453,7 +6524,8 @@ class ClientsCompanion extends UpdateCompanion<Client> {
       Value<DateTime>? firstSeenAt,
       Value<DateTime>? lastSeenAt,
       Value<int>? visitsCount,
-      Value<int>? totalSpentCents}) {
+      Value<int>? totalSpentCents,
+      Value<String?>? uid}) {
     return ClientsCompanion(
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
@@ -6464,6 +6536,7 @@ class ClientsCompanion extends UpdateCompanion<Client> {
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       visitsCount: visitsCount ?? this.visitsCount,
       totalSpentCents: totalSpentCents ?? this.totalSpentCents,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -6497,6 +6570,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     if (totalSpentCents.present) {
       map['total_spent_cents'] = Variable<int>(totalSpentCents.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -6511,7 +6587,8 @@ class ClientsCompanion extends UpdateCompanion<Client> {
           ..write('firstSeenAt: $firstSeenAt, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('visitsCount: $visitsCount, ')
-          ..write('totalSpentCents: $totalSpentCents')
+          ..write('totalSpentCents: $totalSpentCents, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -7262,6 +7339,13 @@ class $ReservationsTable extends Reservations
       requiredDuringInsert: false,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'REFERENCES stays (id) ON DELETE SET NULL'));
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      clientDefault: nouvelUid);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -7279,7 +7363,8 @@ class $ReservationsTable extends Reservations
         createdByLogin,
         cancelledAt,
         cancelReason,
-        stayId
+        stayId,
+        uid
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -7378,6 +7463,10 @@ class $ReservationsTable extends Reservations
       context.handle(_stayIdMeta,
           stayId.isAcceptableOrUnknown(data['stay_id']!, _stayIdMeta));
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -7420,6 +7509,8 @@ class $ReservationsTable extends Reservations
           .read(DriftSqlType.string, data['${effectivePrefix}cancel_reason']),
       stayId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}stay_id']),
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -7449,6 +7540,11 @@ class Reservation extends DataClass implements Insertable<Reservation> {
   final DateTime? cancelledAt;
   final String? cancelReason;
   final int? stayId;
+
+  /// Identité sur tous les postes (v32). Le numéro de réservation est
+  /// tiré d'un compteur propre au poste : deux postes peuvent produire
+  /// le même.
+  final String? uid;
   const Reservation(
       {required this.id,
       required this.reservationNumber,
@@ -7465,7 +7561,8 @@ class Reservation extends DataClass implements Insertable<Reservation> {
       this.createdByLogin,
       this.cancelledAt,
       this.cancelReason,
-      this.stayId});
+      this.stayId,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -7504,6 +7601,9 @@ class Reservation extends DataClass implements Insertable<Reservation> {
     if (!nullToAbsent || stayId != null) {
       map['stay_id'] = Variable<int>(stayId);
     }
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -7538,6 +7638,7 @@ class Reservation extends DataClass implements Insertable<Reservation> {
           : Value(cancelReason),
       stayId:
           stayId == null && nullToAbsent ? const Value.absent() : Value(stayId),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -7562,6 +7663,7 @@ class Reservation extends DataClass implements Insertable<Reservation> {
       cancelledAt: serializer.fromJson<DateTime?>(json['cancelledAt']),
       cancelReason: serializer.fromJson<String?>(json['cancelReason']),
       stayId: serializer.fromJson<int?>(json['stayId']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -7585,6 +7687,7 @@ class Reservation extends DataClass implements Insertable<Reservation> {
       'cancelledAt': serializer.toJson<DateTime?>(cancelledAt),
       'cancelReason': serializer.toJson<String?>(cancelReason),
       'stayId': serializer.toJson<int?>(stayId),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -7604,7 +7707,8 @@ class Reservation extends DataClass implements Insertable<Reservation> {
           Value<String?> createdByLogin = const Value.absent(),
           Value<DateTime?> cancelledAt = const Value.absent(),
           Value<String?> cancelReason = const Value.absent(),
-          Value<int?> stayId = const Value.absent()}) =>
+          Value<int?> stayId = const Value.absent(),
+          Value<String?> uid = const Value.absent()}) =>
       Reservation(
         id: id ?? this.id,
         reservationNumber: reservationNumber ?? this.reservationNumber,
@@ -7624,6 +7728,7 @@ class Reservation extends DataClass implements Insertable<Reservation> {
         cancelReason:
             cancelReason.present ? cancelReason.value : this.cancelReason,
         stayId: stayId.present ? stayId.value : this.stayId,
+        uid: uid.present ? uid.value : this.uid,
       );
   Reservation copyWithCompanion(ReservationsCompanion data) {
     return Reservation(
@@ -7659,6 +7764,7 @@ class Reservation extends DataClass implements Insertable<Reservation> {
           ? data.cancelReason.value
           : this.cancelReason,
       stayId: data.stayId.present ? data.stayId.value : this.stayId,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -7680,7 +7786,8 @@ class Reservation extends DataClass implements Insertable<Reservation> {
           ..write('createdByLogin: $createdByLogin, ')
           ..write('cancelledAt: $cancelledAt, ')
           ..write('cancelReason: $cancelReason, ')
-          ..write('stayId: $stayId')
+          ..write('stayId: $stayId, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -7702,7 +7809,8 @@ class Reservation extends DataClass implements Insertable<Reservation> {
       createdByLogin,
       cancelledAt,
       cancelReason,
-      stayId);
+      stayId,
+      uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7722,7 +7830,8 @@ class Reservation extends DataClass implements Insertable<Reservation> {
           other.createdByLogin == this.createdByLogin &&
           other.cancelledAt == this.cancelledAt &&
           other.cancelReason == this.cancelReason &&
-          other.stayId == this.stayId);
+          other.stayId == this.stayId &&
+          other.uid == this.uid);
 }
 
 class ReservationsCompanion extends UpdateCompanion<Reservation> {
@@ -7742,6 +7851,7 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
   final Value<DateTime?> cancelledAt;
   final Value<String?> cancelReason;
   final Value<int?> stayId;
+  final Value<String?> uid;
   const ReservationsCompanion({
     this.id = const Value.absent(),
     this.reservationNumber = const Value.absent(),
@@ -7759,6 +7869,7 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
     this.cancelledAt = const Value.absent(),
     this.cancelReason = const Value.absent(),
     this.stayId = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   ReservationsCompanion.insert({
     this.id = const Value.absent(),
@@ -7777,6 +7888,7 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
     this.cancelledAt = const Value.absent(),
     this.cancelReason = const Value.absent(),
     this.stayId = const Value.absent(),
+    this.uid = const Value.absent(),
   })  : reservationNumber = Value(reservationNumber),
         checkinDate = Value(checkinDate),
         checkoutDate = Value(checkoutDate),
@@ -7798,6 +7910,7 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
     Expression<DateTime>? cancelledAt,
     Expression<String>? cancelReason,
     Expression<int>? stayId,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -7816,6 +7929,7 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
       if (cancelledAt != null) 'cancelled_at': cancelledAt,
       if (cancelReason != null) 'cancel_reason': cancelReason,
       if (stayId != null) 'stay_id': stayId,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -7835,7 +7949,8 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
       Value<String?>? createdByLogin,
       Value<DateTime?>? cancelledAt,
       Value<String?>? cancelReason,
-      Value<int?>? stayId}) {
+      Value<int?>? stayId,
+      Value<String?>? uid}) {
     return ReservationsCompanion(
       id: id ?? this.id,
       reservationNumber: reservationNumber ?? this.reservationNumber,
@@ -7853,6 +7968,7 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
       cancelledAt: cancelledAt ?? this.cancelledAt,
       cancelReason: cancelReason ?? this.cancelReason,
       stayId: stayId ?? this.stayId,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -7908,6 +8024,9 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
     if (stayId.present) {
       map['stay_id'] = Variable<int>(stayId.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -7929,7 +8048,8 @@ class ReservationsCompanion extends UpdateCompanion<Reservation> {
           ..write('createdByLogin: $createdByLogin, ')
           ..write('cancelledAt: $cancelledAt, ')
           ..write('cancelReason: $cancelReason, ')
-          ..write('stayId: $stayId')
+          ..write('stayId: $stayId, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -7971,9 +8091,16 @@ class $ReservationRoomsTable extends ReservationRooms
   late final GeneratedColumn<int> pricePerNightCents = GeneratedColumn<int>(
       'price_per_night_cents', aliasedName, false,
       type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+      'uid', aliasedName, true,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      clientDefault: nouvelUid);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, reservationId, roomNumber, pricePerNightCents];
+      [id, reservationId, roomNumber, pricePerNightCents, uid];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -8011,6 +8138,10 @@ class $ReservationRoomsTable extends ReservationRooms
     } else if (isInserting) {
       context.missing(_pricePerNightCentsMeta);
     }
+    if (data.containsKey('uid')) {
+      context.handle(
+          _uidMeta, uid.isAcceptableOrUnknown(data['uid']!, _uidMeta));
+    }
     return context;
   }
 
@@ -8028,6 +8159,8 @@ class $ReservationRoomsTable extends ReservationRooms
           .read(DriftSqlType.string, data['${effectivePrefix}room_number'])!,
       pricePerNightCents: attachedDatabase.typeMapping.read(
           DriftSqlType.int, data['${effectivePrefix}price_per_night_cents'])!,
+      uid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uid']),
     );
   }
 
@@ -8042,11 +8175,15 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
   final int reservationId;
   final String roomNumber;
   final int pricePerNightCents;
+
+  /// Identité sur tous les postes (v32).
+  final String? uid;
   const ReservationRoom(
       {required this.id,
       required this.reservationId,
       required this.roomNumber,
-      required this.pricePerNightCents});
+      required this.pricePerNightCents,
+      this.uid});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -8054,6 +8191,9 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
     map['reservation_id'] = Variable<int>(reservationId);
     map['room_number'] = Variable<String>(roomNumber);
     map['price_per_night_cents'] = Variable<int>(pricePerNightCents);
+    if (!nullToAbsent || uid != null) {
+      map['uid'] = Variable<String>(uid);
+    }
     return map;
   }
 
@@ -8063,6 +8203,7 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
       reservationId: Value(reservationId),
       roomNumber: Value(roomNumber),
       pricePerNightCents: Value(pricePerNightCents),
+      uid: uid == null && nullToAbsent ? const Value.absent() : Value(uid),
     );
   }
 
@@ -8074,6 +8215,7 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
       reservationId: serializer.fromJson<int>(json['reservationId']),
       roomNumber: serializer.fromJson<String>(json['roomNumber']),
       pricePerNightCents: serializer.fromJson<int>(json['pricePerNightCents']),
+      uid: serializer.fromJson<String?>(json['uid']),
     );
   }
   @override
@@ -8084,6 +8226,7 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
       'reservationId': serializer.toJson<int>(reservationId),
       'roomNumber': serializer.toJson<String>(roomNumber),
       'pricePerNightCents': serializer.toJson<int>(pricePerNightCents),
+      'uid': serializer.toJson<String?>(uid),
     };
   }
 
@@ -8091,12 +8234,14 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
           {int? id,
           int? reservationId,
           String? roomNumber,
-          int? pricePerNightCents}) =>
+          int? pricePerNightCents,
+          Value<String?> uid = const Value.absent()}) =>
       ReservationRoom(
         id: id ?? this.id,
         reservationId: reservationId ?? this.reservationId,
         roomNumber: roomNumber ?? this.roomNumber,
         pricePerNightCents: pricePerNightCents ?? this.pricePerNightCents,
+        uid: uid.present ? uid.value : this.uid,
       );
   ReservationRoom copyWithCompanion(ReservationRoomsCompanion data) {
     return ReservationRoom(
@@ -8109,6 +8254,7 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
       pricePerNightCents: data.pricePerNightCents.present
           ? data.pricePerNightCents.value
           : this.pricePerNightCents,
+      uid: data.uid.present ? data.uid.value : this.uid,
     );
   }
 
@@ -8118,14 +8264,15 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
           ..write('id: $id, ')
           ..write('reservationId: $reservationId, ')
           ..write('roomNumber: $roomNumber, ')
-          ..write('pricePerNightCents: $pricePerNightCents')
+          ..write('pricePerNightCents: $pricePerNightCents, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, reservationId, roomNumber, pricePerNightCents);
+      Object.hash(id, reservationId, roomNumber, pricePerNightCents, uid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -8133,7 +8280,8 @@ class ReservationRoom extends DataClass implements Insertable<ReservationRoom> {
           other.id == this.id &&
           other.reservationId == this.reservationId &&
           other.roomNumber == this.roomNumber &&
-          other.pricePerNightCents == this.pricePerNightCents);
+          other.pricePerNightCents == this.pricePerNightCents &&
+          other.uid == this.uid);
 }
 
 class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
@@ -8141,17 +8289,20 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
   final Value<int> reservationId;
   final Value<String> roomNumber;
   final Value<int> pricePerNightCents;
+  final Value<String?> uid;
   const ReservationRoomsCompanion({
     this.id = const Value.absent(),
     this.reservationId = const Value.absent(),
     this.roomNumber = const Value.absent(),
     this.pricePerNightCents = const Value.absent(),
+    this.uid = const Value.absent(),
   });
   ReservationRoomsCompanion.insert({
     this.id = const Value.absent(),
     required int reservationId,
     required String roomNumber,
     required int pricePerNightCents,
+    this.uid = const Value.absent(),
   })  : reservationId = Value(reservationId),
         roomNumber = Value(roomNumber),
         pricePerNightCents = Value(pricePerNightCents);
@@ -8160,6 +8311,7 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
     Expression<int>? reservationId,
     Expression<String>? roomNumber,
     Expression<int>? pricePerNightCents,
+    Expression<String>? uid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -8167,6 +8319,7 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
       if (roomNumber != null) 'room_number': roomNumber,
       if (pricePerNightCents != null)
         'price_per_night_cents': pricePerNightCents,
+      if (uid != null) 'uid': uid,
     });
   }
 
@@ -8174,12 +8327,14 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
       {Value<int>? id,
       Value<int>? reservationId,
       Value<String>? roomNumber,
-      Value<int>? pricePerNightCents}) {
+      Value<int>? pricePerNightCents,
+      Value<String?>? uid}) {
     return ReservationRoomsCompanion(
       id: id ?? this.id,
       reservationId: reservationId ?? this.reservationId,
       roomNumber: roomNumber ?? this.roomNumber,
       pricePerNightCents: pricePerNightCents ?? this.pricePerNightCents,
+      uid: uid ?? this.uid,
     );
   }
 
@@ -8198,6 +8353,9 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
     if (pricePerNightCents.present) {
       map['price_per_night_cents'] = Variable<int>(pricePerNightCents.value);
     }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
     return map;
   }
 
@@ -8207,7 +8365,8 @@ class ReservationRoomsCompanion extends UpdateCompanion<ReservationRoom> {
           ..write('id: $id, ')
           ..write('reservationId: $reservationId, ')
           ..write('roomNumber: $roomNumber, ')
-          ..write('pricePerNightCents: $pricePerNightCents')
+          ..write('pricePerNightCents: $pricePerNightCents, ')
+          ..write('uid: $uid')
           ..write(')'))
         .toString();
   }
@@ -9731,6 +9890,7 @@ typedef $$PayersTableCreateCompanionBuilder = PayersCompanion Function({
   Value<String?> contact,
   Value<String?> notes,
   Value<DateTime> createdAt,
+  Value<String?> uid,
 });
 typedef $$PayersTableUpdateCompanionBuilder = PayersCompanion Function({
   Value<int> id,
@@ -9741,6 +9901,7 @@ typedef $$PayersTableUpdateCompanionBuilder = PayersCompanion Function({
   Value<String?> contact,
   Value<String?> notes,
   Value<DateTime> createdAt,
+  Value<String?> uid,
 });
 
 final class $$PayersTableReferences
@@ -9810,6 +9971,9 @@ class $$PayersTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
 
   Expression<bool> roomsRefs(
       Expression<bool> Function($$RoomsTableFilterComposer f) f) {
@@ -9886,6 +10050,9 @@ class $$PayersTableOrderingComposer
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PayersTableAnnotationComposer
@@ -9920,6 +10087,9 @@ class $$PayersTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   Expression<T> roomsRefs<T extends Object>(
       Expression<T> Function($$RoomsTableAnnotationComposer a) f) {
@@ -9995,6 +10165,7 @@ class $$PayersTableTableManager extends RootTableManager<
             Value<String?> contact = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               PayersCompanion(
             id: id,
@@ -10005,6 +10176,7 @@ class $$PayersTableTableManager extends RootTableManager<
             contact: contact,
             notes: notes,
             createdAt: createdAt,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -10015,6 +10187,7 @@ class $$PayersTableTableManager extends RootTableManager<
             Value<String?> contact = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               PayersCompanion.insert(
             id: id,
@@ -10025,6 +10198,7 @@ class $$PayersTableTableManager extends RootTableManager<
             contact: contact,
             notes: notes,
             createdAt: createdAt,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>
@@ -13024,6 +13198,7 @@ typedef $$ClientsTableCreateCompanionBuilder = ClientsCompanion Function({
   Value<DateTime> lastSeenAt,
   Value<int> visitsCount,
   Value<int> totalSpentCents,
+  Value<String?> uid,
 });
 typedef $$ClientsTableUpdateCompanionBuilder = ClientsCompanion Function({
   Value<int> id,
@@ -13035,6 +13210,7 @@ typedef $$ClientsTableUpdateCompanionBuilder = ClientsCompanion Function({
   Value<DateTime> lastSeenAt,
   Value<int> visitsCount,
   Value<int> totalSpentCents,
+  Value<String?> uid,
 });
 
 class $$ClientsTableFilterComposer
@@ -13073,6 +13249,9 @@ class $$ClientsTableFilterComposer
   ColumnFilters<int> get totalSpentCents => $composableBuilder(
       column: $table.totalSpentCents,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
 }
 
 class $$ClientsTableOrderingComposer
@@ -13111,6 +13290,9 @@ class $$ClientsTableOrderingComposer
   ColumnOrderings<int> get totalSpentCents => $composableBuilder(
       column: $table.totalSpentCents,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ClientsTableAnnotationComposer
@@ -13148,6 +13330,9 @@ class $$ClientsTableAnnotationComposer
 
   GeneratedColumn<int> get totalSpentCents => $composableBuilder(
       column: $table.totalSpentCents, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 }
 
 class $$ClientsTableTableManager extends RootTableManager<
@@ -13182,6 +13367,7 @@ class $$ClientsTableTableManager extends RootTableManager<
             Value<DateTime> lastSeenAt = const Value.absent(),
             Value<int> visitsCount = const Value.absent(),
             Value<int> totalSpentCents = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               ClientsCompanion(
             id: id,
@@ -13193,6 +13379,7 @@ class $$ClientsTableTableManager extends RootTableManager<
             lastSeenAt: lastSeenAt,
             visitsCount: visitsCount,
             totalSpentCents: totalSpentCents,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -13204,6 +13391,7 @@ class $$ClientsTableTableManager extends RootTableManager<
             Value<DateTime> lastSeenAt = const Value.absent(),
             Value<int> visitsCount = const Value.absent(),
             Value<int> totalSpentCents = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               ClientsCompanion.insert(
             id: id,
@@ -13215,6 +13403,7 @@ class $$ClientsTableTableManager extends RootTableManager<
             lastSeenAt: lastSeenAt,
             visitsCount: visitsCount,
             totalSpentCents: totalSpentCents,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -13630,6 +13819,7 @@ typedef $$ReservationsTableCreateCompanionBuilder = ReservationsCompanion
   Value<DateTime?> cancelledAt,
   Value<String?> cancelReason,
   Value<int?> stayId,
+  Value<String?> uid,
 });
 typedef $$ReservationsTableUpdateCompanionBuilder = ReservationsCompanion
     Function({
@@ -13649,6 +13839,7 @@ typedef $$ReservationsTableUpdateCompanionBuilder = ReservationsCompanion
   Value<DateTime?> cancelledAt,
   Value<String?> cancelReason,
   Value<int?> stayId,
+  Value<String?> uid,
 });
 
 final class $$ReservationsTableReferences
@@ -13754,6 +13945,9 @@ class $$ReservationsTableFilterComposer
 
   ColumnFilters<String> get cancelReason => $composableBuilder(
       column: $table.cancelReason, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
 
   $$PayersTableFilterComposer get payerId {
     final $$PayersTableFilterComposer composer = $composerBuilder(
@@ -13874,6 +14068,9 @@ class $$ReservationsTableOrderingComposer
       column: $table.cancelReason,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
+
   $$PayersTableOrderingComposer get payerId {
     final $$PayersTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -13965,6 +14162,9 @@ class $$ReservationsTableAnnotationComposer
 
   GeneratedColumn<String> get cancelReason => $composableBuilder(
       column: $table.cancelReason, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   $$PayersTableAnnotationComposer get payerId {
     final $$PayersTableAnnotationComposer composer = $composerBuilder(
@@ -14068,6 +14268,7 @@ class $$ReservationsTableTableManager extends RootTableManager<
             Value<DateTime?> cancelledAt = const Value.absent(),
             Value<String?> cancelReason = const Value.absent(),
             Value<int?> stayId = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               ReservationsCompanion(
             id: id,
@@ -14086,6 +14287,7 @@ class $$ReservationsTableTableManager extends RootTableManager<
             cancelledAt: cancelledAt,
             cancelReason: cancelReason,
             stayId: stayId,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -14104,6 +14306,7 @@ class $$ReservationsTableTableManager extends RootTableManager<
             Value<DateTime?> cancelledAt = const Value.absent(),
             Value<String?> cancelReason = const Value.absent(),
             Value<int?> stayId = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               ReservationsCompanion.insert(
             id: id,
@@ -14122,6 +14325,7 @@ class $$ReservationsTableTableManager extends RootTableManager<
             cancelledAt: cancelledAt,
             cancelReason: cancelReason,
             stayId: stayId,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -14213,6 +14417,7 @@ typedef $$ReservationRoomsTableCreateCompanionBuilder
   required int reservationId,
   required String roomNumber,
   required int pricePerNightCents,
+  Value<String?> uid,
 });
 typedef $$ReservationRoomsTableUpdateCompanionBuilder
     = ReservationRoomsCompanion Function({
@@ -14220,6 +14425,7 @@ typedef $$ReservationRoomsTableUpdateCompanionBuilder
   Value<int> reservationId,
   Value<String> roomNumber,
   Value<int> pricePerNightCents,
+  Value<String?> uid,
 });
 
 final class $$ReservationRoomsTableReferences extends BaseReferences<
@@ -14262,6 +14468,9 @@ class $$ReservationRoomsTableFilterComposer
       column: $table.pricePerNightCents,
       builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnFilters(column));
+
   $$ReservationsTableFilterComposer get reservationId {
     final $$ReservationsTableFilterComposer composer = $composerBuilder(
         composer: this,
@@ -14302,6 +14511,9 @@ class $$ReservationRoomsTableOrderingComposer
       column: $table.pricePerNightCents,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+      column: $table.uid, builder: (column) => ColumnOrderings(column));
+
   $$ReservationsTableOrderingComposer get reservationId {
     final $$ReservationsTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -14340,6 +14552,9 @@ class $$ReservationRoomsTableAnnotationComposer
 
   GeneratedColumn<int> get pricePerNightCents => $composableBuilder(
       column: $table.pricePerNightCents, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   $$ReservationsTableAnnotationComposer get reservationId {
     final $$ReservationsTableAnnotationComposer composer = $composerBuilder(
@@ -14390,24 +14605,28 @@ class $$ReservationRoomsTableTableManager extends RootTableManager<
             Value<int> reservationId = const Value.absent(),
             Value<String> roomNumber = const Value.absent(),
             Value<int> pricePerNightCents = const Value.absent(),
+            Value<String?> uid = const Value.absent(),
           }) =>
               ReservationRoomsCompanion(
             id: id,
             reservationId: reservationId,
             roomNumber: roomNumber,
             pricePerNightCents: pricePerNightCents,
+            uid: uid,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required int reservationId,
             required String roomNumber,
             required int pricePerNightCents,
+            Value<String?> uid = const Value.absent(),
           }) =>
               ReservationRoomsCompanion.insert(
             id: id,
             reservationId: reservationId,
             roomNumber: roomNumber,
             pricePerNightCents: pricePerNightCents,
+            uid: uid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (

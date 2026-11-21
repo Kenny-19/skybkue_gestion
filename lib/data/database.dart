@@ -43,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase();
 
   @override
-  int get schemaVersion => 31;
+  int get schemaVersion => 32;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -335,6 +335,23 @@ class AppDatabase extends _$AppDatabase {
           if (from < 31 && !await _tableExists('operations')) {
             await m.createTable(operations);
           }
+          // v32 : identité des clients, payeurs et réservations sur tous
+          // les postes. Attribuée à l'ouverture (beforeOpen).
+          if (from < 32) {
+            if (await _tableExists('clients')) {
+              await _addColumnIfMissing(m, clients, clients.uid);
+            }
+            if (await _tableExists('payers')) {
+              await _addColumnIfMissing(m, payers, payers.uid);
+            }
+            if (await _tableExists('reservations')) {
+              await _addColumnIfMissing(m, reservations, reservations.uid);
+            }
+            if (await _tableExists('reservation_rooms')) {
+              await _addColumnIfMissing(
+                  m, reservationRooms, reservationRooms.uid);
+            }
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -618,6 +635,8 @@ class AppDatabase extends _$AppDatabase {
           'CREATE INDEX IF NOT EXISTS idx_articles_uid ON articles (uid)');
     }
 
+    await _attribuerIdentitesFiches();
+
     if (!await _tableExists('sales') || !await _tableExists('sale_lines')) {
       return;
     }
@@ -686,6 +705,67 @@ class AppDatabase extends _$AppDatabase {
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_stays_uid ON stays (uid)');
     await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
         'idx_stay_rooms_uid ON stay_rooms (uid)');
+  }
+
+  /// Clients, payeurs, réservations (v32). Les fiches reçoivent un
+  /// identifiant DÉDUIT de ce qui les identifiait déjà (téléphone, nom),
+  /// que le serveur calcule de son côté pour sa propre copie. Index NON
+  /// uniques pour les fiches : deux fiches de même nom peuvent exister sur
+  /// un poste ; elles désignent alors la même personne pour le serveur.
+  Future<void> _attribuerIdentitesFiches() async {
+    Future<bool> pret(String table) async =>
+        await _tableExists(table) &&
+        (await _existingColumns(table)).contains('uid');
+
+    if (await pret('clients')) {
+      for (final c in await customSelect(
+              'SELECT id, full_name, phone FROM clients WHERE uid IS NULL')
+          .get()) {
+        await customStatement('UPDATE clients SET uid = ? WHERE id = ?', [
+          uidClient(
+              c.read<String>('full_name'), c.readNullable<String>('phone')),
+          c.read<int>('id'),
+        ]);
+      }
+      await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_clients_uid ON clients (uid)');
+    }
+    if (await pret('payers')) {
+      for (final p
+          in await customSelect('SELECT id, name FROM payers WHERE uid IS NULL')
+              .get()) {
+        await customStatement('UPDATE payers SET uid = ? WHERE id = ?',
+            [uidPayeur(p.read<String>('name')), p.read<int>('id')]);
+      }
+      await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_payers_uid ON payers (uid)');
+    }
+    if (await pret('reservations') && await pret('reservation_rooms')) {
+      for (final r in await customSelect(
+              'SELECT id, created_at FROM reservations WHERE uid IS NULL')
+          .get()) {
+        final id = r.read<int>('id');
+        final creee = DateTime.fromMillisecondsSinceEpoch(
+            r.read<int>('created_at') * 1000,
+            isUtc: true);
+        await customStatement('UPDATE reservations SET uid = ? WHERE id = ?',
+            [uidReservationHeritee(id, creee), id]);
+      }
+      for (final l in await customSelect(
+        'SELECT l.id AS id, r.uid AS resa FROM reservation_rooms l '
+        'JOIN reservations r ON r.id = l.reservation_id WHERE l.uid IS NULL',
+      ).get()) {
+        await customStatement(
+            'UPDATE reservation_rooms SET uid = ? WHERE id = ?', [
+          uidLigneHerite(l.read<String>('resa'), l.read<int>('id')),
+          l.read<int>('id'),
+        ]);
+      }
+      await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
+          'idx_reservations_uid ON reservations (uid)');
+      await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
+          'idx_reservation_rooms_uid ON reservation_rooms (uid)');
+    }
   }
 
   /// Ouvre le séjour des chambres occupées qui n'en ont pas.

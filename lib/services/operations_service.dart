@@ -48,6 +48,9 @@ String decrireRefus(String motif, {String? chambre, String? occupant}) {
     'AUTRE_OCCUPANT' => '$ch est occupée$qui, pas par ce client : '
         'son départ a sans doute déjà été fait sur un autre poste.',
     'CHAMBRE_INCONNUE' => "$ch n'existe pas sur le serveur.",
+    'CHAMBRE_RESERVEE' =>
+      '$ch est déjà réservée$qui sur une partie de ces dates '
+          '(réservation prise sur un autre poste, ou déjà enregistrée).',
     _ => 'Refusé par le serveur ($motif).',
   };
 }
@@ -159,6 +162,42 @@ class OperationsService {
     return (resultat, Passage.enAttente);
   }
 
+  /// Note une opération au journal SANS l'appliquer (elle l'est déjà ici) :
+  /// elle partira au prochain [rejouer]. Sert à envoyer une fois ce que le
+  /// poste avait avant que la donnée soit partagée.
+  Future<void> noter({
+    required String type,
+    required Map<String, dynamic> payload,
+    required String libelle,
+  }) =>
+      _db.into(_db.operations).insert(OperationsCompanion.insert(
+            opId: nouvelUid(),
+            type: type,
+            payload: jsonEncode(payload),
+            libelle: libelle,
+            auteur: Value(SessionServeur.login),
+            creeLe: Horloge.maintenant(),
+          ));
+
+  /// Uid des réservations qui ont une opération au journal (en attente ou
+  /// refusée) : la relecture du serveur ne doit pas les écraser, ni les
+  /// renvoyer une seconde fois.
+  static Future<Set<String>> reservationsAuJournal(AppDatabase db) async {
+    final ops = await (db.select(db.operations)
+          ..where((o) =>
+              o.type.equals('reservations:enregistrer') & o.regleeLe.isNull()))
+        .get();
+    final res = <String>{};
+    for (final o in ops) {
+      try {
+        final uid =
+            ((jsonDecode(o.payload) as Map)['reservation'] as Map)['uid'];
+        if (uid is String) res.add(uid);
+      } catch (_) {}
+    }
+    return res;
+  }
+
   bool _occupe = false;
 
   /// Renvoie le journal au serveur, dans l'ordre. Une opération refusée
@@ -204,6 +243,8 @@ class OperationsService {
             await SessionServeur.oublier(_db);
             break;
           }
+          // Serveur pas encore à jour : on attend, sans compter d'échec.
+          if (_estFonctionAbsente(e)) break;
           if (ConnexionService.estUneCoupure(e)) {
             _cx.signalerHorsLigne();
             break;
@@ -298,6 +339,15 @@ class OperationsService {
             'p_op_id': opId,
             'p_type': type.split(':').last,
             'p_chambres': payload['chambres'],
+            'p_poste': HeartbeatService.nomDuPoste,
+          }
+        ),
+      'reservations:enregistrer' => (
+          'bs_reservation_enregistrer',
+          {
+            'p_session': session,
+            'p_op_id': opId,
+            'p_reservation': payload['reservation'],
             'p_poste': HeartbeatService.nomDuPoste,
           }
         ),

@@ -67,6 +67,48 @@ String uidSejourHerite(int id, DateTime checkoutAt) =>
 String uidArticle(String nom) =>
     _md5Uuid('A|${nom.replaceAll(RegExp(r'^ +| +$'), '')}');
 
+/// Identifiant d'un CLIENT : déduit de son téléphone, ou de son nom
+/// s'il n'en a pas — ce qui le faisait déjà reconnaître d'un poste à
+/// l'autre. Calculé à la création, puis gardé.
+///
+/// Même formule côté serveur (sql/2026_10_identite_clients_payeurs.sql) :
+///   téléphone : md5('C|T|' || btrim(phone))::uuid
+///   sinon     : md5('C|N|' || bs_minuscules(btrim(full_name)))::uuid
+String uidClient(String nom, String? telephone) {
+  final tel = telephone == null ? '' : _btrim(telephone);
+  return tel.isNotEmpty
+      ? _md5Uuid('C|T|$tel')
+      : _md5Uuid('C|N|${_minuscules(_btrim(nom))}');
+}
+
+/// Identifiant d'un PAYEUR (société, prise en charge) : déduit de son nom.
+///   md5('P|' || bs_minuscules(btrim(name)))::uuid
+String uidPayeur(String nom) => _md5Uuid('P|${_minuscules(_btrim(nom))}');
+
+/// Identifiant d'une RÉSERVATION antérieure à l'identité : déduite de son
+/// numéro local et de son heure de création, comme les ventes.
+String uidReservationHeritee(int id, DateTime creeeLe) =>
+    _md5Uuid('R|$id|${creeeLe.millisecondsSinceEpoch ~/ 1000}');
+
+/// `btrim` de PostgreSQL : seulement les espaces, aux deux bouts.
+String _btrim(String s) => s.replaceAll(RegExp(r'^ +| +$'), '');
+
+const _majuscules = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝ';
+const _minuscules_ = 'abcdefghijklmnopqrstuvwxyzàáâãäåçèéêëìíîïñòóôõöùúûüý';
+
+/// Mise en minuscules par une table EXPLICITE, et non `toLowerCase()` :
+/// le serveur applique exactement la même (`bs_minuscules`), alors que
+/// les deux fonctions natives ne s'accordent pas sur tous les caractères.
+String _minuscules(String s) {
+  final b = StringBuffer();
+  for (final r in s.runes) {
+    final c = String.fromCharCode(r);
+    final i = _majuscules.indexOf(c);
+    b.write(i < 0 ? c : _minuscules_[i]);
+  }
+  return b.toString();
+}
+
 String _md5Uuid(String texte) =>
     _formater(md5.convert(utf8.encode(texte)).bytes);
 

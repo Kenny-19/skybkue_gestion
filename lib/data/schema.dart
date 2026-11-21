@@ -183,6 +183,11 @@ class Clients extends Table {
   DateTimeColumn get lastSeenAt => dateTime().withDefault(currentDateAndTime)();
   IntColumn get visitsCount => integer().withDefault(const Constant(0))();
   IntColumn get totalSpentCents => integer().withDefault(const Constant(0))();
+
+  /// Identité de la fiche sur TOUS les postes (v32), déduite du téléphone
+  /// ou du nom à la création (cf. core/identite.dart, uidClient). Le
+  /// numéro local, lui, désignait une autre personne sur un autre poste.
+  TextColumn get uid => text().nullable()();
 }
 
 /// Trace historique d'un séjour hôtelier après check-out. Persiste
@@ -299,6 +304,11 @@ class Reservations extends Table {
   IntColumn get stayId => integer()
       .references(Stays, #id, onDelete: KeyAction.setNull)
       .nullable()();
+
+  /// Identité sur tous les postes (v32). Le numéro de réservation est
+  /// tiré d'un compteur propre au poste : deux postes peuvent produire
+  /// le même.
+  TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
 }
 
 /// Chambres associées à une réservation (peut réserver plusieurs
@@ -311,6 +321,9 @@ class ReservationRooms extends Table {
   // Snapshot du prix au moment de la réservation (le prix peut changer
   // avant l'arrivée effective).
   IntColumn get pricePerNightCents => integer()();
+
+  /// Identité sur tous les postes (v32).
+  TextColumn get uid => text().nullable().clientDefault(nouvelUid)();
 }
 
 /// Une chambre facturée dans un séjour donné. Snapshot du prix et du
@@ -361,6 +374,9 @@ class Payers extends Table {
   TextColumn get contact => text().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Identité sur tous les postes (v32), déduite du nom (uidPayeur).
+  TextColumn get uid => text().nullable()();
 }
 
 /// Mouvements de stock en attente d'envoi au serveur.

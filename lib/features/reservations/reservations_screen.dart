@@ -469,8 +469,12 @@ class _ReservationCard extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
-    await ref.read(reservationsRepoProvider).cancel(data.reservation.id,
-        reason.text.trim().isEmpty ? null : reason.text.trim());
+    try {
+      await ref.read(reservationsRepoProvider).cancel(data.reservation.id,
+          reason.text.trim().isEmpty ? null : reason.text.trim());
+    } on OperationRefusee catch (e) {
+      if (ctx.mounted) signalerRefus(ctx, e);
+    }
   }
 }
 

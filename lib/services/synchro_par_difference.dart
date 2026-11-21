@@ -42,7 +42,14 @@ class SynchroParDifference {
   final Future<void> Function(String table, {DateTime? depuis}) _tirer;
 
   /// Payeurs avant les chambres : une chambre désigne son payeur.
-  static const _ordre = ['payers', 'clients', 'articles', 'rooms', 'stays'];
+  static const _ordre = [
+    'payers',
+    'clients',
+    'articles',
+    'rooms',
+    'stays',
+    'reservations',
+  ];
 
   static const relectureComplete = Duration(hours: 1);
   static const recul = Duration(minutes: 2);
@@ -68,6 +75,9 @@ class SynchroParDifference {
     var toutReussi = true;
 
     for (final table in _ordre) {
+      // Table que le serveur n'annonce pas : il ne la partage pas encore
+      // (script SQL pas passé). On n'y touche pas.
+      if (!versions.containsKey(table)) continue;
       final version = versionDe(versions, table);
       if (!complete && version != null && version == _vues[table]) continue;
       final curseur = complete ? null : _curseurs[table];

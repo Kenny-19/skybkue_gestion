@@ -583,6 +583,8 @@ class ClientsRepo {
       return found;
     }
     final id = await _db.into(_db.clients).insert(ClientsCompanion.insert(
+          // Identité sur tous les postes, fixée maintenant.
+          uid: Value(uidClient(norm, normPhone)),
           fullName: norm,
           phone: normPhone.isEmpty ? const Value.absent() : Value(normPhone),
           email: (email == null || email.trim().isEmpty)
@@ -651,8 +653,13 @@ class ClientsRepo {
   }
 
   Future<void> delete(int id) async {
+    final fiche = await (_db.select(_db.clients)..where((c) => c.id.equals(id)))
+        .getSingleOrNull();
     await (_db.delete(_db.clients)..where((c) => c.id.equals(id))).go();
-    unawaited(MirrorService.deleteClientById(id));
+    if (fiche != null) {
+      unawaited(MirrorService.deleteClientByUid(
+          fiche.uid ?? uidClient(fiche.fullName, fiche.phone)));
+    }
   }
 }
 
@@ -694,6 +701,7 @@ class PayersRepo {
     String? notes,
   }) async {
     final id = await _db.into(_db.payers).insert(PayersCompanion.insert(
+          uid: Value(uidPayeur(name.trim())),
           name: name.trim(),
           type: Value(type),
           taxId: taxId == null || taxId.trim().isEmpty
@@ -744,8 +752,13 @@ class PayersRepo {
   }
 
   Future<void> delete(int id) async {
+    final fiche = await (_db.select(_db.payers)..where((p) => p.id.equals(id)))
+        .getSingleOrNull();
     await (_db.delete(_db.payers)..where((p) => p.id.equals(id))).go();
-    unawaited(MirrorService.deletePayerById(id));
+    if (fiche != null) {
+      unawaited(
+          MirrorService.deletePayerByUid(fiche.uid ?? uidPayeur(fiche.name)));
+    }
   }
 }
 
@@ -768,8 +781,82 @@ class ReservationWithRooms {
 }
 
 class ReservationsRepo {
-  ReservationsRepo(this._db);
+  /// [operations] : pour les tests, un service qui simule le serveur.
+  ReservationsRepo(this._db, {OperationsService? operations})
+      : _operationsTest = operations;
   final AppDatabase _db;
+  final OperationsService? _operationsTest;
+  OperationsService get _ops => _operationsTest ?? OperationsService(_db);
+
+  /// La réservation complète, telle que le serveur l'enregistre : chaque
+  /// enregistrement envoie l'état ENTIER, le serveur le pose tel quel (ou
+  /// le refuse s'il chevauche une autre réservation).
+  Future<Map<String, dynamic>> _json(
+      Reservation r, List<({String uid, String number, int prix})> chambres,
+      {bool supprimee = false}) async {
+    String? payeur;
+    if (r.payerId != null) {
+      final p = await (_db.select(_db.payers)
+            ..where((x) => x.id.equals(r.payerId!)))
+          .getSingleOrNull();
+      payeur = p == null ? null : (p.uid ?? uidPayeur(p.name));
+    }
+    return {
+      'reservation': {
+        'uid': r.uid ?? uidReservationHeritee(r.id, r.createdAt),
+        'reservation_number': r.reservationNumber,
+        'created_at': isoServeur(r.createdAt),
+        'checkin_date': isoServeur(r.checkinDate),
+        'checkout_date': isoServeur(r.checkoutDate),
+        'guest_full_name': r.guestFullName,
+        'guest_phone': r.guestPhone,
+        'guest_email': r.guestEmail,
+        'payer_id': r.payerId,
+        'payer_uid': payeur,
+        'status': r.status.index,
+        'deposit_cents': r.depositCents,
+        'note': r.note,
+        'created_by_login': r.createdByLogin,
+        'cancelled_at': isoServeurOuNull(r.cancelledAt),
+        'cancel_reason': r.cancelReason,
+        'supprimee': supprimee,
+        'rooms': [
+          for (final c in chambres)
+            {'uid': c.uid, 'number': c.number, 'price_per_night_cents': c.prix}
+        ],
+      }
+    };
+  }
+
+  /// Enregistre [apres] (état complet) — en ligne d'abord.
+  Future<T> _enregistrer<T>(
+      Reservation apres, String libelle, Future<T> Function() appliquer,
+      {bool supprimee = false}) async {
+    final chambres = await (_db.select(_db.reservationRooms)
+          ..where((x) => x.reservationId.equals(apres.id)))
+        .get();
+    final payload = await _json(
+        apres,
+        [
+          for (final c in chambres)
+            (
+              uid: c.uid ?? nouvelUid(),
+              number: c.roomNumber,
+              prix: c.pricePerNightCents
+            )
+        ],
+        supprimee: supprimee);
+    final (v, _) = await _ops.executer(
+        type: 'reservations:enregistrer',
+        libelle: libelle,
+        payload: payload,
+        appliquer: appliquer);
+    return v;
+  }
+
+  Future<Reservation?> _lire(int id) =>
+      (_db.select(_db.reservations)..where((r) => r.id.equals(id)))
+          .getSingleOrNull();
 
   Stream<List<ReservationWithRooms>> watchAll() {
     final q = _db.select(_db.reservations)
@@ -820,62 +907,112 @@ class ReservationsRepo {
       throw ArgumentError('Date de départ doit être après l\'arrivée');
     }
     final ts = Horloge.maintenant();
+    final uid = nouvelUid();
+    final chambres = [
+      for (final r in rooms)
+        (uid: nouvelUid(), number: r.number, prix: r.pricePerNightCents)
+    ];
     final ref =
         'RSV-${ts.year}${ts.month.toString().padLeft(2, '0')}${ts.day.toString().padLeft(2, '0')}'
         '-${ts.hour.toString().padLeft(2, '0')}${ts.minute.toString().padLeft(2, '0')}'
         '-${(ts.millisecond % 100).toString().padLeft(2, '0')}';
-    return _db.transaction(() async {
-      final id = await _db.into(_db.reservations).insert(
-            ReservationsCompanion.insert(
-              reservationNumber: ref,
-              checkinDate: checkinDate,
-              checkoutDate: checkoutDate,
-              guestFullName: guestFullName,
-              guestPhone:
-                  guestPhone == null ? const Value.absent() : Value(guestPhone),
-              guestEmail:
-                  guestEmail == null ? const Value.absent() : Value(guestEmail),
-              payerId: payerId == null ? const Value.absent() : Value(payerId),
-              depositCents: Value(depositCents),
-              note: note == null ? const Value.absent() : Value(note),
-              createdByLogin: createdByLogin == null
-                  ? const Value.absent()
-                  : Value(createdByLogin),
-            ),
-          );
-      for (final r in rooms) {
-        await _db.into(_db.reservationRooms).insert(
-              ReservationRoomsCompanion.insert(
-                reservationId: id,
-                roomNumber: r.number,
-                pricePerNightCents: r.pricePerNightCents,
+    // EN LIGNE D'ABORD : le serveur refuse une chambre déjà réservée aux
+    // mêmes dates, sur n'importe quel poste ([OperationRefusee]).
+    final brouillon = Reservation(
+      id: 0,
+      uid: uid,
+      reservationNumber: ref,
+      createdAt: ts,
+      checkinDate: checkinDate,
+      checkoutDate: checkoutDate,
+      guestFullName: guestFullName,
+      guestPhone: guestPhone,
+      guestEmail: guestEmail,
+      payerId: payerId,
+      status: DbReservationStatus.confirmed,
+      depositCents: depositCents,
+      note: note,
+      createdByLogin: createdByLogin,
+      cancelledAt: null,
+      cancelReason: null,
+      stayId: null,
+    );
+    final (id, _) = await _ops.executer(
+      type: 'reservations:enregistrer',
+      libelle: 'Réservation de $guestFullName, chambre(s) '
+          '${rooms.map((r) => r.number).join(', ')}',
+      payload: await _json(brouillon, chambres),
+      appliquer: () => _db.transaction(() async {
+        final id = await _db.into(_db.reservations).insert(
+              ReservationsCompanion.insert(
+                uid: Value(uid),
+                createdAt: Value(ts),
+                reservationNumber: ref,
+                checkinDate: checkinDate,
+                checkoutDate: checkoutDate,
+                guestFullName: guestFullName,
+                guestPhone: guestPhone == null
+                    ? const Value.absent()
+                    : Value(guestPhone),
+                guestEmail: guestEmail == null
+                    ? const Value.absent()
+                    : Value(guestEmail),
+                payerId:
+                    payerId == null ? const Value.absent() : Value(payerId),
+                depositCents: Value(depositCents),
+                note: note == null ? const Value.absent() : Value(note),
+                createdByLogin: createdByLogin == null
+                    ? const Value.absent()
+                    : Value(createdByLogin),
               ),
             );
-      }
-      return id;
-    });
+        for (final c in chambres) {
+          await _db.into(_db.reservationRooms).insert(
+                ReservationRoomsCompanion.insert(
+                  uid: Value(c.uid),
+                  reservationId: id,
+                  roomNumber: c.number,
+                  pricePerNightCents: c.prix,
+                ),
+              );
+        }
+        return id;
+      }),
+    );
+    return id;
   }
 
   Future<void> cancel(int id, String? reason) async {
-    await (_db.update(_db.reservations)..where((r) => r.id.equals(id))).write(
-      ReservationsCompanion(
-        status: const Value(DbReservationStatus.cancelled),
-        cancelledAt: Value(Horloge.maintenant()),
-        cancelReason: reason == null ? const Value.absent() : Value(reason),
-      ),
+    final r = await _lire(id);
+    if (r == null) return;
+    final le = Horloge.maintenant();
+    final maj = ReservationsCompanion(
+      status: const Value(DbReservationStatus.cancelled),
+      cancelledAt: Value(le),
+      cancelReason: reason == null ? const Value.absent() : Value(reason),
     );
+    await _enregistrer(
+        r.copyWithCompanion(maj),
+        'Annulation de la réservation de ${r.guestFullName}',
+        () => (_db.update(_db.reservations)..where((x) => x.id.equals(id)))
+            .write(maj));
   }
 
   /// Marque la réservation comme "arrivée effectuée" et retourne les
   /// chambres à check-in-er via RoomsRepo. La création du séjour concret
   /// (rooms.checkIn) est laissée à l'appelant pour garder ce repo mince.
   Future<void> markCheckedIn(int id, {int? stayId}) async {
-    await (_db.update(_db.reservations)..where((r) => r.id.equals(id))).write(
-      ReservationsCompanion(
-        status: const Value(DbReservationStatus.checkedIn),
-        stayId: stayId == null ? const Value.absent() : Value(stayId),
-      ),
+    final r = await _lire(id);
+    if (r == null) return;
+    final maj = ReservationsCompanion(
+      status: const Value(DbReservationStatus.checkedIn),
+      stayId: stayId == null ? const Value.absent() : Value(stayId),
     );
+    await _enregistrer(
+        r.copyWithCompanion(maj),
+        'Arrivée de ${r.guestFullName} (réservation)',
+        () => (_db.update(_db.reservations)..where((x) => x.id.equals(id)))
+            .write(maj));
   }
 
   Future<void> updateInfo({
@@ -889,22 +1026,34 @@ class ReservationsRepo {
     int depositCents = 0,
     String? note,
   }) async {
-    await (_db.update(_db.reservations)..where((r) => r.id.equals(id))).write(
-      ReservationsCompanion(
-        checkinDate: Value(checkinDate),
-        checkoutDate: Value(checkoutDate),
-        guestFullName: Value(guestFullName),
-        guestPhone: Value(guestPhone),
-        guestEmail: Value(guestEmail),
-        payerId: Value(payerId),
-        depositCents: Value(depositCents),
-        note: Value(note),
-      ),
+    final r = await _lire(id);
+    if (r == null) return;
+    final maj = ReservationsCompanion(
+      checkinDate: Value(checkinDate),
+      checkoutDate: Value(checkoutDate),
+      guestFullName: Value(guestFullName),
+      guestPhone: Value(guestPhone),
+      guestEmail: Value(guestEmail),
+      payerId: Value(payerId),
+      depositCents: Value(depositCents),
+      note: Value(note),
     );
+    await _enregistrer(
+        r.copyWithCompanion(maj),
+        'Modification de la réservation de $guestFullName',
+        () => (_db.update(_db.reservations)..where((x) => x.id.equals(id)))
+            .write(maj));
   }
 
-  Future<void> delete(int id) {
-    return (_db.delete(_db.reservations)..where((r) => r.id.equals(id))).go();
+  Future<void> delete(int id) async {
+    final r = await _lire(id);
+    if (r == null) return;
+    await _enregistrer(
+        r,
+        'Suppression de la réservation de ${r.guestFullName}',
+        () =>
+            (_db.delete(_db.reservations)..where((x) => x.id.equals(id))).go(),
+        supprimee: true);
   }
 
   Future<List<ReservationWithRooms>> _hydrate(
@@ -1349,6 +1498,7 @@ class RoomsRepo {
     String? note,
     String? stayGroup,
     int? payerId,
+    String? payerUid,
     int? negotiatedPriceCents,
   }) =>
       {
@@ -1359,8 +1509,19 @@ class RoomsRepo {
         'checkin_at': isoServeur(checkinAt),
         'stay_group': stayGroup,
         'payer_id': payerId,
+        // La société par son identité : le numéro local désigne une autre
+        // société sur un autre poste.
+        'payer_uid': payerUid,
         'negotiated_price_cents': negotiatedPriceCents,
       };
+
+  /// L'identité du payeur [payerId] de ce poste.
+  Future<String?> _uidPayeur(int? payerId) async {
+    if (payerId == null) return null;
+    final p = await (_db.select(_db.payers)..where((x) => x.id.equals(payerId)))
+        .getSingleOrNull();
+    return p == null ? null : (p.uid ?? uidPayeur(p.name));
+  }
 
   /// Après une opération passée par l'ancien chemin (serveur pas à jour).
   void _ancienEnvoi(Passage p, List<String> numeros) {
@@ -1394,6 +1555,7 @@ class RoomsRepo {
     final negocie = (negotiatedPriceCents != null && negotiatedPriceCents > 0)
         ? negotiatedPriceCents
         : null;
+    final payeur = await _uidPayeur(payerId);
     final (sejour, passage) = await _ops.executer(
       type: 'chambres:arrivee',
       libelle: 'Arrivée de $guest, chambre $number',
@@ -1407,6 +1569,7 @@ class RoomsRepo {
               checkinAt: ts,
               note: noteNette,
               payerId: payerId,
+              payerUid: payeur,
               negotiatedPriceCents: negocie),
         ],
       },
@@ -1467,6 +1630,7 @@ class RoomsRepo {
             : null;
     // UNE opération pour tout le groupe : le serveur prend toutes les
     // chambres ou aucune.
+    final payeur = await _uidPayeur(payerId);
     final (sejour, passage) = await _ops.executer(
       type: 'chambres:arrivee',
       libelle: 'Arrivée groupée de $guest, chambres ${numbers.join(', ')}',
@@ -1482,6 +1646,7 @@ class RoomsRepo {
                 note: noteNette,
                 stayGroup: ref,
                 payerId: payerId,
+                payerUid: payeur,
                 negotiatedPriceCents: negocie(n)),
         ],
       },

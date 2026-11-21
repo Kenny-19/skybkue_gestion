@@ -12,6 +12,7 @@ import '../core/horloge.dart';
 import '../core/identite.dart';
 import 'error_reporter.dart';
 import 'heartbeat_service.dart';
+import 'operations_service.dart';
 import 'supabase_pages.dart';
 import 'ventes_outbox.dart';
 
@@ -617,6 +618,10 @@ class MirrorService {
     final locales = {
       for (final r in await db.select(db.rooms).get()) r.number: r
     };
+    final payeurParUid = {
+      for (final p in await db.select(db.payers).get())
+        p.uid ?? uidPayeur(p.name): p.id
+    };
     var appliquees = 0;
 
     await db.transaction(() async {
@@ -648,7 +653,12 @@ class MirrorService {
           checkinNote: Value(r['checkin_note'] as String?),
           checkinAt: Value(_parseDate(r['checkin_at'])),
           stayGroup: Value(r['stay_group'] as String?),
-          payerId: Value((r['payer_id'] as num?)?.toInt()),
+          // La société par son uid : le `payer_id` est le numéro local du
+          // poste qui a fait l'arrivée — une autre société ici. Il ne sert
+          // plus que si le serveur n'a pas encore la colonne.
+          payerId: Value(r.containsKey('payer_uid')
+              ? payeurParUid[r['payer_uid']]
+              : (r['payer_id'] as num?)?.toInt()),
           imagePath: Value(r['image_path'] as String?),
           negotiatedPriceCents:
               Value((r['negotiated_price_cents'] as num?)?.toInt()),
@@ -908,7 +918,190 @@ class MirrorService {
             _db, await lire('mirror_articles', 'id'));
       case 'stays':
         await _tirerSejours(depuis: depuis);
+      case 'reservations':
+        final rows = await lire('mirror_reservations', 'id');
+        final uids = [
+          for (final r in rows)
+            if (r['uid'] != null) r['uid'] as String
+        ];
+        final chambres = uids.isEmpty
+            ? const <Map<String, dynamic>>[]
+            : await toutesLesPagesParIds(
+                uids,
+                (paquet) => c
+                    .from('mirror_reservation_rooms')
+                    .select()
+                    .inFilter('reservation_uid', paquet)
+                    .order('id'));
+        await appliquerReservationsDuServeur(_db, rows, chambres);
+        // Relecture complète : ce que ce poste avait AVANT le partage, et
+        // que le serveur n'a pas, part une fois (par le journal : un
+        // chevauchement avec un autre poste ira dans « À régler »).
+        if (depuis == null) {
+          await envoyerReservationsManquantes(_db, {
+            for (final r in rows)
+              if (r['uid'] != null) r['uid'] as String
+          });
+        }
     }
+  }
+
+  /// Applique les réservations du serveur à [db], par uid. Une réservation
+  /// qui a une opération au journal n'est pas touchée : son état local est
+  /// plus récent que celui du serveur. Renvoie le nombre de fiches écrites.
+  static Future<int> appliquerReservationsDuServeur(
+      AppDatabase db,
+      List<Map<String, dynamic>> rows,
+      List<Map<String, dynamic>> chambres) async {
+    final auJournal = await OperationsService.reservationsAuJournal(db);
+    final payeurParUid = {
+      for (final p in await db.select(db.payers).get())
+        p.uid ?? uidPayeur(p.name): p.id
+    };
+    final locales = {
+      for (final r in await db.select(db.reservations).get())
+        if (r.uid != null) r.uid!: r
+    };
+    final chambresParUid = <String, List<Map<String, dynamic>>>{};
+    for (final c in chambres) {
+      final u = c['reservation_uid'] as String?;
+      if (u != null) chambresParUid.putIfAbsent(u, () => []).add(c);
+    }
+    var ecrits = 0;
+    await db.transaction(() async {
+      for (final r in rows) {
+        final uid = r['uid'] as String?;
+        if (uid == null || auJournal.contains(uid)) continue;
+        final locale = locales[uid];
+        if (r['supprimee_le'] != null) {
+          if (locale != null) {
+            await (db.delete(db.reservations)
+                  ..where((x) => x.id.equals(locale.id)))
+                .go();
+            ecrits++;
+          }
+          continue;
+        }
+        final statut = DbReservationStatus.values[
+            _entier(r['status'], defaut: 1)
+                .clamp(0, DbReservationStatus.values.length - 1)];
+        final payeur = r['payer_uid'] == null
+            ? null
+            : payeurParUid[r['payer_uid'] as String];
+        final maj = ReservationsCompanion(
+          reservationNumber: Value(r['reservation_number'] as String),
+          checkinDate:
+              Value(_parseDate(r['checkin_date']) ?? Horloge.maintenant()),
+          checkoutDate:
+              Value(_parseDate(r['checkout_date']) ?? Horloge.maintenant()),
+          guestFullName: Value(r['guest_full_name'] as String),
+          guestPhone: Value(r['guest_phone'] as String?),
+          guestEmail: Value(r['guest_email'] as String?),
+          payerId: Value(payeur),
+          status: Value(statut),
+          depositCents: Value(_entier(r['deposit_cents'])),
+          note: Value(r['note'] as String?),
+          createdByLogin: Value(r['created_by_login'] as String?),
+          cancelledAt: Value(_parseDate(r['cancelled_at'])),
+          cancelReason: Value(r['cancel_reason'] as String?),
+        );
+        final lignes = chambresParUid[uid] ?? const [];
+        int id;
+        if (locale == null) {
+          id = await db.into(db.reservations).insert(maj.copyWith(
+                uid: Value(uid),
+                createdAt:
+                    Value(_parseDate(r['created_at']) ?? Horloge.maintenant()),
+              ));
+        } else {
+          id = locale.id;
+          final avant = await (db.select(db.reservationRooms)
+                ..where((x) => x.reservationId.equals(id)))
+              .get();
+          final memesChambres = avant.length == lignes.length &&
+              {for (final a in avant) '${a.roomNumber}|${a.pricePerNightCents}'}
+                  .containsAll({
+                for (final l in lignes)
+                  '${l['room_number']}|${_entier(l['price_per_night_cents'])}'
+              });
+          if (locale.copyWithCompanion(maj) == locale && memesChambres) {
+            continue;
+          }
+          await (db.update(db.reservations)..where((x) => x.id.equals(id)))
+              .write(maj);
+          await (db.delete(db.reservationRooms)
+                ..where((x) => x.reservationId.equals(id)))
+              .go();
+        }
+        for (final l in lignes) {
+          await db.into(db.reservationRooms).insert(
+              ReservationRoomsCompanion.insert(
+                uid: Value(l['uid'] as String?),
+                reservationId: id,
+                roomNumber: l['room_number'] as String,
+                pricePerNightCents: _entier(l['price_per_night_cents']),
+              ),
+              mode: InsertMode.insertOrReplace);
+        }
+        ecrits++;
+      }
+    });
+    return ecrits;
+  }
+
+  /// Envoie une fois les réservations de ce poste que le serveur n'a pas
+  /// (prises avant le partage), par le journal.
+  static Future<int> envoyerReservationsManquantes(
+      AppDatabase db, Set<String> surLeServeur) async {
+    final auJournal = await OperationsService.reservationsAuJournal(db);
+    final ops = OperationsService(db);
+    var n = 0;
+    for (final r in await db.select(db.reservations).get()) {
+      final uid = r.uid ?? uidReservationHeritee(r.id, r.createdAt);
+      if (surLeServeur.contains(uid) || auJournal.contains(uid)) continue;
+      final chambres = await (db.select(db.reservationRooms)
+            ..where((x) => x.reservationId.equals(r.id)))
+          .get();
+      final payeur = r.payerId == null
+          ? null
+          : await (db.select(db.payers)..where((p) => p.id.equals(r.payerId!)))
+              .getSingleOrNull();
+      await ops.noter(
+        type: 'reservations:enregistrer',
+        libelle: 'Réservation de ${r.guestFullName} (envoi initial)',
+        payload: {
+          'reservation': {
+            'uid': uid,
+            'reservation_number': r.reservationNumber,
+            'created_at': isoServeur(r.createdAt),
+            'checkin_date': isoServeur(r.checkinDate),
+            'checkout_date': isoServeur(r.checkoutDate),
+            'guest_full_name': r.guestFullName,
+            'guest_phone': r.guestPhone,
+            'guest_email': r.guestEmail,
+            'payer_id': r.payerId,
+            'payer_uid':
+                payeur == null ? null : (payeur.uid ?? uidPayeur(payeur.name)),
+            'status': r.status.index,
+            'deposit_cents': r.depositCents,
+            'note': r.note,
+            'created_by_login': r.createdByLogin,
+            'cancelled_at': isoServeurOuNull(r.cancelledAt),
+            'cancel_reason': r.cancelReason,
+            'rooms': [
+              for (final c in chambres)
+                {
+                  'uid': c.uid,
+                  'number': c.roomNumber,
+                  'price_per_night_cents': c.pricePerNightCents,
+                }
+            ],
+          }
+        },
+      );
+      n++;
+    }
+    return n;
   }
 
   static int _entier(Object? v, {int defaut = 0}) =>
@@ -1350,15 +1543,19 @@ class MirrorService {
       final row = await (_db.select(_db.clients)..where((x) => x.id.equals(id)))
           .getSingleOrNull();
       if (row == null) return;
-      await c.from('mirror_clients').upsert(_clientJson(row), onConflict: 'id');
+      await c
+          .from('mirror_clients')
+          .upsert(_clientJson(row), onConflict: 'uid');
     } catch (_) {}
   }
 
-  static Future<void> deleteClientById(int id) async {
+  /// Retire la fiche du serveur, par son uid : le numéro local
+  /// désignait peut-être une autre personne là-bas.
+  static Future<void> deleteClientByUid(String? uid) async {
     final c = _c;
-    if (c == null) return;
+    if (c == null || uid == null) return;
     try {
-      await c.from('mirror_clients').delete().eq('id', id);
+      await c.from('mirror_clients').delete().eq('uid', uid);
     } catch (_) {}
   }
 
@@ -1509,9 +1706,11 @@ class MirrorService {
   static Future<int> appliquerClientsDuServeur(
       AppDatabase db, List<Map<String, dynamic>> rows) async {
     final locaux = await db.select(db.clients).get();
+    final parUid = <String, Client>{};
     final parTel = <String, Client>{};
     final parNom = <String, Client>{};
     for (final x in locaux) {
+      if (x.uid != null) parUid.putIfAbsent(x.uid!, () => x);
       if (x.phone != null && x.phone!.isNotEmpty) {
         parTel.putIfAbsent(x.phone!, () => x);
       }
@@ -1522,13 +1721,20 @@ class MirrorService {
       for (final r in rows) {
         final phone = r['phone'] as String?;
         final name = r['full_name'] as String;
-        final ex =
+        // L'uid du serveur fait foi ; à défaut (serveur pas encore à jour),
+        // il est calculé comme le serveur le calculerait.
+        final uid = (r['uid'] as String?) ?? uidClient(name, phone);
+        // Reconnue par son uid d'abord ; puis, comme avant, par téléphone
+        // ou par nom — une fiche locale d'avant l'identité adopte alors
+        // celle du serveur.
+        final ex = parUid[uid] ??
             ((phone != null && phone.isNotEmpty) ? parTel[phone] : null) ??
-                parNom[name.toLowerCase()];
+            parNom[name.toLowerCase()];
         final visitsR = ((r['visits_count'] as num?) ?? 0).toInt();
         final spentR = ((r['total_spent_cents'] as num?) ?? 0).toInt();
         if (ex != null) {
           final maj = ClientsCompanion(
+            uid: Value(uid),
             fullName: Value(name),
             phone: Value(phone),
             email: Value(r['email'] as String?),
@@ -1546,6 +1752,7 @@ class MirrorService {
               .write(maj);
         } else {
           final id = await db.into(db.clients).insert(ClientsCompanion.insert(
+                uid: Value(uid),
                 fullName: name,
                 phone: phone == null || phone.isEmpty
                     ? const Value.absent()
@@ -1562,6 +1769,7 @@ class MirrorService {
           final cree = await (db.select(db.clients)
                 ..where((x) => x.id.equals(id)))
               .getSingle();
+          parUid[uid] = cree;
           if (phone != null && phone.isNotEmpty) parTel[phone] = cree;
           parNom[name.toLowerCase()] = cree;
         }
@@ -1580,15 +1788,15 @@ class MirrorService {
       final row = await (_db.select(_db.payers)..where((x) => x.id.equals(id)))
           .getSingleOrNull();
       if (row == null) return;
-      await c.from('mirror_payers').upsert(_payerJson(row), onConflict: 'id');
+      await c.from('mirror_payers').upsert(_payerJson(row), onConflict: 'uid');
     } catch (_) {}
   }
 
-  static Future<void> deletePayerById(int id) async {
+  static Future<void> deletePayerByUid(String? uid) async {
     final c = _c;
-    if (c == null) return;
+    if (c == null || uid == null) return;
     try {
-      await c.from('mirror_payers').delete().eq('id', id);
+      await c.from('mirror_payers').delete().eq('uid', uid);
     } catch (_) {}
   }
 
@@ -1611,8 +1819,10 @@ class MirrorService {
   /// synchronisation. Renvoie le nombre de fiches écrites.
   static Future<int> appliquerSocietesDuServeur(
       AppDatabase db, List<Map<String, dynamic>> rows) async {
+    final parUid = <String, Payer>{};
     final parNom = <String, Payer>{};
     for (final p in await db.select(db.payers).get()) {
+      if (p.uid != null) parUid.putIfAbsent(p.uid!, () => p);
       parNom.putIfAbsent(p.name.toLowerCase(), () => p);
     }
     var ecrits = 0;
@@ -1620,9 +1830,11 @@ class MirrorService {
       for (final r in rows) {
         final name = r['name'] as String;
         final type = DbPayerType.values[(r['type'] as num? ?? 1).toInt()];
-        final ex = parNom[name.toLowerCase()];
+        final uid = (r['uid'] as String?) ?? uidPayeur(name);
+        final ex = parUid[uid] ?? parNom[name.toLowerCase()];
         if (ex != null) {
           final maj = PayersCompanion(
+            uid: Value(uid),
             type: Value(type),
             taxId: Value(r['tax_id'] as String?),
             address: Value(r['address'] as String?),
@@ -1634,6 +1846,7 @@ class MirrorService {
               .write(maj);
         } else {
           final id = await db.into(db.payers).insert(PayersCompanion.insert(
+                uid: Value(uid),
                 name: name,
                 type: Value(type),
                 taxId: Value(r['tax_id'] as String?),
@@ -1643,9 +1856,11 @@ class MirrorService {
                 createdAt:
                     Value(_parseDate(r['created_at']) ?? Horloge.maintenant()),
               ));
-          parNom[name.toLowerCase()] = await (db.select(db.payers)
+          final cree = await (db.select(db.payers)
                 ..where((p) => p.id.equals(id)))
               .getSingle();
+          parUid[uid] = cree;
+          parNom[name.toLowerCase()] = cree;
         }
         ecrits++;
       }
@@ -1987,8 +2202,10 @@ class MirrorService {
         'negotiated_price_cents': r.negotiatedPriceCents,
       };
 
+  /// Pas de numéro : celui du poste désignait une autre personne sur le
+  /// serveur. Le serveur numérote lui-même ; l'uid fait la clé.
   static Map<String, dynamic> _clientJson(Client c) => {
-        'id': c.id,
+        'uid': c.uid ?? uidClient(c.fullName, c.phone),
         'full_name': c.fullName,
         'phone': c.phone,
         'email': c.email,
@@ -1997,32 +2214,6 @@ class MirrorService {
         'last_seen_at': isoServeur(c.lastSeenAt),
         'visits_count': c.visitsCount,
         'total_spent_cents': c.totalSpentCents,
-      };
-
-  static Map<String, dynamic> _reservationJson(Reservation r) => {
-        'id': r.id,
-        'reservation_number': r.reservationNumber,
-        'created_at': isoServeur(r.createdAt),
-        'checkin_date': isoServeur(r.checkinDate),
-        'checkout_date': isoServeur(r.checkoutDate),
-        'guest_full_name': r.guestFullName,
-        'guest_phone': r.guestPhone,
-        'guest_email': r.guestEmail,
-        'payer_id': r.payerId,
-        'status': r.status.index,
-        'deposit_cents': r.depositCents,
-        'note': r.note,
-        'created_by_login': r.createdByLogin,
-        'cancelled_at': isoServeurOuNull(r.cancelledAt),
-        'cancel_reason': r.cancelReason,
-        'stay_id': r.stayId,
-      };
-
-  static Map<String, dynamic> _reservationRoomJson(ReservationRoom rr) => {
-        'id': rr.id,
-        'reservation_id': rr.reservationId,
-        'room_number': rr.roomNumber,
-        'price_per_night_cents': rr.pricePerNightCents,
       };
 
   /// Pas d'`id` : c'est le serveur qui numérote. `uid` est la clé.
@@ -2076,7 +2267,7 @@ class MirrorService {
       };
 
   static Map<String, dynamic> _payerJson(Payer p) => {
-        'id': p.id,
+        'uid': p.uid ?? uidPayeur(p.name),
         'name': p.name,
         'type': p.type.index,
         'tax_id': p.taxId,
